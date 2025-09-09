@@ -116,6 +116,13 @@ Route::prefix('unit')->middleware(['auth', 'verified', 'role:superadmin|admin', 
     Route::get('/hapus/{id}', [UnitController::class, 'Hapus'])->name('unit.Hapus');
 });
 
+Route::prefix('setting')
+    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\SettingController::class, 'index'])->name('setting.index');
+        Route::post('/', [\App\Http\Controllers\SettingController::class, 'update'])->name('setting.update');
+    });
+
 Route::get('/ss', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified', 'global.app']);

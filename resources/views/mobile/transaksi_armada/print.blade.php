@@ -10,7 +10,7 @@
 <title>Nota {{ $transaksi->no_struk }}</title>
 
 <style>
-    /* layout untuk thermal 80mm */
+    /* Layout untuk thermal 80mm */
     body { margin:0; font-family: monospace; background:#fff; }
     .paper { width: 320px; margin:0 auto; padding: 8px 12px; box-sizing: border-box;
              color: #000; font-size:13px; }
@@ -26,29 +26,37 @@
     .btn { flex:1; padding:8px; background:#007bff; color:white; border-radius:4px;
            text-align:center; text-decoration:none; display:inline-block; font-size:13px; }
     .btn.secondary { background:#6c757d; }
+    .btn.success { background:#28a745; color:#fff; }
     img.qr { display:block; margin:6px auto; max-width:140px; }
 
     /* Sembunyikan tombol saat print */
     @media print {
         .btn-row { display:none !important; }
     }
-    .btn.success {
-        background: #28a745;   /* hijau */
-        color: #fff;
-    }
-
 </style>
-
 </head>
 <body>
 <div class="paper" id="paper">
-    <div class="txt-center bold" style="font-size:14px;">{{ $setting->nama_perusahaan ?? 'PERUSAHAAN' }}</div>
-    <div class="txt-center small">{{ $setting->alamat ?? '' }}</div>
+    <div class="txt-center">
+        @if(!empty($setting->path_logo))
+            <img src="{{ asset($setting->path_logo) }}" alt="Logo" height="60" style="margin-bottom:4px;">
+        @endif
+        <div class="bold" style="font-size:16px;">{{ $setting->nama_perusahaan ?? 'PERUSAHAAN' }}</div>
+    </div>
+    {{-- Alamat hanya ditampilkan jika ada --}}
+    @if(!empty($setting->alamat) && $setting->alamat !== '-')
+        <div class="txt-center small">{{ $setting->alamat }}</div>
+    @endif
+
+    {{-- Telepon hanya ditampilkan jika ada --}}
+    @if(!empty($setting->telepon) && $setting->telepon !== '-')
+        <div class="txt-center small">Telp: {{ $setting->telepon }}</div>
+    @endif
     <hr>
 
     <table>
-        <tr><td>No Struk</td><td>:</td><td class="txt-right">{{ $transaksi->no_struk }}</td></tr>
-        <tr><td>Nopol</td><td>:</td><td class="txt-right">{{ $transaksi->armada->nopol ?? '-' }}</td></tr>
+        <tr><td class="bold">No Struk</td><td>:</td><td class="txt-right bold">{{ $transaksi->no_struk }}</td></tr>
+        <tr><td class="bold">Nopol</td><td>:</td><td class="txt-right bold">{{ $transaksi->armada->nopol ?? '-' }}</td></tr>
         <tr><td>Tanggal</td><td>:</td><td class="txt-right">{{ \Carbon\Carbon::parse($transaksi->tgl_transaksi)->format('d-m-Y H:i') }}</td></tr>
         <tr><td>Operator</td><td>:</td><td class="txt-right">{{ $transaksi->user->name ?? '-' }}</td></tr>
     </table>
@@ -77,8 +85,6 @@
         <a href="#" id="btnShare" class="btn secondary">Share/Printer App</a>
         <a href="{{ route('mobile.transaksi_armada.create') }}" class="btn success">Input Baru</a>
     </div>
-
-
 </div>
 
 <script>
@@ -89,18 +95,18 @@
         }, 400);
     });
 
-    // auto close setelah print selesai
+    // Auto close setelah print
     window.addEventListener('afterprint', function(){
         window.close();
     });
 
-    // tombol cetak manual
+    // Tombol cetak manual
     document.getElementById('btnPrint').addEventListener('click', function(e){
         e.preventDefault();
         window.print();
     });
 
-    // share via Web Share API (mobile)
+    // Share via Web Share API (mobile)
     document.getElementById('btnShare').addEventListener('click', async function(e){
         e.preventDefault();
         const plain = `
@@ -112,7 +118,7 @@ Panjang: {{ $transaksi->panjang }} cm
 Lebar: {{ $transaksi->lebar }} cm
 Tinggi: {{ $transaksi->tinggi }} cm
 Plus: {{ $transaksi->plus }} cm
-Volume: {{ number_format($volumeM3,2) }} m3
+Volume: {{ number_format($volumeM3,2) }} m³
 Project: {{ $project->nama_project ?? ($project->nama ?? '-') }}
         `.trim();
 
@@ -130,12 +136,11 @@ Project: {{ $project->nama_project ?? ($project->nama ?? '-') }}
 
         try {
             await navigator.clipboard.writeText(plain);
-            alert('Teks nota disalin ke clipboard. Buka aplikasi printer (mis. RawBT) dan paste/print.');
+            alert('Teks nota disalin ke clipboard. Buka aplikasi printer (mis. RawBT) lalu paste/print.');
         } catch (err) {
             alert('Tidak bisa salin otomatis. Silakan copy manual:\n\n' + plain);
         }
     });
 </script>
-
 </body>
 </html>

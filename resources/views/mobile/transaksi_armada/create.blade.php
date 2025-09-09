@@ -25,9 +25,20 @@
         {{-- Plat Nomor --}}
         <div class="mb-2 position-relative">
             <label>Plat Nomor</label>
-            <input type="text" id="nopol" class="form-control" placeholder="Masukkan plat nomor" autocomplete="off" autofocus>
+            <input type="text" id="nopol" name="nopol" class="form-control" placeholder="Masukkan plat nomor" autocomplete="off" autofocus>
             <input type="hidden" name="armada_id" id="armada_id">
             <div id="nopol-list" class="list-group position-absolute w-100"></div>
+        </div>
+
+        {{-- Vendor (muncul jika tambah baru) --}}
+        <div class="mb-2 d-none" id="vendor-wrapper">
+            <label>Vendor Armada</label>
+            <select name="vendor_id" id="vendor_id" class="form-control">
+                <option value="">-- Pilih Vendor --</option>
+                @foreach(\App\Models\Vendor::all() as $v)
+                    <option value="{{ $v->id }}">{{ $v->nama_vendor }}</option>
+                @endforeach
+            </select>
         </div>
 
         {{-- Dimensi (cm) --}}
@@ -58,17 +69,17 @@
             <input type="hidden" name="project_id" value="{{ session('project_id') ?? '' }}">
         </div>
 
-
         <button type="submit" class="btn btn-primary w-100 mt-3">Simpan Transaksi</button>
     </form>
 </div>
 
-{{-- Script langsung tanpa yield --}}
+{{-- Script langsung --}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const nopolInput = document.getElementById('nopol');
     const armadaIdInput = document.getElementById('armada_id');
     const nopolList = document.getElementById('nopol-list');
+    const vendorWrapper = document.getElementById('vendor-wrapper');
     const panjangInput = document.getElementById('panjang');
     const lebarInput = document.getElementById('lebar');
     const tinggiInput = document.getElementById('tinggi');
@@ -84,14 +95,30 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(res => res.json())
             .then(data => {
                 nopolList.innerHTML = '';
-                if(data.length === 0) return;
+
+                if(data.length === 0) {
+                    const div = document.createElement('div');
+                    div.classList.add('list-group-item', 'list-group-item-action', 'text-primary');
+                    div.textContent = '+ Tambah Armada Baru';
+                    div.addEventListener('click', function() {
+                        armadaIdInput.value = '';
+                        vendorWrapper.classList.remove('d-none');
+                        panjangInput.removeAttribute('readonly');
+                        lebarInput.removeAttribute('readonly');
+                        tinggiInput.removeAttribute('readonly');
+                        panjangInput.value = '';
+                        lebarInput.value = '';
+                        tinggiInput.value = '';
+                        nopolList.innerHTML = '';
+                    });
+                    nopolList.appendChild(div);
+                    return;
+                }
 
                 data.forEach(item => {
                     const div = document.createElement('div');
                     div.classList.add('list-group-item', 'list-group-item-action');
                     div.textContent = item.nopol;
-
-                    // simpan data dimensi di dataset
                     div.dataset.id = item.id;
                     div.dataset.panjang = item.panjang;
                     div.dataset.lebar = item.lebar;
@@ -101,10 +128,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         nopolInput.value = this.textContent;
                         armadaIdInput.value = this.dataset.id;
 
-                        // isi otomatis dimensi
+                        vendorWrapper.classList.add('d-none');
                         panjangInput.value = this.dataset.panjang;
                         lebarInput.value = this.dataset.lebar;
                         tinggiInput.value = this.dataset.tinggi;
+                        panjangInput.setAttribute('readonly', true);
+                        lebarInput.setAttribute('readonly', true);
+                        tinggiInput.setAttribute('readonly', true);
 
                         nopolList.innerHTML = '';
                     });
@@ -125,7 +155,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-/* Style dropdown autocomplete */
 #nopol-list {
     z-index: 9999;
     max-height: 200px;
@@ -134,9 +163,6 @@ document.addEventListener('DOMContentLoaded', function() {
     border-top: none;
     background-color: #fff;
 }
-
-#nopol-list .list-group-item {
-    cursor: pointer;
-}
+#nopol-list .list-group-item { cursor: pointer; }
 </style>
 @endsection

@@ -90,7 +90,14 @@
                     { data: "lebar" },
                     { data: "tinggi" },
                     { data: "plus" },
-                    { data: "volume_m3", className: "text-end" }
+                    { 
+                        data: "volume_m3", 
+                        className: "text-end",
+                        render: function(data){
+                            let val = parseFloat(data) / 1000000; // konversi cm³ → m³
+                            return val.toFixed(2) + " m³";
+                        }
+                    }
                 ],
                 dom:
                 "<'row mb-2'<'col-md-6 d-flex align-items-center'B><'col-md-6 d-flex justify-content-end'f>>" +
@@ -103,14 +110,20 @@
                         text: '<i class="bi bi-file-earmark-excel"></i> Export Excel',
                         className: 'btn btn-success btn-sm',
                         exportOptions: {
-                            columns: ':visible'
+                            columns: ':visible',
+                            format: {
+                                body: function (data, row, column, node) {
+                                    // Hilangkan " m³" saat export ke Excel
+                                    return typeof data === 'string' ? data.replace(" m³", "") : data;
+                                }
+                            }
                         }
                     }
                 ],
                 footerCallback: function (row, data, start, end, display) {
                     var api = this.api();
 
-                    // Hitung total volume
+                    // Hitung total volume (masih satuan cm³)
                     var total = api
                         .column(7, { page: 'all' })
                         .data()
@@ -118,8 +131,9 @@
                             return (parseFloat(a) || 0) + (parseFloat(b) || 0);
                         }, 0);
 
-                    // Update footer
-                    $(api.column(7).footer()).html(total.toFixed(2));
+                    total = total / 1000000; // konversi ke m³
+
+                    $(api.column(7).footer()).html(total.toFixed(2) + " m³");
                 }
             });
 

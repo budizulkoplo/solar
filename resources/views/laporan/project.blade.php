@@ -38,8 +38,8 @@
                                 <tr>
                                     <td>{{ $row->nama_project }}</td>
                                     <td>{{ $row->jumlah_input }}</td>
-                                    <td>{{ $row->total_volume }}</td>
-                                    <td>{{ $row->rata_volume_armada }}</td>
+                                    <td>{{ number_format($row->total_volume / 1000000, 2) }} m³</td>
+                                    <td>{{ number_format($row->rata_volume_armada / 1000000, 2) }} m³</td>
                                 </tr>
                             @empty
                                 <tr>

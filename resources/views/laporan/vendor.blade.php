@@ -37,9 +37,9 @@
                             @forelse($data as $row)
                                 <tr>
                                     <td>{{ $row->nama_vendor }}</td>
-                                    <td>{{ $row->jumlah_input }}</td>
-                                    <td>{{ $row->total_volume }}</td>
-                                    <td>{{ $row->rata_volume_armada }}</td>
+                                    <td class="text-end">{{ $row->jumlah_input }}</td>
+                                    <td class="text-end">{{ number_format($row->total_volume / 1000000, 2) }} m³</td>
+                                    <td class="text-end">{{ number_format($row->rata_volume_armada / 1000000, 2) }} m³</td>
                                 </tr>
                             @empty
                                 <tr>
@@ -81,7 +81,13 @@
                         text: '<i class="bi bi-file-earmark-excel"></i> Export Excel',
                         className: 'btn btn-success btn-sm',
                         exportOptions: {
-                            columns: ':visible'
+                            columns: ':visible',
+                            format: {
+                                body: function (data, row, column, node) {
+                                    // Hilangkan " m³" biar Excel tetap angka
+                                    return typeof data === 'string' ? data.replace(" m³", "") : data;
+                                }
+                            }
                         }
                     }
                 ]
