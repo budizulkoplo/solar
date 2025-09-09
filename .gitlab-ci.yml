@@ -1,0 +1,39 @@
+stages:
+  - deploy
+
+Deploy:
+  stage: deploy
+  variables:
+    VAR_DIREKTORI: "/home/kopkartex/www"
+    VAR_GIT_URL_TANPA_HTTP: "gitlab.com/bismillah340816/kopkartex.git"
+    VAR_CLONE_KEY: "glpat-pkYhoNV3wbo-aLrhNm2d4286MQp1OmZuNzg2Cw.01.1207bwxfw"
+    VAR_USER: "deployer"
+    VAR_IP: "103.103.20.113"
+    VAR_FILE_ENV: $FILE_ENV
+    VAR_FILE_HTACCESS: $FILE_HTACCESS
+
+  before_script:
+    - "which ssh-agent || ( apt-get install openssh-client )"
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $VAR_IP >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - echo "$VAR_FILE_HTACCESS"
+
+  script:
+    - ssh $VAR_USER@$VAR_IP "git config --global safe.directory '*'"
+    - ssh $VAR_USER@$VAR_IP "if [ ! -d $VAR_DIREKTORI/.git ]; then echo 'Project belum ditemukan di direktori $VAR_DIREKTORI' && cd $VAR_DIREKTORI && git clone https://oauth2:$VAR_CLONE_KEY@$VAR_GIT_URL_TANPA_HTTP .; fi"
+    - ssh $VAR_USER@$VAR_IP "cd $VAR_DIREKTORI && git pull origin main && exit"
+    - ssh $VAR_USER@$VAR_IP "if [ -d $VAR_DIREKTORI/.env ]; then rm .env; fi"
+    - ssh $VAR_USER@$VAR_IP "cd $VAR_DIREKTORI && echo '$VAR_FILE_ENV' >> .env"
+    - ssh $VAR_USER@$VAR_IP "if [ -d $VAR_DIREKTORI/.htaccess ]; then rm .htaccess; fi"
+    - ssh $VAR_USER@$VAR_IP "cd $VAR_DIREKTORI && echo '$VAR_FILE_HTACCESS' >> .htaccess"
+    - ssh $VAR_USER@$VAR_IP "docker exec webserver composer install"
+    - ssh $VAR_USER@$VAR_IP "docker exec webserver composer update"
+    - ssh $VAR_USER@$VAR_IP "docker exec webserver php artisan migrate"
+    - ssh $VAR_USER@$VAR_IP "docker exec webserver php artisan db:seed"
+    - ssh $VAR_USER@$VAR_IP "docker exec webserver php artisan key:generate"
+    - echo "SELESAI"

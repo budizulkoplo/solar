@@ -1,0 +1,7 @@
+penerimaan masuk stok unit insert update di Gudang Utama
+
+-mutasi stok transfer antar unit -> update stok unit
+
+-kode barang freetext
+
+https://docs.google.com/document/d/1pyN37y3bB51rQCDow-BDZzMKbZjx_QyRGfanvVUyAWg/edit?tab=t.0

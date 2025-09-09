@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>EasyAutocomplete json example</title>
+	<link href="../dist/easy-autocomplete.min.css" rel="stylesheet" type="text/css">
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+	<script src="../dist/jquery.easy-autocomplete.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+<h1>EasyAutocomplete - json example</h1>
+
+<input id="data-json"/>
+
+<script>
+
+	var options = {
+		url: 'resources/countries.json',
+
+		getValue: 'name',
+		list: {
+			match: {
+				enabled: true
+			},
+			onChooseEvent: function() {
+				// Mendapatkan data lengkap dari item yang dipilih
+				var selectedItemData = $("#data-json").getSelectedItemData();
+
+				// Ambil name dan code
+				var countryName = selectedItemData.name;
+				var countryCode = selectedItemData.code;
+
+				// Tampilkan di console atau bisa diproses lebih lanjut
+				console.log("Name:", countryName);
+				console.log("Code:", countryCode);
+
+				// Misal ingin simpan ke input hidden
+				$("#country-code").val(countryCode);
+			}
+		},
+	};
+
+	$('#data-json').easyAutocomplete(options);
+
+</script>
+
+</body>
+
+</html>
