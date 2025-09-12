@@ -36,12 +36,12 @@
           <a href="#" class="navbar-brand">
             <img src="{{ asset($setting->path_logo ?? 'logo.png') }}" height="100" alt="Logo">
           </a>
-          <h2 class="nama-pt text-center mb-4">
-                {{ $setting->nama_perusahaan ?? 'Perusahaan' }}
-          </h2>
         </div>
         <div class="card card-md">
           <div class="card-body">
+            <h2 class="nama-pt text-center mb-4">
+                LOGIN
+            </h2>
             {{-- Session status --}}
             @if (session('status'))
               <div class="alert alert-success">
@@ -104,7 +104,7 @@
           <div class="card-footer text-center py-3" style="background-color:#ecf2f8;">
             <img src="{{ asset('piclogo.png') }}" alt="Developer Logo" height="40">
             <p class="text-muted small mb-0 mt-2">
-              &copy; PartnerInCode Project {{ date('Y') }}
+              &copy; Solar System <b>ERP</b> Project {{ date('Y') }}
             </p>
           </div>
         </div>

@@ -1,21 +1,27 @@
 <?php
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'nama_project',
+        'idcompany',
+        'idretail',
+        'namaproject',
         'lokasi',
-        'keterangan',
+        'luas',
+        'deskripsi',
+        'logo',   // tambahkan logo di sini
     ];
 
-    public function transaksiArmada()
+    public function company()
     {
-        return $this->hasMany(\App\Models\TransaksiArmada::class, 'project_id');
+        return $this->belongsTo(CompanyUnit::class, 'idcompany');
+    }
+
+    public function retail()
+    {
+        return $this->belongsTo(Retail::class, 'idretail');
     }
 }

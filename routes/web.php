@@ -12,11 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
-use App\Http\Controllers\VendorController;
-use App\Http\Controllers\ArmadaController;
-use App\Http\Controllers\ProjectController;                // admin
-use App\Http\Controllers\Mobile\ProjectController as MobileProjectController;  // mobile
-
+use App\Http\Controllers\CompanyController;
 
 //LAPORAN
 use App\Http\Controllers\LaporanController;
@@ -80,31 +76,18 @@ Route::prefix('users')->middleware(['auth', 'verified', 'role:superadmin|admin',
 
 });
 
-Route::prefix('vendors')
+Route::prefix('companies')
     ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
     ->group(function () {
-        Route::get('/', [VendorController::class, 'index'])->name('vendors.index');
-        Route::post('/store', [VendorController::class, 'store'])->name('vendors.store');
-        Route::get('/{id}', [VendorController::class, 'show'])->name('vendors.show'); // 👈 ini tambahan
-        Route::delete('/{id}', [VendorController::class, 'destroy'])->name('vendors.destroy');
-    });
+        Route::get('/', [CompanyController::class, 'index'])->name('companies.index');
+        Route::post('/store', [CompanyController::class, 'store'])->name('companies.store');
+        Route::get('/{id}', [CompanyController::class, 'show'])->name('companies.show');
+        Route::delete('/{id}', [CompanyController::class, 'destroy'])->name('companies.destroy');
 
-Route::prefix('armadas')
-    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
-    ->group(function () {
-        Route::get('/', [ArmadaController::class, 'index'])->name('armadas.index');
-        Route::post('/store', [ArmadaController::class, 'store'])->name('armadas.store');
-        Route::get('/{id}', [ArmadaController::class, 'show'])->name('armadas.show');
-        Route::delete('/{id}', [ArmadaController::class, 'destroy'])->name('armadas.destroy');
-    });
-
-Route::prefix('projects')
-    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
-    ->group(function () {
-        Route::get('/', [ProjectController::class, 'index'])->name('projects.index');
-        Route::post('/store', [ProjectController::class, 'store'])->name('projects.store');
-        Route::get('/{id}', [ProjectController::class, 'show'])->name('projects.show');
-        Route::delete('/{id}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+        Route::post('/projects/store', [CompanyController::class, 'storeProject'])->name('companies.projects.store');
+        Route::delete('/projects/{id}', [CompanyController::class, 'destroyProject'])->name('companies.projects.destroy');
+        Route::get('/{id}/edit', [CompanyController::class, 'edit']);
+        Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject']);
     });
 
 Route::prefix('unit')->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])->group(function () {
