@@ -68,13 +68,12 @@ Route::prefix('users')->middleware(['auth', 'verified', 'role:superadmin|admin',
     Route::delete('/delr', [UserRoleController::class, 'deleteRole']);
     Route::delete('/delp', [UserRoleController::class, 'deletePermission']);
     Route::get('/getdata', [UsersController::class, 'getdata'])->name('users.getdata');
-    Route::get('/assignRole', [UsersController::class, 'kasihRole'])->name('users.assignRole');
+    Route::post('/assignRole', [UsersController::class, 'kasihRole'])->name('users.assignRole');
     Route::post('/password/update', [UsersController::class, 'updatePassword'])->name('users.updatepassword');
     Route::get('/getcode', [UsersController::class, 'getcode'])->name('users.getcode');
     Route::post('/store', [UsersController::class, 'Store'])->name('users.store');
-    Route::delete('/{id}', [UsersController::class, 'destroy'])->name('users.destroy');
-
 });
+
 
 Route::prefix('companies')
     ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
