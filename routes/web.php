@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\UserProjectController;
 
 //LAPORAN
 use App\Http\Controllers\LaporanController;
@@ -87,6 +88,14 @@ Route::prefix('companies')
         Route::delete('/projects/{id}', [CompanyController::class, 'destroyProject'])->name('companies.projects.destroy');
         Route::get('/{id}/edit', [CompanyController::class, 'edit']);
         Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject']);
+    });
+
+Route::prefix('user-projects')
+    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
+    ->group(function () {
+        Route::get('/', [UserProjectController::class, 'index'])->name('user-projects.index');
+        Route::post('/store', [UserProjectController::class, 'store'])->name('user-projects.store');
+        Route::get('/{userId}', [UserProjectController::class, 'getUserProjects']);
     });
 
 Route::prefix('unit')->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])->group(function () {

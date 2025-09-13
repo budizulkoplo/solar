@@ -20,6 +20,11 @@ class Project extends Model
         return $this->belongsTo(CompanyUnit::class, 'idcompany');
     }
 
+    public function companyUnit()
+    {
+        return $this->belongsTo(\App\Models\CompanyUnit::class, 'idcompany');
+    }
+
     public function retail()
     {
         return $this->belongsTo(Retail::class, 'idretail');
