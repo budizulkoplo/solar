@@ -167,6 +167,7 @@
             var companyTable = $('#tbcompanies').DataTable({
                 processing: true,
                 serverSide: true,
+                responsive: true,
                 ajax: "{{ route('companies.index') }}",
                 columns: [
                     { data: 'DT_RowIndex', orderable: false, searchable: false },

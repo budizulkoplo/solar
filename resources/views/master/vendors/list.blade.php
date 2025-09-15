@@ -88,6 +88,7 @@
     <x-slot name="jscustom">
         <script>
             let tbVendors = $('#tbVendors').DataTable({
+                responsive: true,
                 ajax: "{{ route('vendors.index') }}",
                 columns: [
                     { data: 'DT_RowIndex' },
