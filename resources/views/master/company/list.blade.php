@@ -204,6 +204,7 @@
                     },
                     processing: true,
                     serverSide: false,
+                    responsive: true,
                     columns: [
                         { data: null, render: (d,t,r,m) => m.row+1, className: 'text-center' },
                         { data: 'logo', render: function(data){
@@ -251,6 +252,7 @@
                     data: formData,
                     processData: false,
                     contentType: false,
+                    responsive: true,
                     success: function(){
                         $('#modalProject').modal('hide');
                         projectTable.ajax.reload();

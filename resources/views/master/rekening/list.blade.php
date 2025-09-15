@@ -135,6 +135,7 @@
             }
 
             let tbRekCompany = $('#tbRekCompany').DataTable({
+                responsive: true,
                 ajax: { url: "{{ route('rekening.index') }}", data: {type:'company'} },
                 columns: [
                     { data: 'DT_RowIndex' },
@@ -148,6 +149,7 @@
             });
 
             let tbRekProject = $('#tbRekProject').DataTable({
+                responsive: true,
                 ajax: { url: "{{ route('rekening.index') }}", data: {type:'project'} },
                 columns: [
                     { data: 'DT_RowIndex' },

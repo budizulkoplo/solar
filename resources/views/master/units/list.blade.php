@@ -113,6 +113,7 @@
             let tbUnits = $('#tbUnits').DataTable({
                 processing: true,
                 serverSide: true,
+                responsive: true,
                 ajax: "{{ route('units.getdata') }}",
                 columns: [
                     { data: 'DT_RowIndex', name: 'DT_RowIndex' },

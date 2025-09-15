@@ -73,6 +73,7 @@
             var table = $('#tbprojects').DataTable({
                 processing: true,
                 serverSide: true,
+                responsive: true,
                 ajax: "{{ route('projects.index') }}",
                 columns: [
                     { data: 'DT_RowIndex', orderable: false, searchable: false },
