@@ -29,4 +29,10 @@ class Project extends Model
     {
         return $this->belongsTo(Retail::class, 'idretail');
     }
+    
+    public function units()
+    {
+        return $this->hasMany(\App\Models\Unit::class, 'idproject');
+    }
+
 }

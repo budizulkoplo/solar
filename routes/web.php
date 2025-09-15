@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\UserProjectController;
+use App\Http\Controllers\RekeningController;
+use App\Http\Controllers\VendorController;
+use App\Http\Controllers\UnitDetailController;
 
 //LAPORAN
 use App\Http\Controllers\LaporanController;
@@ -90,6 +93,25 @@ Route::prefix('companies')
         Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject']);
     });
 
+Route::prefix('rekening')
+    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
+    ->group(function () {
+        Route::get('/', [RekeningController::class, 'index'])->name('rekening.index');
+        Route::post('/store', [RekeningController::class, 'store'])->name('rekening.store');
+        Route::get('/{id}/edit', [RekeningController::class, 'edit'])->name('rekening.edit');
+        Route::delete('/{id}', [RekeningController::class, 'destroy'])->name('rekening.destroy');
+    });
+
+Route::prefix('vendors')
+    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
+    ->group(function () {
+    Route::get('/', [VendorController::class, 'index'])->name('vendors.index');
+    Route::get('/getdata', [VendorController::class, 'getData'])->name('vendors.getdata');
+    Route::post('/store', [VendorController::class, 'store'])->name('vendors.store');
+    Route::delete('/{id}', [VendorController::class, 'destroy'])->name('vendors.destroy');
+    Route::post('{id}/update-jenis', [VendorController::class, 'updateJenis'])->name('vendors.updateJenis');
+});
+
 Route::prefix('user-projects')
     ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
     ->group(function () {
@@ -98,14 +120,17 @@ Route::prefix('user-projects')
         Route::get('/{userId}', [UserProjectController::class, 'getUserProjects']);
     });
 
-Route::prefix('unit')->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])->group(function () {
-    Route::get('/', [UnitController::class, 'index'])->name('unit.list');
-    Route::get('/add', [UnitController::class, 'AddForm'])->name('unit.add');
-    Route::get('/edit/{id}', [UnitController::class, 'EditForm'])->name('unit.edit');
-    Route::post('/store', [UnitController::class, 'Store'])->name('unit.StorePost');
-    Route::put('/store/{id}', [UnitController::class, 'Store'])->name('unit.StorePut');
-    Route::get('/hapus/{id}', [UnitController::class, 'Hapus'])->name('unit.Hapus');
-});
+Route::prefix('units')
+    ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])
+    ->group(function () {
+        Route::get('/', [UnitController::class, 'index'])->name('units.index');
+        Route::get('/getdata', [UnitController::class, 'getData'])->name('units.getdata');
+        Route::post('/store', [UnitController::class, 'store'])->name('units.store');
+        Route::get('/{id}/edit', [UnitController::class, 'edit'])->name('units.edit');
+        Route::delete('/{id}', [UnitController::class, 'destroy'])->name('units.destroy');
+
+        Route::get('/details', [UnitDetailController::class, 'index'])->name('units.details.index');
+    });
 
 Route::prefix('setting')
     ->middleware(['auth', 'verified', 'role:superadmin|admin', 'global.app'])

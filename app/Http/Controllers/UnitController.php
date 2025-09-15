@@ -3,70 +3,93 @@
 namespace App\Http\Controllers;
 
 use App\Models\Unit;
+use App\Models\UnitDetail;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\View\View;
+use Yajra\DataTables\Facades\DataTables;
 
 class UnitController extends Controller
 {
-    public function index(Request $request): View
+    public function index()
     {
-        return view('master.unit.list', [
-            'units' => Unit::all(),
-        ]);
+        return view('master.Units.list');
     }
-    public function AddForm(Request $request): View
+
+
+    public function getData(Request $request)
+{
+    $data = Unit::with(['project','jenisUnit'])->get();
+
+    return DataTables::of($data)
+        ->addIndexColumn() // <--- penting biar ada DT_RowIndex
+        ->addColumn('project', function($row){
+            return $row->project ? $row->project->namaproject : '-';
+        })
+        ->addColumn('jenisunit', function($row){
+            return $row->jenisUnit ? $row->jenisUnit->jenisunit : '-';
+        })
+        ->addColumn('action', function($row){
+            return '
+                <button class="btn btn-sm btn-warning editUnit" data-id="'.$row->id.'">Edit</button>
+                <button class="btn btn-sm btn-danger deleteUnit" data-id="'.$row->id.'">Delete</button>
+            ';
+        })
+        ->rawColumns(['action'])
+        ->make(true);
+}
+
+
+    public function store(Request $request)
     {
-        return view('master.unit.form', [
-            'unit' => Unit::all(),
-            'isEdit' => false
+        $validated = $request->validate([
+            'idproject' => 'required|integer',
+            'namaunit' => 'required|string',
+            'idjenis' => 'required|integer',
+            'blok' => 'nullable|string',
+            'luastanah' => 'nullable|string',
+            'luasbangunan' => 'nullable|string',
+            'hargadasar' => 'required|numeric',
+            'jumlah' => 'required|integer|min:1',
         ]);
+
+        $unit = Unit::create($validated);
+
+        // Generate unit_details otomatis
+        for ($i = 0; $i < $unit->jumlah; $i++) {
+            UnitDetail::create([
+                'idunit' => $unit->id,
+                'status' => 'tersedia',
+            ]);
+        }
+
+        return response()->json(['success' => true]);
     }
-    public function EditForm(Request $request,$id): View
+
+    public function show(Unit $unit)
     {
-        $code=Crypt::decryptString($id);
-        $data = Unit::find($code);
-        return view('master.unit.form', [
-            'units' => Unit::all(),
-            'code'  => $code,
-            'unit' => $data,
-            'isEdit'  => true
+        return response()->json($unit->load(['project','jenis','details']));
+    }
+
+    public function update(Request $request, Unit $unit)
+    {
+        $validated = $request->validate([
+            'idproject' => 'required|integer',
+            'namaunit' => 'required|string',
+            'idjenis' => 'required|integer',
+            'blok' => 'nullable|string',
+            'luastanah' => 'nullable|string',
+            'luasbangunan' => 'nullable|string',
+            'hargadasar' => 'required|numeric',
+            'jumlah' => 'required|integer|min:1',
         ]);
+
+        $unit->update($validated);
+
+        return response()->json(['success' => true]);
     }
-    public function Hapus($id)
+
+    public function destroy(Unit $unit)
     {
-        $id=Crypt::decryptString($id);
-        $unit = Unit::find($id);
         $unit->delete();
-        if($unit){
-            return redirect()->route('unit.list')->with('success', " $unit->nama_unit Berhasil dihapus");
-        }else{
-            return redirect()->route('unit.list')->with('error', "Gagal");
-        }
-    }
-    public function Store(Request $request,$id=null)
-    {
-        $validatedData = $request->validate([
-            'nama_unit' => 'required',
-            'jenis' => 'required',
-        ]);
-        if($validatedData){
-            if(!empty($id)){
-                $id=Crypt::decryptString($id);
-                $unit = Unit::find($id);
-            }else{
-                $unit = new Unit;
-            }
-            $unit->nama_unit = $request->nama_unit;
-            $unit->jenis = $request->jenis;
-            $unit->save();
-            if($unit){
-                if(empty($id)){
-                    return redirect()->route('unit.list')->with('success', "Unit $request->nama_unit berhasil ditambahkan");
-                }else{
-                    return redirect()->route('unit.edit',['id' => Crypt::encryptString($id)])->with('success', "Unit $request->nama_unit, berhasih diubah");
-                }
-            }
-        }
+        return response()->json(['success' => true]);
     }
 }
