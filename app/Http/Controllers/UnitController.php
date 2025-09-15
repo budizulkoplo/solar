@@ -11,7 +11,7 @@ class UnitController extends Controller
 {
     public function index()
     {
-        return view('master.Units.list');
+        return view('master.units.list');
     }
 
 
