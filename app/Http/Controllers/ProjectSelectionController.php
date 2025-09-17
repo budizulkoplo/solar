@@ -9,7 +9,10 @@ class ProjectSelectionController extends Controller
 {
     public function index()
     {
-        $projects = Project::with('companyUnit')->get();
+        $user = auth()->user();
+
+        $projects = $user->projects()->with('companyUnit')->get();
+
         return view('projects.choose', compact('projects'));
     }
 
