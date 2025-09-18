@@ -65,12 +65,24 @@
             </div>
             <div class="info">
                 <a href="#" class="d-block text-white">{{ $displayName }}</a>
-                <small class="text-success">
-                    <small class="text-warning">
-                       
-                    </small>
-                </small>
-            </div>
+
+                @if(session('active_project_id'))
+                    <a href="{{ route('choose.project') }}" 
+                    class="d-flex align-items-center gap-1 text-warning text-decoration-none" 
+                    style="font-size: 0.75rem; line-height: 1rem;">
+                        <i class="fas fa-folder-open fa-sm"></i>
+                        <span>{{ session('active_project_name') }}</span>
+                    </a>
+                @else
+                    <a href="{{ route('choose.project') }}" 
+                    class="d-flex align-items-center gap-1 text-muted text-decoration-none" 
+                    style="font-size: 0.75rem; line-height: 1rem;">
+                        <i class="fas fa-folder-plus fa-sm"></i>
+                        <span>Pilih Project</span>
+                    </a>
+                @endif
+        </div>
+
         </div>
 
         <!-- Search -->

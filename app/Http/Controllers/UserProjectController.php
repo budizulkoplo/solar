@@ -17,28 +17,31 @@ class UserProjectController extends Controller
         return view('master.user_projects.list', compact('users', 'projects'));
     }
 
-    public function store(Request $request)
+    // Toggle akses satu project
+    public function toggle(Request $request)
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'project_ids' => 'nullable|array', // bisa kosong
-            'project_ids.*' => 'exists:projects,id',
+            'project_id' => 'required|exists:projects,id',
         ]);
 
-        // Hapus akses lama
-        UserProject::where('user_id', $request->user_id)->delete();
+        $userId = $request->user_id;
+        $projectId = $request->project_id;
 
-        // Simpan akses baru
-        if($request->project_ids){
-            foreach($request->project_ids as $projectId){
-                UserProject::create([
-                    'user_id' => $request->user_id,
-                    'project_id' => $projectId,
-                ]);
-            }
+        $exists = UserProject::where('user_id', $userId)
+            ->where('project_id', $projectId)
+            ->first();
+
+        if ($exists) {
+            $exists->delete();
+            return response()->json(['status' => 'removed']);
+        } else {
+            UserProject::create([
+                'user_id' => $userId,
+                'project_id' => $projectId,
+            ]);
+            return response()->json(['status' => 'added']);
         }
-
-        return response()->json(['success' => true]);
     }
 
     public function getUserProjects($userId)

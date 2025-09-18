@@ -61,7 +61,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         ->name('dashboard.pesananHariIniData');
 
     // Profile
-    Route::prefix('profile')->group(function () {
+    Route::prefix('profile')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        
         Route::get('/', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -117,7 +118,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     // User Projects
     Route::prefix('user-projects')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
         Route::get('/', [UserProjectController::class, 'index'])->name('user-projects.index');
-        Route::post('/store', [UserProjectController::class, 'store'])->name('user-projects.store');
+        Route::post('/toggle', [UserProjectController::class, 'toggle'])->name('user-projects.toggle');
         Route::get('/{userId}', [UserProjectController::class, 'getUserProjects']);
     });
 

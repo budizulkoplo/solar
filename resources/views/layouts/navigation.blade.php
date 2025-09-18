@@ -140,19 +140,45 @@
                         <img src="{{ auth()->user()->avatar_url ?? asset('user.png') }}" class="user-image rounded-circle shadow" alt="User Image">
                     @endif
                 </a>
-                <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end"> <!--begin::User Image-->
+                <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end"> 
+                    <!--begin::User Info-->
                     <li class="user-header text-bg-primary" style="min-height: 0;"> 
-                        <p class="profiles"> {{ Auth::user()->name }} <small>{{ Auth::user()->email }} - {{ strtoupper(auth()->user()->getRoleNames()[0]) }}</small></p>
+                        <p class="profiles mb-1"> 
+                            {{ Auth::user()->name }} 
+                            <small>{{ Auth::user()->email }} - {{ strtoupper(auth()->user()->getRoleNames()[0]) }}</small>
+                        </p>
                     </li>
+
+                    <!-- Project Aktif -->
+                    <li class="px-3 py-2 border-bottom">
+                        <span class="small d-block mb-1"><i class="fas fa-folder-open me-1"></i>  Project Aktif: <b>{{ session('active_project_name') }}</b></span>
+                        @if(session('active_project_id'))
+                            <a href="{{ route('choose.project') }}" class="btn btn-warning btn-sm w-100 fw-bold">
+                                <i class="fas fa-exchange-alt fa-sm me-1"></i> Ganti Project
+                            </a>
+                        @else
+                            <a href="{{ route('choose.project') }}" class="btn btn-outline-warning btn-sm w-100 fw-bold">
+                                <i class="fas fa-folder-plus me-1"></i> Pilih Project
+                            </a>
+                        @endif
+                    </li>
+
+                    <!-- Footer -->
                     <li class="user-footer"> 
                         <a href="{{ route('profile.edit') }}" class="btn btn-default btn-flat">{{ __('Edit') }}</a> 
-                         
+                                        
                         <form method="POST" action="{{ route('logout') }}" class="float-end">
                             @csrf
-                            <a href="{{ route('logout') }}" onclick="event.preventDefault();this.closest('form').submit();" class="btn btn-default btn-flat float-end">{{ __('Log Out') }}</a>
+                            <a href="{{ route('logout') }}" 
+                            onclick="event.preventDefault();this.closest('form').submit();" 
+                            class="btn btn-danger btn-flat float-end">
+                            {{ __('Log Out') }}
+                            </a>
                         </form>
-                    </li> <!--end::Menu Footer-->
+                    </li> 
+                    <!--end::Menu Footer-->
                 </ul>
+
             </li> <!--end::User Menu Dropdown-->
         </ul> <!--end::End Navbar Links-->
     </div> <!--end::Container-->

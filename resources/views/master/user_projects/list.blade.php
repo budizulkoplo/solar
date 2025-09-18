@@ -31,7 +31,7 @@
                                                 class="btn project-btn {{ $user->projects->contains($project->id) ? 'btn-success' : 'btn-light' }} d-flex flex-column align-items-center justify-content-center text-center"
                                                 data-project-id="{{ $project->id }}" 
                                                 data-company-name="{{ $companyName }}"
-                                                style="padding: 10px 8px; min-width: fit-content; max-width: 220px; min-height: 60px; line-height: 1.2; border: 1px solid #ccc; border-radius: 6px;">
+                                                style="padding: 10px 8px; min-width: fit-content; max-width: 220px; min-height: 60px; line-height: 1.2; border: 1px solid #ccc; border-radius: 6px; position: relative;">
                                                 <small class="fw-bold text-truncate" 
                                                     style="background-color: #FFA500; width: 100%; text-align: center; padding: 3px 4px; border-radius: 3px;">
                                                     {{ $companyName }}
@@ -39,6 +39,7 @@
                                                 <span class="text-truncate" style="font-size: 0.85rem; text-align: center; display: block; margin-top: 4px;">
                                                     {{ $project->namaproject }}
                                                 </span>
+                                                <span class="spinner-border spinner-border-sm text-primary d-none" role="status" style="position: absolute; top: 5px; right: 5px;"></span>
                                             </button>
                                         @endforeach
                                     @endforeach
@@ -48,8 +49,6 @@
                         @endforeach
                     </tbody>
                 </table>
-
-                <button id="saveAllAccess" class="btn btn-primary mt-3">Simpan Semua Akses</button>
             </div>
         </div>
     </div>
@@ -58,39 +57,32 @@
         <script>
             $(document).ready(function(){
 
-                // Toggle akses saat tombol project diklik
+                // Klik tombol project -> langsung toggle akses
                 $('.project-btn').click(function(){
-                    $(this).toggleClass('btn-light btn-success');
-                });
+                    let $btn = $(this);
+                    let userId = $btn.closest('tr').data('user-id');
+                    let projectId = $btn.data('project-id');
+                    let spinner = $btn.find('.spinner-border');
 
-                // Simpan semua akses
-                $('#saveAllAccess').click(function(){
-                    let data = [];
+                    spinner.removeClass('d-none'); // tampilkan loading
 
-                    $('#userProjectTable tbody tr').each(function(){
-                        let userId = $(this).data('user-id');
-                        let projectIds = [];
-
-                        $(this).find('.project-btn.btn-success').each(function(){
-                            projectIds.push($(this).data('project-id'));
-                        });
-
-                        data.push({
-                            user_id: userId,
-                            project_ids: projectIds
-                        });
-                    });
-
-                    let requests = data.map(item => {
-                        return $.post("{{ route('user-projects.store') }}", {
-                            _token: "{{ csrf_token() }}",
-                            user_id: item.user_id,
-                            project_ids: item.project_ids
-                        });
-                    });
-
-                    $.when.apply($, requests).done(function(){
-                        alert('Semua akses berhasil disimpan!');
+                    $.post("{{ route('user-projects.toggle') }}", {
+                        _token: "{{ csrf_token() }}",
+                        user_id: userId,
+                        project_id: projectId
+                    })
+                    .done(function(res){
+                        if(res.status === 'added'){
+                            $btn.removeClass('btn-light').addClass('btn-success');
+                        } else {
+                            $btn.removeClass('btn-success').addClass('btn-light');
+                        }
+                    })
+                    .fail(function(){
+                        alert('Terjadi kesalahan saat update akses!');
+                    })
+                    .always(function(){
+                        spinner.addClass('d-none'); // sembunyikan loading
                     });
                 });
 
