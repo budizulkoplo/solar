@@ -6,7 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>LOGIN {{ $setting->nama_perusahaan ?? 'Perusahaan' }}</title>
 
-    <link rel="icon" type="image/png" href="{{ asset($setting->path_logo ?? 'logo.png') }}"/>
+    <!-- <link rel="icon" type="image/png" href="{{ asset($setting->path_logo ?? 'logo.png') }}"/> -->
+    <link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
 
     <link href="{{ asset('tabler/dist/css/tabler.min.css') }}" rel="stylesheet"/>
     <link href="{{ asset('tabler/dist/css/tabler-flags.min.css') }}" rel="stylesheet"/>
