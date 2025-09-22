@@ -21,6 +21,7 @@ use App\Http\Controllers\MenuController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\ProjectSelectionController;
+use App\Http\Controllers\PegawaiController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -84,6 +85,17 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/delr', [UserRoleController::class, 'deleteRole']);
         Route::delete('/delp', [UserRoleController::class, 'deletePermission']);
     });
+
+    // Pegawai
+    Route::prefix('pegawai')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('/list', [PegawaiController::class, 'index'])->name('pegawai.list');
+        Route::get('/getdata', [PegawaiController::class, 'getdata'])->name('pegawai.getdata');
+        Route::post('/store', [PegawaiController::class, 'store'])->name('pegawai.store');
+        Route::get('/getcode', [PegawaiController::class, 'getcode'])->name('pegawai.getcode');
+        Route::get('/{id}', [PegawaiController::class, 'show'])->name('pegawai.show');   // untuk edit (ambil data 1 pegawai)
+        Route::delete('/{id}', [PegawaiController::class, 'destroy'])->name('pegawai.destroy'); // untuk hapus
+    });
+
 
     // Companies
     Route::prefix('companies')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
