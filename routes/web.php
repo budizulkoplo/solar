@@ -22,6 +22,8 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\ProjectSelectionController;
 use App\Http\Controllers\PegawaiController;
+use App\Http\Controllers\CoaController;
+use App\Http\Controllers\NotaController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -108,6 +110,26 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/projects/{id}', [CompanyController::class, 'destroyProject'])->name('companies.projects.destroy');
         Route::get('/{id}/edit', [CompanyController::class, 'edit']);
         Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject']);
+
+    });
+
+    
+    Route::prefix('coas')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('/', [CoaController::class, 'index'])->name('coas.index');
+        Route::get('/getdata', [CoaController::class, 'getData'])->name('coas.getdata');
+        Route::post('/store', [CoaController::class, 'store'])->name('coas.store');
+        Route::get('/{coa}', [CoaController::class, 'show'])->name('coas.show');
+        Route::put('/{coa}', [CoaController::class, 'update'])->name('coas.update');
+        Route::delete('/{coa}', [CoaController::class, 'destroy'])->name('coas.destroy');
+    });
+
+    Route::prefix('transaksi')->middleware(['role:superadmin|admin','global.app'])->group(function(){
+        Route::get('notas', [NotaController::class,'index'])->name('transaksi.notas.index');
+        Route::get('notas/getdata', [NotaController::class,'getData'])->name('transaksi.notas.getdata');
+        Route::post('notas/store', [NotaController::class,'store'])->name('transaksi.notas.store');
+        Route::get('notas/{nota}', [NotaController::class,'show'])->name('transaksi.notas.show');
+        Route::put('notas/{nota}', [NotaController::class,'update'])->name('transaksi.notas.update');
+        Route::delete('notas/{nota}', [NotaController::class,'destroy'])->name('transaksi.notas.destroy');
     });
 
     // Rekening
