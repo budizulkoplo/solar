@@ -74,4 +74,10 @@ class RekeningController extends Controller
         Rekening::findOrFail($id)->delete();
         return response()->json(['success' => true]);
     }
+
+    public function getSaldo($id)
+    {
+        $rek = Rekening::findOrFail($id);
+        return response()->json(['saldo' => $rek->saldoakhir]);
+    }
 }

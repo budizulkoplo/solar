@@ -132,6 +132,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('notas/{nota}', [NotaController::class,'destroy'])->name('transaksi.notas.destroy');
     });
 
+    Route::get('/rekening/{id}/saldo', [RekeningController::class,'getSaldo']);
+
     // Rekening
     Route::prefix('rekening')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
         Route::get('/', [RekeningController::class, 'index'])->name('rekening.index');
