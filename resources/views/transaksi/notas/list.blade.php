@@ -108,6 +108,9 @@
                                         <option value="{{ $rek->idrek }}">{{ $rek->norek }} - {{ $rek->namarek }}</option>
                                     @endforeach
                                 </select>
+                                <small id="saldoRekening" class="text-success fw-bold mt-1 d-block">
+                                    <i class="bi bi-cash-coin"></i> Saldo: Rp 0
+                                </small>
                             </div>
 
                             {{-- Debit / Credit --}}
@@ -188,7 +191,7 @@
             function generateNotaNo(){
                 let projectId = "{{ session('active_project_id') }}";
                 let tgl = $('#tanggalNota').val().replaceAll('-','');
-                let urut = Math.floor(Math.random() * 90000) + 10000; // contoh dummy urut
+                let urut = Math.floor(Math.random() * 90000) + 10000; // sementara random, nanti bisa dari server
                 return projectId + "-" + tgl + "-" + urut;
             }
 
@@ -208,7 +211,19 @@
                 }
             });
 
-            // detail transaksi row handler sama seperti sebelumnya ...
+            // tampilkan saldo rekening ketika select berubah
+            $('#idRekening').change(function(){
+                let id = $(this).val();
+                if(id){
+                    $.get("{{ url('/rekening') }}/" + id + "/saldo", function(res){
+                        $('#saldoRekening').html('<i class="bi bi-cash-coin"></i> Saldo: Rp ' + new Intl.NumberFormat('id-ID').format(res.saldo));
+                    });
+                }else{
+                    $('#saldoRekening').html('<i class="bi bi-cash-coin"></i> Saldo: Rp 0');
+                }
+            });
+
+            // detail transaksi row handler
             $(document).on('input','.qty, .harga',function(){
                 let row = $(this).closest('tr');
                 let qty = parseFloat(row.find('.qty').val()) || 0;
