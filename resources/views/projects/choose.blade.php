@@ -157,19 +157,23 @@ body {
 </style>
 </head>
 <body>
-<div class="modal-container">
-
-    <!-- Logout -->
     <form action="{{ route('logout') }}" method="POST" style="position: absolute; top: 20px; right: 20px;">
         @csrf
-        <button type="submit"
-            onmouseover="this.style.background='#dc2626'"
-            onmouseout="this.style.background='#ef4444'"
-            style="background: #ef4444; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background 0.3s;">
+        <button type="submit" style="
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        " onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
             Logout
         </button>
     </form>
-
+<div class="modal-container">
+    
     <!-- Bagian Solar System -->
     <h2 class="modal-title">sub Solar System</h2>
     <div class="projects-grid">
