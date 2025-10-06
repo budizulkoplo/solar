@@ -154,26 +154,44 @@ body {
 @media (max-width: 1200px) { .projects-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 900px) { .projects-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .modal-container { padding: 20px; } .projects-grid { grid-template-columns: 1fr; gap: 15px; } .project-card { min-height: 140px; } }
+
+.logout-btn {
+    position: fixed; /* tetap di layar meskipun scroll */
+    top: 20px;
+    right: 20px;
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+    z-index: 9999; /* agar selalu di atas */
+}
+.logout-btn:hover {
+    background: #dc2626;
+}
+
+/* Responsif */
+@media (max-width: 600px) {
+    .logout-btn {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }
+}
 </style>
 </head>
 <body>
-    <form action="{{ route('logout') }}" method="POST" style="position: absolute; top: 20px; right: 20px;">
-        @csrf
-        <button type="submit" style="
-            background: #ef4444;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.3s;
-        " onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-            Logout
-        </button>
-    </form>
+
 <div class="modal-container">
-    
+        <form action="{{ route('logout') }}" method="POST">
+    @csrf
+    <button type="submit" class="logout-btn">Logout</button>
+</form>
+
     <!-- Bagian Solar System -->
     <h2 class="modal-title">sub Solar System</h2>
     <div class="projects-grid">
