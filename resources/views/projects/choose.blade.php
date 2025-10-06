@@ -179,7 +179,7 @@ body {
             $token = base64_encode($userId . '|' . $expires);
             $token = rtrim(strtr($token, '+/', '-_'), '=');
             $solarProjects = [
-                ['name' => 'Project Management', 'url' => 'http://localhost:3131/external/'.$token, 'icon' => 'fas fa-project-diagram'],
+                ['name' => 'Project Management', 'url' => 'https://pm.mentarimultitrada.com/external/'.$token, 'icon' => 'fas fa-project-diagram'],
                 ['name' => 'HRIS', 'url' => url('/hris'), 'icon' => 'fas fa-users-cog']
             ];
         @endphp
