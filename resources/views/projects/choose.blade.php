@@ -1,270 +1,235 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
-    <title>Pilih Project</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #3b82f6;
-            --primary-hover: #2563eb;
-            --card-bg: #fff7ed;
-            --card-border: #fdba74;
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background-color: #f3f4f6;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal-container {
-            width: 100%;
-            max-width: 1200px;
-            background: #fff;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-        }
-
-        .modal-title {
-            font-size: 1.75rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 32px;
-            color: var(--text-primary);
-            position: relative;
-            padding-bottom: 12px;
-        }
-        
-        .modal-title::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 4px;
-            background: var(--primary-color);
-            border-radius: 2px;
-        }
-
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-        }
-
-        .project-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            min-height: 160px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .project-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--primary-color);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .project-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-            background: #ffedd5;
-        }
-        
-        .project-card:hover::before {
-            opacity: 1;
-        }
-
-        .project-icon {
-            margin-bottom: 12px;
-            color: var(--primary-color);
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 50px;
-            width: 50px;
-            border-radius: 50%;
-            background: rgba(59, 130, 246, 0.1);
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        .project-icon img {
-            max-width: 100%;
-            max-height: 30px;
-            object-fit: contain;
-            display: block;
-            margin: 0 auto;
-        }
-
-        .project-company {
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            width: 100%;
-        }
-
-        .project-name {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            width: 100%;
-        }
-        
-        .project-card form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-        }
-        
-        .project-card button {
-            background: transparent;
-            border: none;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-            outline: none;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-        }
-        
-        .no-projects {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 40px;
-            color: var(--text-secondary);
-        }
-        
-        .no-projects i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            color: #d1d5db;
-        }
-
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .projects-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        
-        @media (max-width: 900px) {
-            .projects-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        @media (max-width: 600px) {
-            .modal-container {
-                padding: 20px;
-            }
-            
-            .projects-grid {
-                grid-template-columns: 1fr;
-                gap: 15px;
-            }
-            
-            .project-card {
-                min-height: 140px;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
+<title>Pilih Project & Solar System</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --card-bg: #fff7ed;
+    --card-border: #fdba74;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background-color: #f3f4f6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.modal-container {
+    width: 100%;
+    max-width: 1200px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    position: relative;
+}
+.modal-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 32px;
+    color: var(--text-primary);
+    position: relative;
+    padding-bottom: 12px;
+}
+.modal-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: var(--primary-color);
+    border-radius: 2px;
+}
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 40px;
+}
+.project-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-height: 160px;
+    position: relative;
+    overflow: hidden;
+}
+.project-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-color);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    background: #ffedd5;
+}
+.project-card:hover::before { opacity: 1; }
+.project-icon {
+    margin-bottom: 12px;
+    color: var(--primary-color);
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.1);
+    margin-left: auto;
+    margin-right: auto;
+}
+.project-icon img { max-width: 100%; max-height: 30px; object-fit: contain; display: block; margin: 0 auto; }
+.project-company {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+.project-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+.project-card form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+.project-card button {
+    background: transparent;
+    border: none;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.no-projects {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+.no-projects i { font-size: 48px; margin-bottom: 16px; color: #d1d5db; }
+/* Responsive */
+@media (max-width: 1200px) { .projects-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) { .projects-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .modal-container { padding: 20px; } .projects-grid { grid-template-columns: 1fr; gap: 15px; } .project-card { min-height: 140px; } }
+</style>
 </head>
 <body>
-    <div class="modal-container">
-                <form action="{{ route('logout') }}" method="POST" style="position: absolute; top: 20px; right: 20px;">
-            @csrf
-            <button type="submit" style="
-                background: #ef4444;
-                color: #fff;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: background 0.3s;
-            " onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-                Logout
-            </button>
-        </form>
-        <h2 class="modal-title">Pilih Project</h2>
+<div class="modal-container">
 
-        <div class="projects-grid">
-            @if(count($projects) > 0)
-                @foreach($projects as $project)
-                    <div class="project-card">
-                        <form action="{{ route('choose.project.store') }}" method="POST">
-                            @csrf
-                            <input type="hidden" name="project_id" value="{{ $project->id }}">
-                            
-                            <button type="submit">
-                                <div class="project-icon">
-                                    @if($project->companyUnit->logo)
-                                        <img src="{{ asset('storage/'.$project->companyUnit->logo) }}" alt="{{ $project->companyUnit->company_name }}">
-                                    @else
-                                        <i class="fas fa-building"></i>
-                                    @endif
-                                </div>
-                                <div class="project-company">
-                                    {{ $project->companyUnit->company_name }}
-                                </div>
-                                
-                                <div class="project-name">
-                                    {{ $project->namaproject }}
-                                </div>
-                            </button>
-                        </form>
+    <!-- Logout -->
+    <form action="{{ route('logout') }}" method="POST" style="position: absolute; top: 20px; right: 20px;">
+        @csrf
+        <button type="submit"
+            onmouseover="this.style.background='#dc2626'"
+            onmouseout="this.style.background='#ef4444'"
+            style="background: #ef4444; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background 0.3s;">
+            Logout
+        </button>
+    </form>
+
+    <!-- Bagian Solar System -->
+    <h2 class="modal-title">sub Solar System</h2>
+    <div class="projects-grid">
+        @php
+            $userId = Auth::id();
+            $expires = now()->addMinutes(10)->timestamp;
+            $token = base64_encode($userId . '|' . $expires);
+            $token = rtrim(strtr($token, '+/', '-_'), '=');
+            $solarProjects = [
+                ['name' => 'Project Management', 'url' => 'http://localhost:3131/external/'.$token, 'icon' => 'fas fa-project-diagram'],
+                ['name' => 'HRIS', 'url' => url('/hris'), 'icon' => 'fas fa-users-cog']
+            ];
+        @endphp
+
+        @foreach($solarProjects as $sp)
+        <div class="project-card">
+            <form action="{{ $sp['url'] }}" method="GET" target="_blank">
+                <button type="submit">
+                    <div class="project-icon">
+                        <i class="{{ $sp['icon'] }}"></i>
                     </div>
-                @endforeach
-            @else
-                <div class="no-projects">
-                    <i class="fas fa-folder-open"></i>
-                    <p>Tidak ada project yang tersedia</p>
-                </div>
-            @endif
+                    <div class="project-company">Solar System</div>
+                    <div class="project-name">{{ $sp['name'] }}</div>
+                </button>
+            </form>
         </div>
+        @endforeach
     </div>
+
+    <!-- Bagian Pilih Project -->
+    <h2 class="modal-title">Pilih Project</h2>
+    <div class="projects-grid">
+        @if(count($projects) > 0)
+            @foreach($projects as $project)
+                <div class="project-card">
+                    <form action="{{ route('choose.project.store') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="project_id" value="{{ $project->id }}">
+                        <button type="submit">
+                            <div class="project-icon">
+                                @if($project->companyUnit->logo)
+                                    <img src="{{ asset('storage/'.$project->companyUnit->logo) }}" alt="{{ $project->companyUnit->company_name }}">
+                                @else
+                                    <i class="fas fa-building"></i>
+                                @endif
+                            </div>
+                            <div class="project-company">{{ $project->companyUnit->company_name }}</div>
+                            <div class="project-name">{{ $project->namaproject }}</div>
+                        </button>
+                    </form>
+                </div>
+            @endforeach
+        @else
+            <div class="no-projects">
+                <i class="fas fa-folder-open"></i>
+                <p>Tidak ada project yang tersedia</p>
+            </div>
+        @endif
+    </div>
+
+</div>
 </body>
 </html>

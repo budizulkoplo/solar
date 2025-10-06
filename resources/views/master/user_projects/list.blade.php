@@ -1,3 +1,24 @@
+<style>
+    /* Warna untuk tombol belum dipilih (lebih lembut dari btn-light) */
+    .project-btn.btn-light {
+        background-color: #f8f9fa !important; 
+        border-color: #ddd !important;
+        color: #444 !important;
+    }
+
+    /* Warna untuk tombol sudah punya akses (lebih lembut dari btn-success) */
+    .project-btn.btn-success {
+        background-color: #d4edda !important; 
+        border-color: #006d19ff !important;
+        color: #000000 !important;
+    }
+
+    /* Hover effect biar terasa interaktif tapi tetap lembut */
+    .project-btn:hover {
+        filter: brightness(0.95);
+    }
+</style>
+
 <x-app-layout>
     <x-slot name="pagetitle">User Project Access</x-slot>
 
