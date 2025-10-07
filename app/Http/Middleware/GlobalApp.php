@@ -10,10 +10,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class GlobalApp
 {
-    function buildTree($elements, $parentId = null)
+    private function buildTree($elements, $parentId = null)
     {
         $branch = [];
-
         foreach ($elements as $element) {
             if ($element->parent_id == $parentId) {
                 $children = $this->buildTree($elements, $element->id);
@@ -42,21 +41,46 @@ class GlobalApp
             };
         }
 
-        // 🔹 Ambil module aktif dari session
-        $activeModule = session('active_project_module');
-
-        // 🔹 Filter menu hanya berdasarkan module yang sedang aktif
-        $query = Menu::orderBy('seq', 'asc');
-        if ($activeModule) {
-            $query->where('module', $activeModule);
+        // 🔹 Abaikan route pilih project/module
+        $excludedRoutes = ['choose.project', 'choose.project.store'];
+        $currentRoute = strtolower($request->route()->getName() ?? '');
+        if (in_array($currentRoute, $excludedRoutes)) {
+            return $next($request);
         }
 
-        $menu = $query->get();
+        $userRole = $user->getRoleNames()->first();
+        $activeModule = session('active_project_module');
 
-        // 🔹 Inject menu ke request agar bisa diakses di seluruh view/controller
-        $request->merge([
-            'menu' => $this->buildTree($menu),
-        ]);
+        // Ambil menu sesuai role & module
+        $menuQuery = Menu::orderBy('seq', 'asc');
+
+        if ($userRole) {
+            $menuQuery->where(function ($q) use ($userRole) {
+                $q->where('role', 'like', "%;$userRole;%")
+                  ->orWhere('role', 'like', "$userRole;%")
+                  ->orWhere('role', 'like', "%;$userRole")
+                  ->orWhere('role', '=', $userRole)
+                  ->orWhereNull('role');
+            });
+        }
+
+        if ($activeModule) {
+            $menuQuery->where(function ($q) use ($activeModule) {
+                $q->where('module', $activeModule)
+                  ->orWhereNull('module'); // menu umum tetap tampil
+            });
+        }
+
+        $menus = $menuQuery->get();
+        $request->merge(['menu' => $this->buildTree($menus)]);
+
+        // 🔹 Batasi akses lintas module, kecuali menu umum
+        if ($activeModule) {
+            $allowedLinks = $menus->pluck('link')->filter()->map(fn($link) => strtolower($link))->toArray();
+            if ($currentRoute && !in_array($currentRoute, $allowedLinks)) {
+                abort(403, 'Anda tidak memiliki akses ke module ini.');
+            }
+        }
 
         return $next($request);
     }
