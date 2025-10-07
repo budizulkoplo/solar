@@ -78,7 +78,7 @@ class GlobalApp
         if ($activeModule) {
             $allowedLinks = $menus->pluck('link')->filter()->map(fn($link) => strtolower($link))->toArray();
             if ($currentRoute && !in_array($currentRoute, $allowedLinks)) {
-                abort(3346, 'Anda tidak memiliki akses ke module ini.');
+                abort(403, 'Anda tidak memiliki akses ke module ini.');
             }
         }
 
