@@ -11,13 +11,23 @@ class ProjectSelectionController extends Controller
     public function index()
     {
         $user = auth()->user();
+        $userRole = $user->getRoleNames()->first(); // contoh: 'admin', 'hrd', 'superadmin', dst.
 
-        // daftar project user
+        // 🔹 Ambil daftar project user
         $projects = $user->projects()->with('companyUnit')->get();
 
-        // daftar module unik dari menu
+        // 🔹 Ambil module unik dari tabel menu, yang:
+        // - Punya kolom 'module' tidak null
+        // - Bukan 'project'
+        // - Mengandung role user di kolom 'role'
         $modules = Menu::whereNotNull('module')
             ->where('module', '!=', 'project')
+            ->where(function ($q) use ($userRole) {
+                $q->where('role', 'like', "%;$userRole;%")
+                ->orWhere('role', 'like', "$userRole;%")
+                ->orWhere('role', 'like', "%;$userRole")
+                ->orWhere('role', '=', $userRole);
+            })
             ->select('module', \DB::raw('MIN(icon) as icon'))
             ->groupBy('module')
             ->orderBy('module')
