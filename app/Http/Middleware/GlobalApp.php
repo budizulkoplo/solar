@@ -231,5 +231,4 @@ class GlobalApp
 
         return preg_match($pattern, $currentRoute) === 1;
     }
-    
 }
