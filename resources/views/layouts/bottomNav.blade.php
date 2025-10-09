@@ -183,7 +183,7 @@
     <ion-icon name="home-outline"></ion-icon>
     <span>Home</span>
   </a>
-  <a href="/mobile/transaksi_armada/create" class="quick-item {{ request()->is('/mobile/transaksi_armada/create') ? 'active' : '' }}">
+  <a href="/mobile/presensi/create" class="quick-item {{ request()->is('/presensi/create') ? 'active' : '' }}">
     <ion-icon name="finger-print-outline"></ion-icon>
     <span>Absensi</span>
   </a>
@@ -192,7 +192,7 @@
     <ion-icon id="menuIcon" name="apps-outline"></ion-icon>
   </button>
 
-  <a href="/mobile/transaksi_armada/history" class="quick-item {{ request()->is('mobile/transaksi_armada/history') ? 'active' : '' }}">
+  <a href="/mobile/kalender" class="quick-item {{ request()->is('/kalender') ? 'active' : '' }}">
     <ion-icon name="calendar-outline"></ion-icon>
     <span>Kalender</span>
   </a>

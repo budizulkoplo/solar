@@ -28,10 +28,8 @@ use App\Http\Controllers\NotaController;
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
 use App\Http\Controllers\Mobile\MobileProjectController;
-use App\Http\Controllers\Mobile\MobileTransaksiArmadaController;
 use App\Http\Controllers\Mobile\MobileProfileController;
-use App\Http\Controllers\Mobile\MobilePinjamanController;
-use App\Http\Controllers\Mobile\MobileStokOpnameController;
+use App\Http\Controllers\Mobile\PresensiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -221,6 +219,13 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 // UI untuk mobile end users
 Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function () {
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
+});
+
+Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.transaksi_armada.')->group(function () {
+    Route::get('/create', [PresensiController::class, 'create'])->name('create');
+    Route::post('/store', [PresensiController::class, 'store'])->name('store');
+    
+
 });
 
 require __DIR__ . '/auth.php';

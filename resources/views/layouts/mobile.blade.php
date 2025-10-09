@@ -53,7 +53,10 @@
     </div>
     <!-- * App Capsule -->
 
-    @include('layouts.bottomNav')
+    {{-- Hanya tampilkan bottomNav jika bukan halaman presensi/create --}}
+    @if (!request()->is('mobile/presensi/create'))
+        @include('layouts.bottomNav')
+    @endif
     @include('layouts.script')
     
 <script>
