@@ -40,7 +40,7 @@
 
     .quick-item.active,
     .quick-item:hover {
-      color: #07b8b2;
+      color: #0054a6;
     }
 
     .quick-item ion-icon {
@@ -49,7 +49,7 @@
     }
 
     .menu-main {
-      background: #07b8b2;
+      background: #0054a6;
       color: white;
       padding: 10px;
       border-radius: 50%;
@@ -165,13 +165,14 @@
 
     .item.active ion-icon,
     .item.active .col {
-      color: #07b8b2;
+      color: #0054a6;
     }
 
     .item.logout ion-icon,
     .item.logout .col {
       color: red !important;
     }
+    
   </style>
 </head>
 <body>
@@ -183,8 +184,8 @@
     <span>Home</span>
   </a>
   <a href="/mobile/transaksi_armada/create" class="quick-item {{ request()->is('/mobile/transaksi_armada/create') ? 'active' : '' }}">
-    <ion-icon name="calculator-outline"></ion-icon>
-    <span>Input</span>
+    <ion-icon name="finger-print-outline"></ion-icon>
+    <span>Absensi</span>
   </a>
 
   <button class="quick-item menu-main" id="menuToggle">
@@ -192,8 +193,8 @@
   </button>
 
   <a href="/mobile/transaksi_armada/history" class="quick-item {{ request()->is('mobile/transaksi_armada/history') ? 'active' : '' }}">
-    <ion-icon name="document-text-outline"></ion-icon>
-    <span>Riwayat</span>
+    <ion-icon name="calendar-outline"></ion-icon>
+    <span>Kalender</span>
   </a>
 
   <form id="logout-form" action="{{ route('logout') }}" method="POST" style="all: unset; display: contents;">
