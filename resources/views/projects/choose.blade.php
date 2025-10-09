@@ -224,7 +224,7 @@
                 <form action="{{ route('mobile.home') }}" method="GET">
                     <button type="submit">
                         <div class="project-icon">
-                            <i class="fas fa-user"></i>
+                            <i class="fas fa-mobile"></i>
                         </div>
                         <div class="project-company">Solar System</div>
                         <div class="project-name">Absensi Mobile</div>
