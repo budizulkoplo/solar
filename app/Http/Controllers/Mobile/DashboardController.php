@@ -68,7 +68,6 @@ class DashboardController extends Controller
     {
         return DB::table('mobilemenu')
             ->where('status', 'drawer')
-            ->whereRaw("FIND_IN_SET(?, level)", [$user->ui])
             ->orderBy('idmenu')
             ->get();
     }
