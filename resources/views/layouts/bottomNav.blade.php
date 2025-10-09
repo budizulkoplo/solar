@@ -224,6 +224,16 @@
             </div>
           </a>
         @endforeach
+
+        <a href="{{ url('/choose-project') }}" style="all: unset; display: contents; cursor: pointer;">
+            <div class="item">
+                <div class="col">
+                    <img src="{{ asset('logo.png') }}" alt="Logo" style="width: 32px; height: 32px;">
+                    <strong>SOLAR</strong>
+                </div>
+            </div>
+        </a>
+
       <form id="logout-form" action="{{ route('logout') }}" method="POST" style="all: unset; display: contents;">
         @csrf
         <button type="submit" style="all: unset; cursor: pointer;" class="item logout">
