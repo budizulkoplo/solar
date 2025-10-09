@@ -220,6 +220,18 @@
                 </form>
             </div>
 
+            <div class="project-card">
+                <form action="{{ route('mobile.home') }}" method="GET">
+                    <button type="submit">
+                        <div class="project-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="project-company">Solar System</div>
+                        <div class="project-name">Absensi Mobile</div>
+                    </button>
+                </form>
+            </div>
+
             {{-- Module lain dari tabel menus --}}
             @forelse($modules as $module)
                 <div class="project-card">

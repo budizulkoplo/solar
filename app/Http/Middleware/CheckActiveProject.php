@@ -9,11 +9,11 @@ class CheckActiveProject
 {
     public function handle(Request $request, Closure $next)
     {
-        // Boleh akses choose-project & logout tanpa project aktif
+        // Boleh akses choose-project, logout & mobile tanpa project aktif
         if (!session()->has('active_project_id')
-            && !$request->is('choose-project')
-            && !$request->is('choose-project/*')
-            && !$request->is('logout')) 
+            && !$request->is('choose-project*')
+            && !$request->is('logout')
+            && !$request->is('mobile*')) // <- ubah di sini
         {
             return redirect()->route('choose.project');
         }

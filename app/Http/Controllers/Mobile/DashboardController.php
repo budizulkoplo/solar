@@ -14,27 +14,15 @@ class DashboardController extends Controller
      * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
      */
     public function index()
-{
-    $user = Auth::user();
+    {
+        $user = Auth::user();
+        $drawerMenus = $this->getDrawerMenus($user);
 
-    // Redirect jika bukan user
-    if ($user->ui !== 'user') {
-        return redirect()->route('dashboard')->with('warning', 'Anda tidak memiliki akses ke halaman ini');
+        $projectId = session('project_id');
+        $namaProject = session('nama_project');
+
+        return view('mobile.index', compact('user', 'drawerMenus', 'projectId', 'namaProject'));
     }
-
-    // Cek project di session
-    if (!session()->has('project_id')) {
-        return redirect()->route('mobile.project.select')->with('warning', 'Pilih project terlebih dahulu');
-
-    }
-
-    $drawerMenus = $this->getDrawerMenus($user);
-
-    $projectId = session('project_id');
-    $namaProject = session('nama_project');
-
-    return view('mobile.index', compact('user', 'drawerMenus', 'projectId', 'namaProject'));
-}
 
 
     /**

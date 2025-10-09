@@ -34,14 +34,6 @@ class GlobalApp
             return redirect()->route('login');
         }
 
-        if ($role && $user->ui !== $role) {
-            return match ($user->ui) {
-                'admin' => redirect()->route('dashboard'),
-                'user' => redirect()->route('mobile.home'),
-                default => redirect()->route('login'),
-            };
-        }
-
         $activeModule = session('active_project_module');
         $userRole = $user->getRoleNames()->first();
 

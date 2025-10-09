@@ -218,24 +218,9 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 });
 
-// UI untuk mobile (auth tapi project optional → bisa pisah middleware sendiri)
+// UI untuk mobile end users
 Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function () {
-    Route::get('/project/select', [MobileProjectController::class, 'select'])->name('project.select');
-    Route::post('/project/set', [MobileProjectController::class, 'set'])->name('project.set');
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
-    Route::get('/profile', [MobileProfileController::class, 'index'])->name('profile');
-    Route::post('/profile/update', [MobileProfileController::class, 'update'])->name('profile.update');
-});
-
-// Transaksi Armada (Mobile)
-Route::middleware(['auth'])->prefix('mobile/transaksi_armada')->name('mobile.transaksi_armada.')->group(function () {
-    Route::get('/create', [MobileTransaksiArmadaController::class, 'create'])->name('create');
-    Route::post('/store', [MobileTransaksiArmadaController::class, 'store'])->name('store');
-    Route::get('/search', [MobileTransaksiArmadaController::class, 'searchArmada'])->name('search');
-    Route::get('/{id}/print', [MobileTransaksiArmadaController::class, 'show'])->name('print');
-    Route::get('/history', [MobileTransaksiArmadaController::class, 'history'])->name('history');
-    Route::get('/{id}/edit', [MobileTransaksiArmadaController::class, 'edit'])->name('edit');
-    Route::put('/{id}', [MobileTransaksiArmadaController::class, 'update'])->name('update');
 });
 
 require __DIR__ . '/auth.php';
