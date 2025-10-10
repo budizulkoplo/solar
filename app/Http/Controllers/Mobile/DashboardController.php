@@ -39,10 +39,11 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Rekap presensi: jumlah hadir & terlambat
+        // Rekap presensi: jumlah hadir & terlambat (hanya absen masuk)
         $rekapPresensi = DB::table('presensi')
-            ->selectRaw('COUNT(nik) as jmlhadir, SUM(IF(jam_in > "15:00",1,0)) as jmlterlambat')
+            ->selectRaw('COUNT(*) as jmlhadir, SUM(IF(jam_in > "08:00",1,0)) as jmlterlambat')
             ->where('nik', $nik)
+            ->where('inoutmode', 1) // hanya absen masuk
             ->whereMonth('tgl_presensi', $bulanIni)
             ->whereYear('tgl_presensi', $tahunIni)
             ->first();
