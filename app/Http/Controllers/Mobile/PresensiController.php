@@ -22,50 +22,108 @@ class PresensiController extends BaseMobileController
     }
 
     public function store(Request $request)
-    {
-        $nik = $this->user->nik;
-        $tgl_presensi = date("Y-m-d");
-        $jam = date("H:i:s");
-        $lokasi = $request->lokasi;
-        $image = $request->image;
+{
+    $nik = $this->user->nik;
+    $tgl_presensi = date("Y-m-d");
+    $jam = date("H:i:s");
+    $lokasi = $request->lokasi;
+    $image = $request->image;
+    $inoutmode = $request->inoutmode; // 1 = Masuk, 2 = Pulang
 
-        if (!$image) {
-            return response()->json(['status' => 'error', 'message' => 'Gambar tidak ditemukan.']);
-        }
-
-        $formatName = $nik . "-" . $tgl_presensi;
-        $image_parts = explode(";base64", $image);
-        $image_base64 = base64_decode($image_parts[1]);
-        $fileName = $formatName . ".png";
-
-        $file = 'uploads/absensi/' . $fileName;
-
-        // Data untuk disimpan di database
-        $data = [
-            'nik' => $nik,
-            'tgl_presensi' => $tgl_presensi,
-            'jam_in' => $jam,
-            'foto_in' => $fileName,
-            'lokasi' => $lokasi
-        ];
-
-        // Cek apakah sudah ada absen hari ini
-        $cek = DB::table('presensi')->where('tgl_presensi', $tgl_presensi)->where('nik', $nik)->count();
-        if ($cek > 0) {
-            return response()->json(['status' => 'error', 'message' => 'Anda sudah absen hari ini.']);
-        }
-
-        // Simpan data presensi ke database
-        $simpan = DB::table('presensi')->insert($data);
-
-        if ($simpan) {
-            // Simpan gambar ke disk 'public'
-            Storage::disk('public')->put($file, $image_base64);
-            return response()->json(['status' => 'success', 'message' => 'Absen berhasil', 'type' => 'in']);
-        } else {
-            return response()->json(['status' => 'error', 'message' => 'Maaf, Gagal Absen. Silakan Hubungi Bidang IT.']);
-        }
+    if (!$image) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gambar tidak ditemukan.'
+        ]);
     }
+
+    // Validasi mode
+    if (!in_array($inoutmode, [1, 2])) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Mode presensi tidak valid.'
+        ]);
+    }
+
+    // Cek apakah sudah ada presensi masuk/pulang
+    $cekMasuk = DB::table('presensi')
+        ->where('nik', $nik)
+        ->where('tgl_presensi', $tgl_presensi)
+        ->where('inoutmode', 1)
+        ->first();
+
+    $cekPulang = DB::table('presensi')
+        ->where('nik', $nik)
+        ->where('tgl_presensi', $tgl_presensi)
+        ->where('inoutmode', 2)
+        ->first();
+
+    if ($inoutmode == 1 && $cekMasuk) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Anda sudah absen masuk hari ini.'
+        ]);
+    }
+
+    if ($inoutmode == 2 && !$cekMasuk) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Anda belum melakukan absen masuk hari ini.'
+        ]);
+    }
+
+    if ($inoutmode == 2 && $cekPulang) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Anda sudah absen pulang hari ini.'
+        ]);
+    }
+
+    // Simpan foto
+    $formatName = $nik . "-" . $tgl_presensi . "-" . ($inoutmode == 1 ? "in" : "out");
+    $image_parts = explode(";base64,", $image);
+    if (count($image_parts) < 2) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Format gambar tidak valid.'
+        ]);
+    }
+
+    $image_base64 = base64_decode($image_parts[1]);
+    $fileName = $formatName . ".png";
+    $filePath = 'uploads/absensi/' . $fileName;
+
+    // Simpan data presensi
+    $data = [
+        'nik' => $nik,
+        'tgl_presensi' => $tgl_presensi,
+        'jam_in' => $jam,
+        'inoutmode' => $inoutmode,
+        'foto_in' => $fileName,
+        'lokasi' => $lokasi,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ];
+
+    $simpan = DB::table('presensi')->insert($data);
+
+    if ($simpan) {
+        Storage::disk('public')->put($filePath, $image_base64);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $inoutmode == 1 ? 'Absen masuk berhasil!' : 'Absen pulang berhasil!',
+            'type' => $inoutmode == 1 ? 'in' : 'out'
+        ]);
+    } else {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal menyimpan presensi, silakan coba lagi.'
+        ]);
+    }
+}
+
+
 
     public function  editprofile()
     {

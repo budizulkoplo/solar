@@ -86,18 +86,40 @@
                 <div class="tab-content mt-2" style="margin-bottom:100px;">
                     <!-- Bulan Ini -->
                     <div class="tab-pane fade show active" id="home" role="tabpanel">
-                        <ul class="listview image-listview">
-                            @foreach ($historibulanini as $d)
-                                <li>
-                                    <div class="item">
-                                        <div class="icon-box bg-primary">
-                                            <ion-icon name="finger-print-outline"></ion-icon>
+                        <ul class="listview image-listview stylish-presence">
+                            @foreach ($rekapPresensiBulanIni as $tanggal => $data)
+                                @php
+                                    \Carbon\Carbon::setLocale('id');
+                                    $tglLabel = \Carbon\Carbon::parse($tanggal)->translatedFormat('l, d F Y');
+                                    $jamMasuk = $data['masuk']->jam_in ?? null;
+                                    $jamPulang = $data['pulang']->jam_in ?? null;
+                                @endphp
+
+                                <li class="presence-card">
+                                    <div class="presence-header">
+                                        <ion-icon name="calendar-outline" class="text-primary"></ion-icon>
+                                        <span class="presence-date">{{ $tglLabel }}</span>
+                                    </div>
+
+                                    <div class="presence-body">
+                                        <div class="presence-item">
+                                            <ion-icon name="log-in-outline" class="text-success"></ion-icon>
+                                            <div class="presence-info">
+                                                <small>Absen Masuk</small>
+                                                <h6 class="mb-0 {{ $jamMasuk && $jamMasuk > '08:00' ? 'text-danger' : 'text-success' }}">
+                                                    {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
+                                                </h6>
+                                            </div>
                                         </div>
-                                        <div class="in">
-                                            <div>{{ \Carbon\Carbon::parse($d->tgl_presensi)->format('d-m-Y') }}</div>
-                                            <span class="badge {{ $d->jam_in < '15:00' ? 'bg-primary' : 'bg-danger' }}">
-                                                {{ $d->jam_in ?? '-' }}
-                                            </span>
+
+                                        <div class="presence-item">
+                                            <ion-icon name="log-out-outline" class="text-danger"></ion-icon>
+                                            <div class="presence-info">
+                                                <small>Absen Pulang</small>
+                                                <h6 class="mb-0 {{ $jamPulang ? 'text-danger' : 'text-muted' }}">
+                                                    {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : 'Belum absen' }}
+                                                </h6>
+                                            </div>
                                         </div>
                                     </div>
                                 </li>
@@ -107,18 +129,36 @@
 
                     <!-- Leaderboard -->
                     <div class="tab-pane fade" id="profile" role="tabpanel">
-                        <ul class="listview image-listview">
-                            @foreach ($leaderboard as $d)
+                        <ul class="listview image-listview leaderboard-presence">
+                            @foreach ($leaderboard->whereNotNull('jam_masuk')->sortBy('jam_masuk') as $d)
+                                @php
+                                    $jamMasuk = $d->jam_masuk ?? null;
+                                    $jamPulang = $d->jam_pulang ?? null;
+                                @endphp
                                 <li>
-                                    <div class="item">
-                                        <img src="{{ asset('assets/img/sample/avatar/avatar1.jpg') }}" alt="image" class="image">
-                                        <div class="in">
-                                            <div>
-                                                <b>{{ $d->nama_lengkap ?? '-' }}</b><br>
+                                    <div class="leaderboard-item">
+                                        <!-- Kiri: Avatar + Nama/Jabatan -->
+                                        <div class="left d-flex align-items-center gap-12">
+                                            <div class="avatar">
+                                                @if($d->foto)
+                                                    <img src="{{ asset('storage/foto/' . $d->foto) }}" alt="avatar" loading="lazy">
+                                                @else
+                                                    <img src="{{ asset('assets/img/avatar1.jpg') }}" alt="avatar" loading="lazy">
+                                                @endif
+                                            </div>
+                                            <div class="user-info">
+                                                <b>{{ $d->name ?? '-' }}</b><br>
                                                 <small class="text-muted">{{ $d->jabatan ?? '-' }}</small>
                                             </div>
-                                            <span class="badge {{ $d->jam_in < '15:00' ? 'bg-primary' : 'bg-danger' }}">
-                                                {{ $d->jam_in ?? '-' }}
+                                        </div>
+
+                                        <!-- Kanan: Jam Masuk & Pulang 2 row -->
+                                        <div class="right">
+                                            <span class="badge px-3 {{ $jamMasuk && $jamMasuk > '08:00' ? 'bg-danger' : 'bg-success' }}">
+                                                Masuk: {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
+                                            </span>
+                                            <span class="badge px-3 mt-1 {{ $jamPulang ? 'bg-danger' : 'bg-secondary' }}">
+                                                Pulang: {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : '-' }}
                                             </span>
                                         </div>
                                     </div>
@@ -126,11 +166,87 @@
                             @endforeach
                         </ul>
                     </div>
+
                 </div>
             </div>
 
         </div>
     </div>
 </div>
+
+<style>
+/* Bulan Ini */
+.stylish-presence .presence-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px 15px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.presence-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.presence-body {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.presence-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.presence-info small {
+    display: block;
+    font-size: 10px;
+    color: #666;
+}
+
+.presence-info h6 {
+    font-size: 14px;
+    margin: 0;
+}
+
+.leaderboard-presence .leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Penting! supaya badge tidak ikut center */
+    padding: 10px 12px;
+    background: #fff;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.leaderboard-presence .left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.leaderboard-presence .user-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: left;
+}
+
+.leaderboard-presence .right {
+    display: flex;
+    flex-direction: column;  /* 2 baris Masuk & Pulang */
+    justify-content: flex-start; 
+    align-items: flex-end;   /* Rata kanan */
+}
+
+</style>
 
 @endsection

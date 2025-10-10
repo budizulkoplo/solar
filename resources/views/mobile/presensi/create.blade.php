@@ -1,34 +1,35 @@
 @extends('layouts.mobile')
+
 @section('header')
-    <!-- App Header -->
     <div class="appHeader bg-primary text-light">
         <div class="left">
             <a href="javascript:;" class="headerButton goBack">
                 <ion-icon name="chevron-back-outline"></ion-icon>
             </a>
         </div>
+
         @php
-                use App\Models\Setting;
-                $setting = Setting::first();
+            use App\Models\Setting;
+            $setting = Setting::first();
 
-                function singkatPerusahaan($nama) {
-                    $parts = explode(' ', trim($nama));
-                    $result = '';
-                    foreach ($parts as $p) {
-                        if (strlen($p) > 2) {
-                            $result .= strtoupper(substr($p, 0, 1));
-                        }
+            function singkatPerusahaan($nama) {
+                $parts = explode(' ', trim($nama));
+                $result = '';
+                foreach ($parts as $p) {
+                    if (strlen($p) > 2) {
+                        $result .= strtoupper(substr($p, 0, 1));
                     }
-                    return $result;
                 }
+                return $result;
+            }
 
-                $namaPendek = singkatPerusahaan($setting->nama_perusahaan ?? 'Perusahaan');
-            @endphp
+            $namaPendek = singkatPerusahaan($setting->nama_perusahaan ?? 'Perusahaan');
+        @endphp
+
         <div class="pageTitle">Presensi {{ $setting->nama_perusahaan ?? 'Perusahaan' }}</div>
         <div class="right"></div>
     </div>
-    
-    <!-- * App Header -->
+
     <style>
         .webcam-capture,
         .webcam-capture video {
@@ -39,9 +40,7 @@
             border-radius: 15px;
         }
 
-        #map {
-            height: 200px;
-        }
+        #map { height: 200px; }
 
         .button-container {
             display: flex;
@@ -50,50 +49,11 @@
             margin-top: 10px;
         }
 
-        .small-btn {
-            padding: 5px 10px;
-            font-size: 14px;
-        }
-
-        .presensi-form {
-            background-color: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-label {
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 5px;
-            display: block;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
         .section-title {
             font-weight: bold;
             margin: 15px 0 10px 0;
             font-size: 16px;
             color: #333;
-        }
-
-        .validation-message {
-            color: #dc3545;
-            font-size: 12px;
-            margin-top: 5px;
-            display: none;
         }
 
         .scroll-down-btn {
@@ -138,9 +98,10 @@
         }
 
         .content-wrapper {
-            padding-bottom: 80px; /* Space for sticky button */
+            padding-bottom: 80px;
         }
     </style>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 @endsection
@@ -175,24 +136,20 @@
         </div>
     </div>
 
-    <!-- Scroll down button -->
     <button id="scrollDownBtn" class="scroll-down-btn">
         <ion-icon name="chevron-down-outline"></ion-icon>
     </button>
 </div>
 
-<!-- Sticky Absen Button -->
+<!-- Tombol Absen -->
 <div class="sticky-absen-btn">
-    <button id="takeabsen" class="btn btn-primary">
-        <ion-icon name="camera-outline"></ion-icon>
-        Absen Masuk
+    <button id="absenMasuk" class="btn btn-primary">
+        <ion-icon name="camera-outline"></ion-icon> Absen Masuk
     </button>
-    <button id="takeabsen" class="btn btn-danger">
-        <ion-icon name="exit-outline"></ion-icon>
-        Absen Pulang
+    <button id="absenPulang" class="btn btn-danger">
+        <ion-icon name="exit-outline"></ion-icon> Absen Pulang
     </button>
 </div>
-
 
 <audio id="notifikasi_in">
     <source src="{{ asset('assets/sound/notifikasi_in.mp3') }}" type="audio/mpeg">
@@ -206,12 +163,12 @@
     var currentStream = null;
     var isBackCamera = false;
     var videoElement = document.querySelector('.webcam-capture video');
-    
-    // Inisialisasi Webcam
+
+    // Inisialisasi Kamera
     function initializeWebcam() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             stopCamera();
-            
+
             const constraints = {
                 video: {
                     facingMode: isBackCamera ? 'environment' : 'user',
@@ -219,7 +176,7 @@
                     height: { ideal: 480 }
                 }
             };
-            
+
             navigator.mediaDevices.getUserMedia(constraints)
                 .then(function(stream) {
                     currentStream = stream;
@@ -227,33 +184,28 @@
                     videoElement.play();
                 })
                 .catch(function(error) {
-                    console.error('Error accessing camera:', error);
                     Swal.fire({
                         title: 'Kamera Error',
-                        text: 'Gagal mengakses kamera. Pastikan aplikasi memiliki izin kamera.',
+                        text: 'Gagal mengakses kamera. Pastikan izin kamera diaktifkan.',
                         icon: 'error'
                     });
                 });
         }
     }
-    
-    // Stop camera stream
+
     function stopCamera() {
         if (currentStream) {
-            currentStream.getTracks().forEach(track => {
-                track.stop();
-            });
+            currentStream.getTracks().forEach(track => track.stop());
             currentStream = null;
         }
     }
-    
-    // Switch Camera
+
     document.getElementById('switchCamera').addEventListener('click', function() {
         isBackCamera = !isBackCamera;
         initializeWebcam();
     });
 
-    // Geolocation
+    // Lokasi
     function initializeLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(successCallback, errorCallback, {
@@ -269,129 +221,77 @@
             });
         }
     }
-    
+
     function successCallback(position) {
         lokasiAktif = true;
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         $("#lokasi").val(lat + "," + lng);
-        
-        // Initialize Map
+
         var map = L.map('map').setView([lat, lng], 18);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         }).addTo(map);
-        
-        // Add marker
-        var marker = L.marker([lat, lng]).addTo(map)
-            .bindPopup("Lokasi Anda saat ini")
-            .openPopup();
-        
-        // Add circle (area presensi)
-        var circle = L.circle([-7.106116792046282, 110.28551902710417], {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 0.5,
-            radius: 30,
-        }).addTo(map).bindPopup("Area Presensi");
+
+        L.marker([lat, lng]).addTo(map).bindPopup("Lokasi Anda").openPopup();
     }
-    
+
     function errorCallback(error) {
-        let errorMessage = '';
-        switch(error.code) {
-            case error.PERMISSION_DENIED:
-                errorMessage = "Pengguna menolak permintaan geolokasi.";
-                break;
-            case error.POSITION_UNAVAILABLE:
-                errorMessage = "Informasi lokasi tidak tersedia.";
-                break;
-            case error.TIMEOUT:
-                errorMessage = "Permintaan lokasi pengguna habis waktunya.";
-                break;
-            case error.UNKNOWN_ERROR:
-                errorMessage = "Terjadi kesalahan yang tidak diketahui.";
-                break;
-        }
-        
         Swal.fire({
             title: 'Lokasi Error',
-            text: errorMessage,
-            icon: 'warning',
-            confirmButtonText: 'Coba Lagi',
-            showCancelButton: true,
-            cancelButtonText: 'Lanjutkan Tanpa Lokasi'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                initializeLocation();
-            } else {
-                $("#lokasi").val("0,0");
-            }
+            text: 'Tidak dapat mendeteksi lokasi, silakan aktifkan GPS.',
+            icon: 'warning'
         });
     }
 
-    // Take Absen
-    $("#takeabsen").click(function(e) {
-        e.preventDefault();
-        
+    // Fungsi umum absen
+    function kirimPresensi(inoutmode) {
         if (!lokasiAktif) {
             Swal.fire({
                 title: 'Lokasi Belum Aktif',
-                text: 'Sedang mencoba mengaktifkan lokasi...',
-                icon: 'info',
-                showConfirmButton: false,
-                allowOutsideClick: false
+                text: 'Tunggu hingga lokasi terdeteksi.',
+                icon: 'info'
             });
-            
-            // Coba dapatkan lokasi sekali lagi
             initializeLocation();
             return;
         }
-        
+
         Swal.fire({
             title: 'Sedang Memproses',
-            html: 'Mengambil foto dan lokasi...',
+            html: 'Mengambil foto & lokasi...',
             allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
 
-        // Ambil foto dari webcam
         const canvas = document.createElement('canvas');
         canvas.width = videoElement.videoWidth;
         canvas.height = videoElement.videoHeight;
         canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        
+
         const imageData = canvas.toDataURL('image/jpeg');
         const lokasi = $("#lokasi").val();
-        
+
         $.ajax({
             type: 'POST',
             url: '/mobile/presensi/store',
             data: {
                 _token: "{{ csrf_token() }}",
                 image: imageData,
-                lokasi: lokasi
+                lokasi: lokasi,
+                inoutmode: inoutmode
             },
             dataType: 'json',
             success: function(response) {
                 Swal.close();
-                
-                if (response.status == "success") {
-                    if (response.type == "in") {
-                        notifikasi_in.play().catch(e => console.log("Error sound:", e));
-                    }
-                    
+                if (response.status === "success") {
+                    notifikasi_in.play().catch(()=>{});
                     Swal.fire({
                         title: 'Berhasil!',
                         text: response.message,
                         icon: 'success',
-                        timer: 5000,
+                        timer: 4000,
                         showConfirmButton: false
-                    }).then(() => {
-                        window.location.href = '/dashboard';
-                    });
+                    }).then(() => window.location.href = '/dashboard');
                 } else {
                     Swal.fire({
                         title: 'Gagal!',
@@ -400,36 +300,25 @@
                     });
                 }
             },
-            error: function(xhr) {
+            error: function() {
                 Swal.fire({
                     title: 'Error!',
-                    text: 'Terjadi kesalahan pada server',
+                    text: 'Terjadi kesalahan pada server.',
                     icon: 'error'
                 });
-                console.error(xhr.responseText);
             }
         });
-    });
+    }
 
-    // Scroll down button functionality
+    // Event klik
+    $("#absenMasuk").click(function() { kirimPresensi(1); });
+    $("#absenPulang").click(function() { kirimPresensi(2); });
+
+    // Scroll button
     document.getElementById('scrollDownBtn').addEventListener('click', function() {
-        window.scrollTo({
-            top: document.body.scrollHeight,
-            behavior: 'smooth'
-        });
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     });
 
-    // Show/hide scroll down button based on scroll position
-    window.addEventListener('scroll', function() {
-        const scrollBtn = document.getElementById('scrollDownBtn');
-        if (window.scrollY > 100) {
-            scrollBtn.style.display = 'flex';
-        } else {
-            scrollBtn.style.display = 'none';
-        }
-    });
-
-    // Initialize on page load
     $(document).ready(function() {
         initializeWebcam();
         initializeLocation();

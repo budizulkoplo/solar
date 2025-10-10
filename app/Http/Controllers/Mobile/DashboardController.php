@@ -5,58 +5,97 @@ namespace App\Http\Controllers\Mobile;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     /**
      * Menampilkan halaman utama mobile
      *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
+     * @return \Illuminate\View\View
      */
     public function index()
     {
         $user = Auth::user();
         $drawerMenus = $this->getDrawerMenus($user);
 
-        $hariini = date("Y-m-d");
-        $bulanini = date("m") * 1; // 1 atau Januari
-        $tahunini = date("Y"); // 2025
+        $hariIni = Carbon::today()->format('Y-m-d');
+        $bulanIni = (int) Carbon::now()->format('m');
+        $tahunIni = Carbon::now()->format('Y');
         $nik = $user->nik;
-        
 
-        $presensihariini = DB::table('presensi')->where('nik', $nik)->where('tgl_presensi', $hariini)->first();
-        $historibulanini = DB::table('presensi')->whereRaw('MONTH(tgl_presensi)="'.$bulanini. '"')
-        ->where('nik',$nik)
-        ->whereRaw('MONTH(tgl_presensi)="'.$bulanini.'"')
-        ->whereRaw('YEAR(tgl_presensi)="'.$tahunini.'"')
-        ->orderBy('tgl_presensi')
-        ->get();
+        // Presensi bulan ini: group by tanggal
+        $presensiBulanIni = DB::table('presensi')
+            ->where('nik', $nik)
+            ->whereMonth('tgl_presensi', $bulanIni)
+            ->whereYear('tgl_presensi', $tahunIni)
+            ->orderBy('tgl_presensi')
+            ->get()
+            ->groupBy('tgl_presensi')
+            ->map(function ($items) {
+                return [
+                    'masuk' => $items->where('inoutmode', 1)->first(),
+                    'pulang' => $items->where('inoutmode', 2)->first(),
+                ];
+            });
 
-        $rekappresensi = DB::table('presensi')
-        ->selectRaw('COUNT(nik) as jmlhadir, SUM(IF(jam_in > "15:00",1,0)) as jmlterlambat')
-        ->where('nik',$nik)
-        ->whereRaw('MONTH(tgl_presensi)="'.$bulanini.'"')
-        ->whereRaw('YEAR(tgl_presensi)="'.$tahunini.'"')
-        ->first();
+        // Rekap presensi: jumlah hadir & terlambat
+        $rekapPresensi = DB::table('presensi')
+            ->selectRaw('COUNT(nik) as jmlhadir, SUM(IF(jam_in > "15:00",1,0)) as jmlterlambat')
+            ->where('nik', $nik)
+            ->whereMonth('tgl_presensi', $bulanIni)
+            ->whereYear('tgl_presensi', $tahunIni)
+            ->first();
 
-        $leaderboard = DB::table('presensi')
-        ->join('users', 'presensi.nik', '=', 'users.nik')
-        ->where('tgl_presensi', $hariini)
-        ->orderBy('jam_in')
-        ->get();
-        $namabulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni","Juli", "Agustus","September", "Oktober", "November", "Desember"];
+        // Rekap izin & sakit
+        $rekapIzin = DB::table('pengajuan_izin')
+            ->selectRaw('SUM(IF(status="i",1,0)) as jmlizin, SUM(IF(status="s",1,0)) as jmlsakit')
+            ->where('nik', $nik)
+            ->whereMonth('tgl_izin', $bulanIni)
+            ->whereYear('tgl_izin', $tahunIni)
+            ->where('status_approved', 1)
+            ->first();
 
-        $rekapizin = DB::table('pengajuan_izin')
-        ->selectRaw('SUM(IF(status="i",1,0)) as jmlizin, SUM(IF(status="s",1,0)) as jmlsakit')
-        ->where('nik', $nik)
-        ->whereRaw('MONTH(tgl_izin)="'.$bulanini.'"')
-        ->whereRaw('YEAR(tgl_izin)="'.$tahunini.'"')
-        ->where('status_approved', 1)
-        ->first();
+        // Leaderboard hari ini: gabungkan jam masuk & pulang per user
+        $leaderboard = DB::table('users')
+            ->leftJoin('presensi as masuk', function($join) use ($hariIni) {
+                $join->on('users.nik', '=', 'masuk.nik')
+                     ->where('masuk.tgl_presensi', $hariIni)
+                     ->where('masuk.inoutmode', 1);
+            })
+            ->leftJoin('presensi as pulang', function($join) use ($hariIni) {
+                $join->on('users.nik', '=', 'pulang.nik')
+                     ->where('pulang.tgl_presensi', $hariIni)
+                     ->where('pulang.inoutmode', 2);
+            })
+            ->select(
+                'users.nik',
+                'users.name',
+                'users.foto',
+                'users.jabatan',
+                'masuk.jam_in as jam_masuk',
+                'pulang.jam_in as jam_pulang'
+            )
+            ->orderBy('masuk.jam_in')
+            ->get();
 
-        return view('mobile.index', compact('presensihariini', 'historibulanini', 'namabulan', 'bulanini', 'tahunini', 'rekappresensi', 'leaderboard', 'rekapizin', 'user', 'drawerMenus'));
+        $namaBulan = [
+            "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+
+        return view('mobile.index', [
+            'user' => $user,
+            'drawerMenus' => $drawerMenus,
+            'rekapPresensiBulanIni' => $presensiBulanIni,
+            'rekappresensi' => $rekapPresensi,
+            'rekapizin' => $rekapIzin,
+            'leaderboard' => $leaderboard,
+            'namabulan' => $namaBulan,
+            'bulanini' => $bulanIni,
+            'tahunini' => $tahunIni
+        ]);
     }
-
 
     /**
      * Mendapatkan drawer menus untuk user tertentu
