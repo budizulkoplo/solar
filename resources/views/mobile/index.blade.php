@@ -39,10 +39,10 @@
 </div>
 
 <!-- Rekap Presensi Section -->
-<div class="performance-card mt-2">
+<div class="performance-card mb-3">
     <div class="todaypresence">
         <div class="rekappresensi">
-            <h3 class="mb-3">
+            <h3 class="section-title">
                 Rekap Presensi Bulan {{ $namabulan[$bulanini] ?? 'Bulan' }} Tahun {{ $tahunini ?? date('Y') }}
             </h3>
 
@@ -58,14 +58,14 @@
 
                 @foreach($presensiData as $data)
                 <div class="col-3 mb-2">
-                    <div class="card">
-                        <div class="card-body position-relative" style="padding:12px 8px !important; line-height:0.8rem;">
-                            <span class="badge bg-danger position-absolute" style="top:2px; right:5px; font-size:0.55rem; z-index:999;">
+                    <div class="card stat-card">
+                        <div class="card-body position-relative">
+                            <span class="badge bg-danger position-absolute count-badge">
                                 {{ $data['value'] }}
                             </span>
-                            <ion-icon name="{{ $data['icon'] }}" style="font-size:1.4rem;" class="text-{{ $data['color'] }} mb-1"></ion-icon>
+                            <ion-icon name="{{ $data['icon'] }}" class="text-{{ $data['color'] }} stat-icon"></ion-icon>
                             <br>
-                            <span style="font-size:0.7rem; font-weight:500;">{{ $data['label'] }}</span>
+                            <span class="stat-label">{{ $data['label'] }}</span>
                         </div>
                     </div>
                 </div>
@@ -76,24 +76,30 @@
 </div>
 
 <!-- Tabs Bulan Ini & Leaderboard -->
-<div class="performance-card mt-2">
+<div class="performance-card">
     <div class="todaypresence">
         <div class="presencetab">
             <ul class="nav nav-tabs" role="tablist">
                 <li class="nav-item flex-fill">
-                    <a class="nav-link active text-center py-2" data-toggle="tab" href="#bulanIni" role="tab">Bulan Ini</a>
+                    <a class="nav-link active text-center" data-toggle="tab" href="#bulanIni" role="tab">
+                        <ion-icon name="calendar-outline" class="tab-icon"></ion-icon>
+                        <span>Bulan Ini</span>
+                    </a>
                 </li>
                 <li class="nav-item flex-fill">
-                    <a class="nav-link text-center py-2" data-toggle="tab" href="#leaderboard" role="tab">Leaderboard</a>
+                    <a class="nav-link text-center" data-toggle="tab" href="#leaderboard" role="tab">
+                        <ion-icon name="trophy-outline" class="tab-icon"></ion-icon>
+                        <span>Leaderboard</span>
+                    </a>
                 </li>
             </ul>
 
-            <div class="tab-content mt-2">
+            <div class="tab-content">
 
                 <!-- Bulan Ini -->
                 <div class="tab-pane fade show active" id="bulanIni" role="tabpanel">
                     <div class="tab-section">
-                        <h5 class="mb-2 text-center">Riwayat Presensi Bulan Ini</h5>
+                        <h5 class="tab-section-title">Riwayat Presensi Bulan Ini</h5>
                         <ul class="listview image-listview stylish-presence">
                             @if(count($rekapPresensiBulanIni) > 0)
                                 @foreach ($rekapPresensiBulanIni as $tanggal => $data)
@@ -112,20 +118,26 @@
 
                                         <div class="presence-body">
                                             <div class="presence-item">
-                                                <ion-icon name="log-in-outline" class="text-success"></ion-icon>
+                                                <div class="presence-icon-container">
+                                                    <ion-icon name="log-in-outline" class="text-success"></ion-icon>
+                                                </div>
                                                 <div class="presence-info">
-                                                    <small>Absen Masuk</small>
-                                                    <h6 class="mb-0 {{ $jamMasuk && $jamMasuk > '08:00' ? 'text-danger' : 'text-success' }}">
+                                                    <small class="presence-label">Absen Masuk</small>
+                                                    <h6 class="presence-time {{ $jamMasuk && $jamMasuk > '08:00' ? 'text-danger' : 'text-success' }}">
                                                         {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
                                                     </h6>
                                                 </div>
                                             </div>
 
+                                            <div class="presence-divider"></div>
+
                                             <div class="presence-item">
-                                                <ion-icon name="log-out-outline" class="text-danger"></ion-icon>
+                                                <div class="presence-icon-container">
+                                                    <ion-icon name="log-out-outline" class="text-danger"></ion-icon>
+                                                </div>
                                                 <div class="presence-info">
-                                                    <small>Absen Pulang</small>
-                                                    <h6 class="mb-0 {{ $jamPulang ? 'text-danger' : 'text-muted' }}">
+                                                    <small class="presence-label">Absen Pulang</small>
+                                                    <h6 class="presence-time {{ $jamPulang ? 'text-danger' : 'text-muted' }}">
                                                         {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : 'Belum absen' }}
                                                     </h6>
                                                 </div>
@@ -134,9 +146,9 @@
                                     </li>
                                 @endforeach
                             @else
-                                <li class="text-center py-3">
-                                    <ion-icon name="calendar-outline" style="font-size: 2.5rem; color: #ccc;"></ion-icon>
-                                    <p class="mt-2 text-muted mb-0" style="font-size: 0.9rem;">Tidak ada data presensi bulan ini</p>
+                                <li class="empty-state">
+                                    <ion-icon name="calendar-outline"></ion-icon>
+                                    <p>Tidak ada data presensi bulan ini</p>
                                 </li>
                             @endif
                         </ul>
@@ -146,7 +158,7 @@
                 <!-- Leaderboard -->
                 <div class="tab-pane fade" id="leaderboard" role="tabpanel">
                     <div class="tab-section">
-                        <h5 class="mb-2 text-center">Leaderboard Presensi</h5>
+                        <h5 class="tab-section-title">Leaderboard Presensi</h5>
                         <ul class="listview image-listview leaderboard-presence">
                             @if(count($leaderboard) > 0)
                                 @foreach ($leaderboard->whereNotNull('jam_masuk')->sortBy('jam_masuk') as $d)
@@ -156,7 +168,7 @@
                                     @endphp
                                     <li>
                                         <div class="leaderboard-item">
-                                            <div class="left d-flex align-items-center gap-10">
+                                            <div class="leaderboard-left">
                                                 <div class="avatar">
                                                     @if($d->foto)
                                                         <img src="{{ asset('storage/foto/' . $d->foto) }}" alt="avatar" loading="lazy">
@@ -165,16 +177,16 @@
                                                     @endif
                                                 </div>
                                                 <div class="user-info">
-                                                    <b style="font-size: 0.9rem;">{{ $d->name ?? '-' }}</b><br>
-                                                    <small class="text-muted" style="font-size: 0.75rem;">{{ $d->jabatan ?? '-' }}</small>
+                                                    <b class="user-name">{{ $d->name ?? '-' }}</b>
+                                                    <small class="user-position">{{ $d->jabatan ?? '-' }}</small>
                                                 </div>
                                             </div>
 
-                                            <div class="right">
-                                                <span class="badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'bg-danger' : 'bg-success' }}">
+                                            <div class="leaderboard-right">
+                                                <span class="time-badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'badge-late' : 'badge-ontime' }}">
                                                     {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
                                                 </span>
-                                                <span class="badge mt-1 {{ $jamPulang ? 'bg-danger' : 'bg-secondary' }}">
+                                                <span class="time-badge {{ $jamPulang ? 'badge-pulang' : 'badge-nopulang' }}">
                                                     {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : '-' }}
                                                 </span>
                                             </div>
@@ -182,9 +194,9 @@
                                     </li>
                                 @endforeach
                             @else
-                                <li class="text-center py-3">
-                                    <ion-icon name="trophy-outline" style="font-size: 2.5rem; color: #ccc;"></ion-icon>
-                                    <p class="mt-2 text-muted mb-0" style="font-size: 0.9rem;">Tidak ada data leaderboard</p>
+                                <li class="empty-state">
+                                    <ion-icon name="trophy-outline"></ion-icon>
+                                    <p>Tidak ada data leaderboard</p>
                                 </li>
                             @endif
                         </ul>
@@ -197,145 +209,281 @@
 </div>
 
 <style>
+/* General Styles */
 .performance-card {
     background: #fff;
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
 }
 
-.tab-section {
-    background-color: transparent;
-    border-radius: 8px;
-    padding: 8px 4px;
-    margin-bottom: 0;
-}
-
-/* Bulan Ini Cards */
-.stylish-presence .presence-card {
-    background: #fff;
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-left: 3px solid #007bff;
-}
-
-/* Leaderboard Cards */
-.leaderboard-presence .leaderboard-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 8px 10px;
-    background: #fff;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-left: 3px solid #28a745;
-}
-
-/* Typography & layout */
-.presence-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.section-title {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+    color: #2c3e50;
     font-weight: 600;
-    font-size: 0.85rem;
-    margin-bottom: 6px;
+    text-align: center;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f8f9fa;
 }
 
-.presence-body {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
+/* Stat Cards */
+.stat-card {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    transition: transform 0.2s ease;
 }
 
-.presence-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+.stat-card:hover {
+    transform: translateY(-2px);
 }
 
-.presence-info small {
-    display: block;
+.stat-card .card-body {
+    padding: 12px 8px !important;
+    line-height: 0.8rem;
+    position: relative;
+}
+
+.count-badge {
+    top: 2px;
+    right: 5px;
+    font-size: 0.55rem;
+    z-index: 999;
+}
+
+.stat-icon {
+    font-size: 1.4rem;
+    margin-bottom: 4px;
+}
+
+.stat-label {
     font-size: 0.7rem;
-    color: #666;
+    font-weight: 500;
+    color: #495057;
 }
 
-.presence-info h6 {
-    font-size: 0.85rem;
-    margin: 0;
-}
-
-.leaderboard-presence .left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.leaderboard-presence .right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: flex-start;
-    gap: 2px;
-}
-
+/* Tabs */
 .nav-tabs {
-    border-bottom: 1px solid #dee2e6;
-    margin-bottom: 8px;
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 16px;
 }
 
 .nav-tabs .nav-link {
     border: none;
     color: #6c757d;
     font-weight: 500;
-    border-radius: 6px 6px 0 0;
-    font-size: 0.9rem;
-    padding: 8px 4px;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.75rem;    /* lebih kecil */
+    padding: 4px 6px;      /* tinggi tab lebih rendah */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;              /* ikon & teks rapat */
+    transition: all 0.3s ease;
 }
 
 .nav-tabs .nav-link.active {
     color: #007bff;
-    background-color: #fff;
-    border-bottom: 2px solid #007bff;
+    background-color: #f8f9fa;
+    border-bottom: 3px solid #007bff;
 }
 
-.avatar img {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    object-fit: cover;
+.tab-icon {
+    font-size: 1.2rem;
 }
 
-.profil img {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    object-fit: cover;
+/* Tab Sections */
+.tab-section {
+    background-color: transparent;
+    border-radius: 8px;
+    padding: 0;
 }
 
-.badge {
-    font-size: 0.65rem;
-    font-weight: 500;
-    padding: 4px 6px;
-}
-
-h3 {
-    font-size: 1.1rem;
-    margin-bottom: 12px;
-}
-
-h5 {
+.tab-section-title {
     font-size: 0.95rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 16px;
+    color: #2c3e50;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+/* Presence Cards */
+.stylish-presence .presence-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    border: 1px solid #e9ecef;
+    border-left: 4px solid #007bff;
+}
+
+.presence-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    color: #2c3e50;
+}
+
+.presence-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.presence-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.presence-icon-container {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.presence-icon-container ion-icon {
+    font-size: 1.1rem;
+}
+
+.presence-info {
+    flex: 1;
+}
+
+.presence-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.presence-time {
+    font-size: 0.9rem;
+    margin: 0;
     font-weight: 600;
 }
 
-/* Icon size adjustments */
-ion-icon {
-    font-size: 1rem;
+.presence-divider {
+    width: 1px;
+    height: 30px;
+    background: #e9ecef;
+    margin: 0 8px;
 }
+
+/* Leaderboard Cards */
+.leaderboard-presence .leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #fff;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    border: 1px solid #e9ecef;
+    border-left: 4px solid #28a745;
+}
+
+.leaderboard-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.leaderboard-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.avatar img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e9ecef;
+}
+
+.user-name {
+    font-size: 0.9rem;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.user-position {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.time-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.badge-ontime {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.badge-late {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1b0b7;
+}
+
+.badge-pulang {
+    background: #ffeaa7;
+    color: #856404;
+    border: 1px solid #ffda6a;
+}
+
+.badge-nopulang {
+    background: #e9ecef;
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.empty-state ion-icon {
+    font-size: 3rem;
+    color: #ced4da;
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    font-size: 0.9rem;
+    margin: 0;
+    color: #6c757d;
+}
+
+
 </style>
 
 @endsection
