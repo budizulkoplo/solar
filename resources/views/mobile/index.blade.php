@@ -274,13 +274,13 @@
     border: none;
     color: #6c757d;
     font-weight: 500;
-    border-radius: 8px 8px 0 0;
-    font-size: 0.75rem;    /* lebih kecil */
-    padding: 4px 6px;      /* tinggi tab lebih rendah */
+    border-radius: 6px 6px 0 0;
+    font-size: 0.7rem;      /* lebih kecil lagi */
+    padding: 2px 4px;       /* tab sangat tipis */
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;              /* ikon & teks rapat */
+    gap: 1px;               /* ikon & teks rapat */
     transition: all 0.3s ease;
 }
 
