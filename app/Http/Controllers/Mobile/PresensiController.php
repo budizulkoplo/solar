@@ -12,137 +12,138 @@ use Illuminate\Support\Facades\Redirect;
 
 class PresensiController extends BaseMobileController
 {
+
     public function create()
     {
-        $user = Auth::user();
         $hariini = date("Y-m-d");
-        $nik = $user->nik;
+        $nik = $this->user->nik;
         $cek = DB::table('presensi')->where('tgl_presensi', $hariini)->where('nik', $nik)->count();
         return view('mobile.presensi.create', compact('cek'));
     }
 
     public function store(Request $request)
-{
-    $nik = Auth::guard('karyawan')->user()->nik;
-    $tgl_presensi = date("Y-m-d");
-    $jam = date("H:i:s");
-    $lokasi = $request->lokasi;
-    $image = $request->image;
+    {
+        $nik = $this->user->nik;
+        $tgl_presensi = date("Y-m-d");
+        $jam = date("H:i:s");
+        $lokasi = $request->lokasi;
+        $image = $request->image;
 
-    if (!$image) {
-        return response()->json(['status' => 'error', 'message' => 'Gambar tidak ditemukan.']);
+        if (!$image) {
+            return response()->json(['status' => 'error', 'message' => 'Gambar tidak ditemukan.']);
+        }
+
+        $formatName = $nik . "-" . $tgl_presensi;
+        $image_parts = explode(";base64", $image);
+        $image_base64 = base64_decode($image_parts[1]);
+        $fileName = $formatName . ".png";
+
+        $file = 'uploads/absensi/' . $fileName;
+
+        // Data untuk disimpan di database
+        $data = [
+            'nik' => $nik,
+            'tgl_presensi' => $tgl_presensi,
+            'jam_in' => $jam,
+            'foto_in' => $fileName,
+            'lokasi' => $lokasi
+        ];
+
+        // Cek apakah sudah ada absen hari ini
+        $cek = DB::table('presensi')->where('tgl_presensi', $tgl_presensi)->where('nik', $nik)->count();
+        if ($cek > 0) {
+            return response()->json(['status' => 'error', 'message' => 'Anda sudah absen hari ini.']);
+        }
+
+        // Simpan data presensi ke database
+        $simpan = DB::table('presensi')->insert($data);
+
+        if ($simpan) {
+            // Simpan gambar ke disk 'public'
+            Storage::disk('public')->put($file, $image_base64);
+            return response()->json(['status' => 'success', 'message' => 'Absen berhasil', 'type' => 'in']);
+        } else {
+            return response()->json(['status' => 'error', 'message' => 'Maaf, Gagal Absen. Silakan Hubungi Bidang IT.']);
+        }
     }
-
-    $formatName = $nik . "-" . $tgl_presensi;
-    $image_parts = explode(";base64", $image);
-    $image_base64 = base64_decode($image_parts[1]);
-    $fileName = $formatName . ".png";
-
-    $file = 'uploads/absensi/' . $fileName;
-
-    // Data untuk disimpan di database
-    $data = [
-        'nik' => $nik,
-        'tgl_presensi' => $tgl_presensi,
-        'jam_in' => $jam,
-        'foto_in' => $fileName,
-        'lokasi' => $lokasi
-    ];
-
-    // Cek apakah sudah ada absen hari ini
-    $cek = DB::table('presensi')->where('tgl_presensi', $tgl_presensi)->where('nik', $nik)->count();
-    if ($cek > 0) {
-        return response()->json(['status' => 'error', 'message' => 'Anda sudah absen hari ini.']);
-    }
-
-    // Simpan data presensi ke database
-    $simpan = DB::table('presensi')->insert($data);
-
-    if ($simpan) {
-        // Simpan gambar ke disk 'public'
-        Storage::disk('public')->put($file, $image_base64);
-        return response()->json(['status' => 'success', 'message' => 'Absen berhasil', 'type' => 'in']);
-    } else {
-        return response()->json(['status' => 'error', 'message' => 'Maaf, Gagal Absen. Silakan Hubungi Bidang IT.']);
-    }
-}
 
     public function  editprofile()
     {
-        $nik = Auth::guard('karyawan')->user()->nik;
+        $nik = $this->user->nik;
         $karyawan = DB::table('karyawan')->where('nik', $nik)->first();
         return view('presensi.editprofile', compact('karyawan'));
     }
 
     public function updateprofile(Request $request)
-{
-    $nik = Auth::guard('karyawan')->user()->nik;
-    $nama_lengkap = $request->nama_lengkap;
-    $no_hp = $request->no_hp;
-    $password = Hash::make($request->password);
-    $karyawan = DB::table('karyawan')->where('nik', $nik)->first();
+    {
+        $nik = $this->user->nik;
+        $nama_lengkap = $request->nama_lengkap;
+        $no_hp = $request->no_hp;
+        $password = Hash::make($request->password);
+        $karyawan = DB::table('karyawan')->where('nik', $nik)->first();
 
-    if ($request->hasFile('foto')) {
-        $foto = $nik . "." . $request->file('foto')->getClientOriginalExtension();
-    
-        $folderPath = 'uploads/karyawan/';
-    
-        // Menyimpan foto di disk 'public'
-        $request->file('foto')->storeAs($folderPath, $foto, 'public');  // Menggunakan disk 'public' tanpa 'public/' di path
-    } else {
-        // Jika tidak ada foto, gunakan foto lama
-        $foto = $karyawan->foto;
-    }    
+        if ($request->hasFile('foto')) {
+            $foto = $nik . "." . $request->file('foto')->getClientOriginalExtension();
+        
+            $folderPath = 'uploads/karyawan/';
+        
+            // Menyimpan foto di disk 'public'
+            $request->file('foto')->storeAs($folderPath, $foto, 'public');  // Menggunakan disk 'public' tanpa 'public/' di path
+        } else {
+            // Jika tidak ada foto, gunakan foto lama
+            $foto = $karyawan->foto;
+        }    
 
-    // data yang akan diupdate
-    if (empty($request->password)) {
-        $data = [
-            'nama_lengkap' => $nama_lengkap,
-            'no_hp' => $no_hp,
-            'foto' => $foto
-        ];
-    } else {
-        $data = [
-            'nama_lengkap' => $nama_lengkap,
-            'no_hp' => $no_hp,
-            'password' => $password,
-            'foto' => $foto
-        ];
+        // data yang akan diupdate
+        if (empty($request->password)) {
+            $data = [
+                'nama_lengkap' => $nama_lengkap,
+                'no_hp' => $no_hp,
+                'foto' => $foto
+            ];
+        } else {
+            $data = [
+                'nama_lengkap' => $nama_lengkap,
+                'no_hp' => $no_hp,
+                'password' => $password,
+                'foto' => $foto
+            ];
+        }
+
+        // update data ke database
+        $update = DB::table('karyawan')->where('nik', $nik)->update($data);
+
+        if ($update) {
+            return Redirect::back()->with(['success' => 'Data Berhasil Di Update']);
+        } else {
+            return Redirect::back()->with(['error' => 'Data Gagal Di Update']);
+        }
     }
 
-    // update data ke database
-    $update = DB::table('karyawan')->where('nik', $nik)->update($data);
-
-    if ($update) {
-        return Redirect::back()->with(['success' => 'Data Berhasil Di Update']);
-    } else {
-        return Redirect::back()->with(['error' => 'Data Gagal Di Update']);
+    public function histori()
+    {
+        $namabulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni","Juli", "Agustus","September", "Oktober", "November", "Desember"];
+        return view('presensi.histori', compact('namabulan'));
     }
-}
 
-public function histori()
-{
-    $namabulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni","Juli", "Agustus","September", "Oktober", "November", "Desember"];
-    return view('presensi.histori', compact('namabulan'));
-}
+    public function gethistori(Request $request)
+    {
+        $bulan = $request->bulan;
+        $tahun = $request->tahun;
+        $nik = $this->user->nik;
 
-public function gethistori(Request $request){
-    $bulan = $request->bulan;
-    $tahun = $request->tahun;
-    $nik = Auth::guard('karyawan')->user()->nik;
+        $histori = DB::table('presensi')
+        ->whereRaw('MONTH(tgl_presensi)="'.$bulan.'"')
+        ->whereRaw('YEAR(tgl_presensi)="'.$tahun.'"')
+        ->where('nik',$nik)
+        ->orderBy('tgl_presensi')
+        ->get();
 
-    $histori = DB::table('presensi')
-    ->whereRaw('MONTH(tgl_presensi)="'.$bulan.'"')
-    ->whereRaw('YEAR(tgl_presensi)="'.$tahun.'"')
-    ->where('nik',$nik)
-    ->orderBy('tgl_presensi')
-    ->get();
-
-    return view('presensi.gethistori', compact('histori'));
-}
+        return view('presensi.gethistori', compact('histori'));
+    }
     public function izin()
     {
-        $nik = Auth::guard('karyawan')->user()->nik;
+        $nik = $this->user->nik;
         $dataizin = DB::table('pengajuan_izin')->where('nik', $nik)->get();
         return view('presensi.izin', compact('dataizin'));
     }
@@ -154,7 +155,7 @@ public function gethistori(Request $request){
 
     public function storeizin(Request $request)
     {
-        $nik = Auth::guard('karyawan')->user()->nik;
+        $nik = $this->user->nik;
         $tgl_izin = $request->tgl_izin;
         $status = $request->status;
         $keterangan = $request->keterangan;
@@ -332,7 +333,7 @@ public function gethistori(Request $request){
     public function cekpengajuanizin(Request $request)
     {
         $tgl_izin = $request->tgl_izin;
-        $nik = Auth::guard('karyawan')->user()->nik;
+        $nik = $this->user->nik;
         
         $cek = DB::table('pengajuan_izin')->where('nik', $nik)->where('tgl_izin', $tgl_izin)->count();;
         return $cek;

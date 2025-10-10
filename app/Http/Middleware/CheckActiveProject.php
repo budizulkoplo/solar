@@ -15,7 +15,7 @@ class CheckActiveProject
             && !$request->is('logout')
             && !$request->is('mobile*')) // <- ubah di sini
         {
-            return redirect()->route('choose.project');
+            return redirect()->route('mobile.home');
         }
 
         return $next($request);

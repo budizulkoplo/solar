@@ -114,13 +114,27 @@
 
         .sticky-absen-btn {
             position: fixed;
-            bottom: 0;
+            bottom: 20px;
             left: 0;
             right: 0;
-            padding: 15px;
-            background-color: white;
-            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 15px;
+        }
+
+        .sticky-absen-btn button {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            gap: 6px;
+            padding: 12px 0;
+            border: none;
+            border-radius: 10px;
+            color: #fff;
         }
 
         .content-wrapper {
@@ -169,11 +183,16 @@
 
 <!-- Sticky Absen Button -->
 <div class="sticky-absen-btn">
-    <button id="takeabsen" class="btn btn-primary btn-block">
+    <button id="takeabsen" class="btn btn-primary">
         <ion-icon name="camera-outline"></ion-icon>
-        Absen Datang
+        Absen Masuk
+    </button>
+    <button id="takeabsen" class="btn btn-danger">
+        <ion-icon name="exit-outline"></ion-icon>
+        Absen Pulang
     </button>
 </div>
+
 
 <audio id="notifikasi_in">
     <source src="{{ asset('assets/sound/notifikasi_in.mp3') }}" type="audio/mpeg">
@@ -311,41 +330,9 @@
         });
     }
 
-    // Validasi form dengan SweetAlert
-    function validateForm() {
-        const judul = $("#judul").val().trim();
-        const pemateri = $("#pemateri").val().trim();
-        let errors = [];
-        
-        if (judul === "") {
-            errors.push("Judul kajian harus diisi");
-        }
-        
-        if (pemateri === "") {
-            errors.push("Nama pemateri harus diisi");
-        }
-        
-        if (errors.length > 0) {
-            Swal.fire({
-                title: 'Form Tidak Lengkap',
-                html: errors.join('<br>'),
-                icon: 'warning',
-                confirmButtonText: 'Mengerti'
-            });
-            return false;
-        }
-        
-        return true;
-    }
-
     // Take Absen
     $("#takeabsen").click(function(e) {
         e.preventDefault();
-        
-        // Validasi form
-        if (!validateForm()) {
-            return;
-        }
         
         if (!lokasiAktif) {
             Swal.fire({
@@ -378,18 +365,14 @@
         
         const imageData = canvas.toDataURL('image/jpeg');
         const lokasi = $("#lokasi").val();
-        const judul = $("#judul").val().trim();
-        const pemateri = $("#pemateri").val().trim();
         
         $.ajax({
             type: 'POST',
-            url: '/presensi/store',
+            url: '/mobile/presensi/store',
             data: {
                 _token: "{{ csrf_token() }}",
                 image: imageData,
-                lokasi: lokasi,
-                judul: judul,
-                pemateri: pemateri
+                lokasi: lokasi
             },
             dataType: 'json',
             success: function(response) {
