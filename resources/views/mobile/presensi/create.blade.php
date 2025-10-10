@@ -74,31 +74,33 @@
 
         .sticky-absen-btn {
             position: fixed;
-            bottom: 20px;
+            bottom: 0;
             left: 0;
             right: 0;
             display: flex;
-            justify-content: center;
-            gap: 10px;
-            padding: 0 15px;
+            justify-content: space-around;
+            padding: 10px 15px;
+            background: #fff;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.15);
+            z-index: 1000;
         }
 
         .sticky-absen-btn button {
             flex: 1;
+            margin: 0 5px;
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 6px;
             font-size: 16px;
             font-weight: 600;
-            gap: 6px;
             padding: 12px 0;
-            border: none;
             border-radius: 10px;
-            color: #fff;
         }
 
+        /* Tambahkan padding bawah pada konten agar tidak tertutup tombol */
         .content-wrapper {
-            padding-bottom: 80px;
+            padding-bottom: 80px; /* Sesuaikan tinggi tombol + jarak */
         }
     </style>
 
