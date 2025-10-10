@@ -225,8 +225,8 @@
     color: #2c3e50;
     font-weight: 600;
     text-align: center;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #f8f9fa;
+    /* Border bottom dihapus */
+    padding-bottom: 0;
 }
 
 /* Stat Cards */
@@ -275,12 +275,12 @@
     color: #6c757d;
     font-weight: 500;
     border-radius: 6px 6px 0 0;
-    font-size: 0.7rem;      /* lebih kecil lagi */
-    padding: 2px 4px;       /* tab sangat tipis */
+    font-size: 0.7rem;
+    padding: 2px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1px;               /* ikon & teks rapat */
+    gap: 1px;
     transition: all 0.3s ease;
 }
 
@@ -307,8 +307,9 @@
     text-align: center;
     margin-bottom: 16px;
     color: #2c3e50;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f1f3f4;
+    /* Border bottom dihapus */
+    padding-bottom: 0;
+    border-bottom: none;
 }
 
 /* Presence Cards */
@@ -491,7 +492,21 @@
     color: #6c757d;
 }
 
+/* Menghilangkan semua garis HR yang tidak diperlukan */
+.listview.image-listview::before,
+.listview.image-listview::after,
+.presence-card::before,
+.presence-card::after,
+.leaderboard-item::before,
+.leaderboard-item::after {
+    display: none !important;
+}
 
+/* Memastikan tidak ada border tambahan */
+.stylish-presence,
+.leaderboard-presence {
+    border: none !important;
+}
 </style>
 
 @endsection
