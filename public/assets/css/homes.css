@@ -10,20 +10,19 @@
     padding-top: 110px; /* Sesuaikan dengan tinggi #user-section */
     }
 
-#user-section {
-    position: fixed; /* agar tidak ikut scroll */
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    background: #0054a6; /* biru formal standar */
-    padding: 20px;
-    border-radius: 0 0 20px 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); /* lebih dalam */
-    color: white;
-    transition: background 0.3s ease-in-out;
-}
-
+    #user-section {
+        position: fixed; /* agar tidak ikut scroll */
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: #0054a6; /* biru formal standar */
+        padding: 20px;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); /* lebih dalam */
+        color: white;
+        transition: background 0.3s ease-in-out;
+    }
 
     #user-detail {
         display: flex;
