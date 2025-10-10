@@ -16,7 +16,8 @@
         $setting = Setting::first();
     @endphp
 
-    <title>{{ $setting->nama_perusahaan ?? '-' }} - {{ !empty($pagetitle) ? $pagetitle : config('app.name', 'Laravel') }}</title>
+    <title>{{ $setting->nama_perusahaan ?? '-' }} - Absensi</title>
+    <link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
     <meta name="description" content="Mobilekit HTML Mobile UI Kit">
     <meta name="keywords" content="bootstrap 4, mobile template, cordova, phonegap, mobile, html" />
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon.png') }}" sizes="32x32">
