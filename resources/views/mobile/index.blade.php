@@ -225,7 +225,6 @@
     color: #2c3e50;
     font-weight: 600;
     text-align: center;
-    /* Border bottom dihapus */
     padding-bottom: 0;
 }
 
@@ -305,31 +304,30 @@
     font-size: 0.95rem;
     font-weight: 600;
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px; /* Dikurangi dari 16px */
     color: #2c3e50;
-    /* Border bottom dihapus */
     padding-bottom: 0;
     border-bottom: none;
 }
 
-/* Presence Cards */
+/* Presence Cards - DIKURANGI JARAKNYA */
 .stylish-presence .presence-card {
     background: #fff;
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    border-radius: 8px; /* Dikurangi dari 10px */
+    padding: 10px 12px; /* Dikurangi dari 16px */
+    margin-bottom: 8px; /* Dikurangi dari 12px */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* Shadow lebih kecil */
     border: 1px solid #e9ecef;
-    border-left: 4px solid #007bff;
+    border-left: 3px solid #007bff; /* Border lebih tipis */
 }
 
 .presence-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px; /* Dikurangi dari 8px */
     font-weight: 600;
-    font-size: 0.85rem;
-    margin-bottom: 12px;
+    font-size: 0.8rem; /* Lebih kecil */
+    margin-bottom: 8px; /* Dikurangi dari 12px */
     color: #2c3e50;
 }
 
@@ -337,28 +335,29 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
-    padding: 8px 0;
+    gap: 8px; /* Dikurangi dari 16px */
+    padding: 4px 0; /* Dikurangi dari 8px 0 */
 }
 
 .presence-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px; /* Dikurangi dari 8px */
     flex: 1;
 }
 
 .presence-icon-container {
     background: #f8f9fa;
-    border-radius: 8px;
-    padding: 6px;
+    border-radius: 6px; /* Lebih kecil */
+    padding: 4px; /* Dikurangi dari 6px */
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 28px; /* Ukuran tetap */
 }
 
 .presence-icon-container ion-icon {
-    font-size: 1.1rem;
+    font-size: 0.9rem; /* Lebih kecil */
 }
 
 .presence-info {
@@ -367,42 +366,44 @@
 
 .presence-label {
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.65rem; /* Lebih kecil */
     color: #6c757d;
     font-weight: 500;
+    margin-bottom: 1px; /* Tambahkan sedikit spacing */
 }
 
 .presence-time {
-    font-size: 0.9rem;
+    font-size: 0.8rem; /* Lebih kecil */
     margin: 0;
     font-weight: 600;
+    line-height: 1.2;
 }
 
 .presence-divider {
     width: 1px;
-    height: 30px;
+    height: 24px; /* Dikurangi dari 30px */
     background: #e9ecef;
-    margin: 0 8px;
+    margin: 0 6px; /* Dikurangi dari 8px */
 }
 
-/* Leaderboard Cards */
+/* Leaderboard Cards - Juga disesuaikan */
 .leaderboard-presence .leaderboard-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 10px 12px; /* Dikurangi dari 12px 16px */
     background: #fff;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    border-radius: 8px;
+    margin-bottom: 8px; /* Dikurangi dari 10px */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     border: 1px solid #e9ecef;
-    border-left: 4px solid #28a745;
+    border-left: 3px solid #28a745;
 }
 
 .leaderboard-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px; /* Dikurangi dari 12px */
     flex: 1;
 }
 
@@ -410,15 +411,15 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 4px;
+    gap: 3px; /* Dikurangi dari 4px */
 }
 
 .avatar img {
-    width: 40px;
-    height: 40px;
+    width: 36px; /* Dikurangi dari 40px */
+    height: 36px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #e9ecef;
+    border: 1px solid #e9ecef; /* Border lebih tipis */
 }
 
 .profil img {
@@ -430,22 +431,24 @@
 }
 
 .user-name {
-    font-size: 0.9rem;
+    font-size: 0.85rem; /* Lebih kecil */
     color: #2c3e50;
     margin: 0;
+    line-height: 1.2;
 }
 
 .user-position {
-    font-size: 0.75rem;
+    font-size: 0.7rem; /* Lebih kecil */
     color: #6c757d;
+    line-height: 1.2;
 }
 
 .time-badge {
-    font-size: 0.7rem;
+    font-size: 0.65rem; /* Lebih kecil */
     font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 6px;
-    min-width: 60px;
+    padding: 3px 6px; /* Dikurangi dari 4px 8px */
+    border-radius: 4px;
+    min-width: 55px; /* Lebih kecil */
     text-align: center;
 }
 
@@ -476,18 +479,18 @@
 /* Empty States */
 .empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 30px 20px; /* Dikurangi dari 40px 20px */
     color: #6c757d;
 }
 
 .empty-state ion-icon {
-    font-size: 3rem;
+    font-size: 2.5rem; /* Lebih kecil */
     color: #ced4da;
-    margin-bottom: 12px;
+    margin-bottom: 8px; /* Dikurangi */
 }
 
 .empty-state p {
-    font-size: 0.9rem;
+    font-size: 0.85rem; /* Lebih kecil */
     margin: 0;
     color: #6c757d;
 }
