@@ -420,6 +420,14 @@
     border: 2px solid #e9ecef;
 }
 
+.profil img {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e9ecef;
+}
+
 .user-name {
     font-size: 0.9rem;
     color: #2c3e50;
