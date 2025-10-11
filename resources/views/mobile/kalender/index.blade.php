@@ -38,11 +38,11 @@ if (!function_exists('secondsToTime')) {
 .status-khusus { font-size: 7px !important; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .libur-nasional { background-color: #ffebee; }
 .minggu { background-color: #fff8e1; }
-.shift-office { background-color: #07b8b2; color: #ffffff }
-.shift-office1 { background-color: #07b8b2; }
-.shift-office2 { background-color: #07b8b2; }
-.shift-pagibangsal { background-color: #07b8b2; }
-.shift-pagi { background-color: #00ffbf; }
+.shift-office { background-color: #007bff; color: #ffffff }
+.shift-office1 { background-color: #007bff; }
+.shift-office2 { background-color: #007bff; }
+.shift-pagibangsal { background-color: #007bff; }
+.shift-pagi { background-color: #007bff; }
 .shift-siang { background-color: #ffbf00; }
 .shift-malam { background-color: #00bfff; }
 .shift-midle { background-color: #ff6699; }
@@ -133,7 +133,7 @@ if (!function_exists('secondsToTime')) {
                                             $formatWaktu = fn($time) => !empty($time) ? \Carbon\Carbon::createFromFormat('H:i:s', $time)->format('H:i') : '-';
                                             $jamMasuk = $formatWaktu($data['jam_masuk'] ?? '');
                                             $jamPulang = $formatWaktu($data['jam_pulang'] ?? '');
-                                            $jamShift = $formatWaktu($data['jam_masuk_shift'] ?? '');
+                                            $jamShift = $formatWaktu('08:00:00');
                                             $lateSeconds = empty($data['status_khusus']) && $jamMasuk && $jamShift && strtotime($jamMasuk) > strtotime($jamShift)
                                                 ? strtotime($jamMasuk) - strtotime($jamShift)
                                                 : 0;
