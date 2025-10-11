@@ -1,4 +1,4 @@
-@extends('layouts.presensi')
+@extends('layouts.mobile')
 @section('header')
    <!-- App Header -->
    <div class="appHeader bg-primary text-light">
@@ -57,7 +57,7 @@
 </div>
 </div>
 <div class="fab-button bottom-right" style="margin-bottom:70px">
-    <a href="/presensi/buatizin" class="fab">
+    <a href="/mobile/presensi/buatizin" class="fab">
     <ion-icon name="add-outline"></ion-icon>
     </a>
 </div>

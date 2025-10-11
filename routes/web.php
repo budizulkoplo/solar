@@ -30,7 +30,7 @@ use App\Http\Controllers\Mobile\DashboardController;
 use App\Http\Controllers\Mobile\MobileProjectController;
 use App\Http\Controllers\Mobile\MobileProfileController;
 use App\Http\Controllers\Mobile\PresensiController;
-
+use App\Http\Controllers\Mobile\KalenderController;
 /*
 |--------------------------------------------------------------------------
 | Routes
@@ -224,8 +224,33 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
 Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.transaksi_armada.')->group(function () {
     Route::get('/create', [PresensiController::class, 'create'])->name('create');
     Route::post('/store', [PresensiController::class, 'store'])->name('store');
-    
 
+    //Izin
+    Route::get('/izin', [PresensiController::class, 'izin']);
+    Route::get('/buatizin', [PresensiController::class, 'buatizin']);
+    Route::post('/storeizin', [PresensiController::class, 'storeizin']);
+    Route::post('/cekpengajuanizin', [PresensiController::class, 'cekpengajuanizin']);
+    
+    //Edit Profile
+    Route::get('/editprofile', [PresensiController::class, 'editprofile']);
+    Route::post('{nik}/updateprofile', [PresensiController::class, 'updateprofile']);
+
+    //Histori
+    Route::get('/histori', [PresensiController::class, 'histori']);
+    Route::post('/gethistori', [PresensiController::class, 'gethistori']);
+});
+
+Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function () {
+    // Dashboard
+    Route::get('/home', [DashboardController::class, 'index'])->name('home');
+    
+    // Modul Kalender
+    Route::prefix('kalender')->name('kalender.')->group(function () {
+        Route::get('/', [KalenderController::class, 'index'])->name('index'); // Tampilan utama kalender
+        Route::post('/', [KalenderController::class, 'index']);
+        Route::get('/lembur', [KalenderController::class, 'lembur'])->name('lembur'); // Halaman lembur
+        Route::get('/statistik', [KalenderController::class, 'statistik'])->name('statistik'); // Statistik per bulan
+    });
 });
 
 require __DIR__ . '/auth.php';

@@ -60,9 +60,11 @@
                 <div class="col-3 mb-2">
                     <div class="card stat-card">
                         <div class="card-body position-relative">
-                            <span class="badge bg-danger position-absolute count-badge">
-                                {{ $data['value'] }}
-                            </span>
+                            @if($data['value'] > 0)
+                                <span class="badge bg-danger position-absolute count-badge">
+                                    {{ $data['value'] }}
+                                </span>
+                            @endif
                             <ion-icon name="{{ $data['icon'] }}" class="text-{{ $data['color'] }} stat-icon"></ion-icon>
                             <br>
                             <span class="stat-label">{{ $data['label'] }}</span>
@@ -74,6 +76,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- Tabs Bulan Ini & Leaderboard -->
 <div class="performance-card">
@@ -168,36 +171,35 @@
                                     @endphp
                                     <li>
                                         <div class="leaderboard-item">
-    <div class="leaderboard-left">
-        <div class="avatar">
-            @if(!empty($d->foto_in))
-                <img src="{{ asset('storage/uploads/absensi/' . $d->foto_in) }}" alt="Foto Absen Masuk" loading="lazy">
-            @else
-                <img src="{{ asset('assets/img/avatar1.jpg') }}" alt="avatar" loading="lazy">
-            @endif
-        </div>
-        <div class="user-info">
-            <b class="user-name">{{ $d->name ?? '-' }}</b>
-            <small class="user-position">{{ $d->jabatan ?? '-' }}</small>
-        </div>
-    </div>
+                                            <div class="leaderboard-left">
+                                                <div class="avatar">
+                                                    @if(!empty($d->foto_in))
+                                                        <img src="{{ asset('storage/uploads/absensi/' . $d->foto_in) }}" alt="Foto Absen Masuk" loading="lazy">
+                                                    @else
+                                                        <img src="{{ asset('assets/img/avatar1.jpg') }}" alt="avatar" loading="lazy">
+                                                    @endif
+                                                </div>
+                                                <div class="user-info">
+                                                    <b class="user-name">{{ $d->name ?? '-' }}</b>
+                                                    <small class="user-position">{{ $d->jabatan ?? '-' }}</small>
+                                                </div>
+                                            </div>
 
-    <div class="leaderboard-right">
-        <div class="time-row">
-            <span class="time-label">Masuk:</span>
-            <span class="time-badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'badge-late' : 'badge-ontime' }}">
-                {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
-            </span>
-        </div>
-        <div class="time-row">
-            <span class="time-label">Pulang:</span>
-            <span class="time-badge {{ $jamPulang ? 'badge-pulang' : 'badge-nopulang' }}">
-                {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : '-' }}
-            </span>
-        </div>
-    </div>
-</div>
-
+                                            <div class="leaderboard-right">
+                                                <div class="time-row">
+                                                    <span class="time-label">Masuk:</span>
+                                                    <span class="time-badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'badge-late' : 'badge-ontime' }}">
+                                                        {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
+                                                    </span>
+                                                </div>
+                                                <div class="time-row">
+                                                    <span class="time-label">Pulang:</span>
+                                                    <span class="time-badge {{ $jamPulang ? 'badge-pulang' : 'badge-nopulang' }}">
+                                                        {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : '-' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </li>
                                 @endforeach
                             @else

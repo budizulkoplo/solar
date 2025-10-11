@@ -1,4 +1,4 @@
-@extends('layouts.presensi')
+@extends('layouts.mobile')
 @section('header')
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/css/materialize.min.css">
 <style>
@@ -24,7 +24,7 @@
 @section('content')
 <div class="row" style="margin-top:70px">
     <div class="col">
-        <form method="POST" action="/presensi/storeizin" id="frmIzin">
+        <form method="POST" action="/mobile/presensi/storeizin" id="frmIzin">
             @csrf
                 <div class="form-group">
                     <input type="text" id="tgl_izin" name="tgl_izin" class="form-control datepicker" placeholder="Tanggal">
@@ -60,7 +60,7 @@ $(document).ready(function() {
     var tgl_izin = $(this).val();
     $.ajax({
         type: 'POST'
-        ,   url: '/presensi/cekpengajuanizin'
+        ,   url: '/mobile/presensi/cekpengajuanizin'
         ,   data: {
             _token: "{{ csrf_token() }}"
             ,   tgl_izin: tgl_izin

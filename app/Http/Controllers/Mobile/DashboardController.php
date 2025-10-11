@@ -17,7 +17,6 @@ class DashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $drawerMenus = $this->getDrawerMenus($user);
 
         $hariIni = Carbon::today()->format('Y-m-d');
         $bulanIni = (int) Carbon::now()->format('m');
@@ -89,7 +88,6 @@ class DashboardController extends Controller
 
         return view('mobile.index', [
             'user' => $user,
-            'drawerMenus' => $drawerMenus,
             'rekapPresensiBulanIni' => $presensiBulanIni,
             'rekappresensi' => $rekapPresensi,
             'rekapizin' => $rekapIzin,
@@ -100,17 +98,4 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Mendapatkan drawer menus untuk user tertentu
-     *
-     * @param \App\Models\User $user
-     * @return \Illuminate\Support\Collection
-     */
-    protected function getDrawerMenus($user)
-    {
-        return DB::table('mobilemenu')
-            ->where('status', 'drawer')
-            ->orderBy('idmenu')
-            ->get();
-    }
 }
