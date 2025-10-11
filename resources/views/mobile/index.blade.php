@@ -168,29 +168,36 @@
                                     @endphp
                                     <li>
                                         <div class="leaderboard-item">
-                                            <div class="leaderboard-left">
-                                                <div class="avatar">
-                                                    @if($d->foto)
-                                                        <img src="{{ asset('storage/foto/' . $d->foto) }}" alt="avatar" loading="lazy">
-                                                    @else
-                                                        <img src="{{ asset('assets/img/avatar1.jpg') }}" alt="avatar" loading="lazy">
-                                                    @endif
-                                                </div>
-                                                <div class="user-info">
-                                                    <b class="user-name">{{ $d->name ?? '-' }}</b>
-                                                    <small class="user-position">{{ $d->jabatan ?? '-' }}</small>
-                                                </div>
-                                            </div>
+    <div class="leaderboard-left">
+        <div class="avatar">
+            @if(!empty($d->foto_in))
+                <img src="{{ asset('storage/uploads/absensi/' . $d->foto_in) }}" alt="Foto Absen Masuk" loading="lazy">
+            @else
+                <img src="{{ asset('assets/img/avatar1.jpg') }}" alt="avatar" loading="lazy">
+            @endif
+        </div>
+        <div class="user-info">
+            <b class="user-name">{{ $d->name ?? '-' }}</b>
+            <small class="user-position">{{ $d->jabatan ?? '-' }}</small>
+        </div>
+    </div>
 
-                                            <div class="leaderboard-right">
-                                                <span class="time-badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'badge-late' : 'badge-ontime' }}">
-                                                    {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
-                                                </span>
-                                                <span class="time-badge {{ $jamPulang ? 'badge-pulang' : 'badge-nopulang' }}">
-                                                    {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : '-' }}
-                                                </span>
-                                            </div>
-                                        </div>
+    <div class="leaderboard-right">
+        <div class="time-row">
+            <span class="time-label">Masuk:</span>
+            <span class="time-badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'badge-late' : 'badge-ontime' }}">
+                {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
+            </span>
+        </div>
+        <div class="time-row">
+            <span class="time-label">Pulang:</span>
+            <span class="time-badge {{ $jamPulang ? 'badge-pulang' : 'badge-nopulang' }}">
+                {{ $jamPulang ? \Carbon\Carbon::parse($jamPulang)->format('H:i') : '-' }}
+            </span>
+        </div>
+    </div>
+</div>
+
                                     </li>
                                 @endforeach
                             @else

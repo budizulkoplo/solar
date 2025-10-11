@@ -61,13 +61,13 @@ class DashboardController extends Controller
         $leaderboard = DB::table('users')
             ->leftJoin('presensi as masuk', function($join) use ($hariIni) {
                 $join->on('users.nik', '=', 'masuk.nik')
-                     ->where('masuk.tgl_presensi', $hariIni)
-                     ->where('masuk.inoutmode', 1);
+                    ->where('masuk.tgl_presensi', $hariIni)
+                    ->where('masuk.inoutmode', 1);
             })
             ->leftJoin('presensi as pulang', function($join) use ($hariIni) {
                 $join->on('users.nik', '=', 'pulang.nik')
-                     ->where('pulang.tgl_presensi', $hariIni)
-                     ->where('pulang.inoutmode', 2);
+                    ->where('pulang.tgl_presensi', $hariIni)
+                    ->where('pulang.inoutmode', 2);
             })
             ->select(
                 'users.nik',
@@ -75,7 +75,9 @@ class DashboardController extends Controller
                 'users.foto',
                 'users.jabatan',
                 'masuk.jam_in as jam_masuk',
-                'pulang.jam_in as jam_pulang'
+                'masuk.foto_in as foto_in', // 🔥 tambahkan ini
+                'pulang.jam_in as jam_pulang',
+                'pulang.foto_in as foto_out' // opsional, kalau kamu juga mau foto pulang
             )
             ->orderBy('masuk.jam_in')
             ->get();
