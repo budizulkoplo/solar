@@ -38,11 +38,11 @@ if (!function_exists('secondsToTime')) {
 .status-khusus { font-size: 7px !important; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .libur-nasional { background-color: #ffebee; }
 .minggu { background-color: #fff8e1; }
-.shift-office { background-color: #007bff; color: #ffffff }
-.shift-office1 { background-color: #007bff; }
-.shift-office2 { background-color: #007bff; }
-.shift-pagibangsal { background-color: #007bff; }
-.shift-pagi { background-color: #007bff; }
+.shift-office { background-color: #0054a6; color: #ffffff }
+.shift-office1 { background-color: #0054a6; }
+.shift-office2 { background-color: #0054a6; }
+.shift-pagibangsal { background-color: #0054a6; }
+.shift-pagi { background-color: #0054a6; }
 .shift-siang { background-color: #ffbf00; }
 .shift-malam { background-color: #00bfff; }
 .shift-midle { background-color: #ff6699; }
