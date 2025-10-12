@@ -1,4 +1,4 @@
-@extends('layouts.presensi')
+@extends('layouts.mobile')
 
 @section('header')
 <!-- App Header -->
@@ -21,9 +21,8 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        <form method="GET" action="{{ route('statistik') }}">
+                        <form method="GET" action="{{ route('mobile.kalender.statistik') }}">
                             <div class="row">
-                                
                                 <div class="col-md-4">
                                     <div class="form-group mb-2">
                                         <input type="month" name="bulan" value="{{ $bulan }}" class="form-control">
@@ -46,7 +45,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <p class="card-title mb-0">Statistik {{ $selectedEmployee->pegawai_nama }}</p>
+                        <p class="card-title mb-0">Statistik {{ $selectedEmployee->name }}</p>
                         <p class="text-muted mb-0 small">{{ \Carbon\Carbon::parse($bulan)->translatedFormat('F Y') }}</p>
                     </div>
                     <div class="card-body">
@@ -61,7 +60,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Total Terlambat -->
                             <div class="col-6 col-md-3 mb-3">
                                 <div class="card bg-light">
@@ -72,32 +71,15 @@
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- Total Lembur -->
-                            <div class="col-6 col-md-3 mb-3">
-                                <div class="card bg-light">
-                                    <div class="card-body py-2">
-                                        <h6 class="mb-1">Total Lembur</h6>
-                                        <h4 class="text-success mb-0">{{ $lemburFormatted }}</h4>
-                                        <small class="text-muted">jam:menit</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3 mb-3">
-                                <div class="card bg-light">
-                                    <div class="card-body py-2">
-                                        <h6 class="mb-1">Double Shift</h6>
-                                        <h4 class="text-danger mb-0">{{ $doubleShift }}</h4>
-                                        <small class="text-muted">hari</small>
-                                    </div>
-                                </div>
-                            </div>
+
+
+
                             <!-- Hari Cuti -->
                             <div class="col-6 col-md-3 mb-3">
                                 <div class="card bg-light">
                                     <div class="card-body py-2">
                                         <h6 class="mb-1">Hari Cuti</h6>
-                                        <h4 class="text-info mb-0">{{ $totalCuti }}</h4>
+                                        <h4 class="text-info mb-0">{{ $jumlahCuti }}</h4>
                                         <small class="text-muted">hari</small>
                                     </div>
                                 </div>
@@ -108,7 +90,7 @@
             </div>
         </div>
 
-        <!-- Waktu Aktual -->
+        <!-- Rata-rata Kehadiran -->
         <div class="row mt-2">
             <div class="col-12">
                 <div class="card">
@@ -141,58 +123,57 @@
                             </span>
                         </div>
                     </div>
-                
-                <div class="alert alert-info mt-3 mb-0">
-                    <small>
-                        <ion-icon name="information-circle-outline"></ion-icon>
-                        Perhitungan berdasarkan {{ $countShiftDays }} hari dengan jadwal shift.
-                        <br>
-                        Masuk: warna hijau = lebih awal, merah = terlambat.
-                        <br>
-                        Pulang: warna hijau = pulang lebih lambat, merah = pulang lebih awal.
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Statistik Grafik -->
-    <div class="row mt-3">
-        <div class="col-md-6 mb-3">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Kehadiran Bulanan</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="chartKehadiran"></canvas>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <small>
+                            <ion-icon name="information-circle-outline"></ion-icon>
+                            Perhitungan berdasarkan {{ $countShiftDays }} hari dengan jadwal shift.
+                            <br>
+                            Masuk: hijau = lebih awal, merah = terlambat.
+                            <br>
+                            Pulang: hijau = lebih lambat, merah = lebih awal.
+                        </small>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6 mb-3">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Tepat Waktu vs Terlambat</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="chartTepatTerlambat"></canvas>
+        <!-- Statistik Grafik -->
+        <div class="row mt-3">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Kehadiran Bulanan</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartKehadiran"></canvas>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="row mt-3">
-        <div class="col-12 mb-3">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Tren Keterlambatan Harian (Menit)</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="chartKeterlambatanHarian"></canvas>
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Tepat Waktu vs Terlambat</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartTepatTerlambat"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+
+        <div class="row mt-3">
+            <div class="col-12 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Tren Keterlambatan Harian (Menit)</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartKeterlambatanHarian"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Detail Hari Kerja -->
         <div class="row mt-2">
@@ -236,6 +217,7 @@
                 </div>
             </div>
         </div>
+
         @else
         <div class="row mt-2">
             <div class="col-12">
@@ -248,11 +230,12 @@
         @endif
     </div>
 </div>
+
 @push('myscript')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
 
     // === 1. Pie Chart Kehadiran ===
     new Chart(document.getElementById('chartKehadiran'), {
@@ -262,9 +245,9 @@
             datasets: [{
                 data: [
                     {{ $totalWorkDays }},
-                    {{ $totalCuti }},
+                    {{ $jumlahCuti }},
                     {{ $totalTugasLuar }},
-                    {{ $totalHariPeriode - ($totalWorkDays + $totalCuti + $totalTugasLuar) }}
+                    {{ $totalHariPeriode - ($totalWorkDays + $jumlahCuti + $totalTugasLuar) }}
                 ],
                 backgroundColor: ['#198754', '#0dcaf0', '#ffc107', '#dc3545'],
             }]
@@ -288,15 +271,8 @@
             }]
         },
         options: {
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    stepSize: 1
-                }
-            }
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, stepSize: 1 } }
         }
     });
 
@@ -315,11 +291,7 @@
             }]
         },
         options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
+            scales: { y: { beginAtZero: true } }
         }
     });
 });

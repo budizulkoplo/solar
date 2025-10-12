@@ -64,40 +64,70 @@ class KalenderController extends BaseMobileController
         $bulan = $this->validateMonth($request->bulan ?? date('Y-m'));
 
         $viewData = [
-            'employees'   => $this->employees,
-            'pegawaiNik'  => $this->pegawaiNik,
-            'bulan'       => $bulan,
+            'employees'  => $this->employees,
+            'pegawaiNik' => $this->pegawaiNik,
+            'bulan'      => $bulan,
         ];
 
         if ($this->selectedEmployee) {
-            $data  = $this->prepareKalenderData($bulan);
+            // Ambil data kalender (sudah termasuk jam_masuk_shift & jam_pulang_shift dari SP)
+            $data = $this->prepareKalenderData($bulan);
+
+            foreach ($data['dataKalender'] as $tgl => &$row) {
+                // Normalisasi shift name
+                $shiftName = strtolower(trim($row['shift'] ?? ''));
+
+                // Jika SP belum kirim jam shift, isi default hanya kalau Office
+                if ($shiftName === 'office') {
+                    $row['jam_masuk_shift']  = $row['jam_masuk_shift']  ?? '08:00:00';
+                    $row['jam_pulang_shift'] = $row['jam_pulang_shift'] ?? '16:00:00';
+                }
+
+                // Normalisasi status_khusus
+                if (!empty($row['status_khusus'])) {
+                    $row['status_khusus'] = trim(strip_tags($row['status_khusus']));
+                }
+            }
+            unset($row);
+
+            // Hitung statistik dasar
             $stats = $this->calculateStatistics($data['dataKalender']);
 
+            // Range periode 26 bulan lalu s.d 25 bulan ini
             $startPeriode     = Carbon::parse($bulan . '-26')->subMonth();
             $endPeriode       = Carbon::parse($bulan . '-25');
             $totalHariPeriode = $startPeriode->diffInDays($endPeriode) + 1;
 
-            // Data grafik keterlambatan
+            // --- Grafik keterlambatan ---
             $chartLabels = [];
             $chartValues = [];
+
             foreach ($data['dataKalender'] as $tgl => $row) {
                 $chartLabels[] = Carbon::parse($tgl)->translatedFormat('d M');
+
                 if (!empty($row['jam_masuk']) && !empty($row['jam_masuk_shift'])) {
                     $masuk = strtotime(strip_tags($row['jam_masuk']));
                     $shift = strtotime($row['jam_masuk_shift']);
-                    $chartValues[] = max(0, round(($masuk - $shift) / 60, 1));
+                    $chartValues[] = max(0, round(($masuk - $shift) / 60, 1)); // menit keterlambatan
                 } else {
                     $chartValues[] = 0;
                 }
             }
 
+            // Normalisasi statistik kosong
             $stats = array_merge([
-                'jumlahTepatWaktu'  => 0,
-                'jumlahTerlambat'   => 0,
-                'jumlahPulangAwal'  => 0,
-                'jumlahPulangLambat'=> 0,
+                'jumlahTepatWaktu'   => 0,
+                'jumlahTerlambat'    => 0,
+                'jumlahPulangAwal'   => 0,
+                'jumlahPulangLambat' => 0,
             ], $stats);
 
+            // Hitung cuti dari status_khusus = 'Cuti'
+            $jumlahCuti = collect($data['dataKalender'])
+                ->filter(fn($item) => isset($item['status_khusus']) && strtolower(trim($item['status_khusus'])) === 'cuti')
+                ->count();
+
+            // Gabungkan semua ke viewData
             $viewData = array_merge($viewData, [
                 'selectedEmployee'   => $this->selectedEmployee,
                 'dataKalender'       => $data['dataKalender'],
@@ -126,6 +156,7 @@ class KalenderController extends BaseMobileController
                 'jumlahTerlambat'    => $stats['jumlahTerlambat'],
                 'jumlahPulangAwal'   => $stats['jumlahPulangAwal'],
                 'jumlahPulangLambat' => $stats['jumlahPulangLambat'],
+                'jumlahCuti'         => $jumlahCuti,
                 'totalHariPeriode'   => $totalHariPeriode,
                 'chartLabels'        => $chartLabels,
                 'chartValues'        => $chartValues,
@@ -307,14 +338,23 @@ class KalenderController extends BaseMobileController
     protected function calculateAverages(array $stats): array
     {
         if ($stats['countShiftDays'] > 0) {
-            $stats['avgSelisihMasuk']  = $stats['totalSelisihMasuk'] / $stats['countShiftDays'];
-            $stats['avgSelisihPulang'] = $stats['totalSelisihPulang'] / $stats['countShiftDays'];
+            $count = $stats['countShiftDays'];
+
+            $stats['avgMasukShift']    = $stats['totalMasukShift'] / $count;
+            $stats['avgPulangShift']   = $stats['totalPulangShift'] / $count;
+            $stats['avgMasukActual']   = $stats['totalMasukActual'] / max(1, $count);
+            $stats['avgPulangActual']  = $stats['totalPulangActual'] / max(1, $count);
+            $stats['avgSelisihMasuk']  = $stats['totalSelisihMasuk'] / $count / 60;   // hasil dalam menit
+            $stats['avgSelisihPulang'] = $stats['totalSelisihPulang'] / $count / 60;  // hasil dalam menit
         } else {
-            $stats['avgSelisihMasuk']  = null;
-            $stats['avgSelisihPulang'] = null;
+            $stats['avgMasukShift'] = $stats['avgPulangShift'] = null;
+            $stats['avgMasukActual'] = $stats['avgPulangActual'] = null;
+            $stats['avgSelisihMasuk'] = $stats['avgSelisihPulang'] = null;
         }
+
         return $stats;
     }
+
 
     protected function initializeStats(): array
     {
@@ -354,18 +394,54 @@ class KalenderController extends BaseMobileController
 
     protected function processLateStats(array &$stats, array $data): void
     {
-        if (!empty($data['jam_masuk']) && empty($data['status_khusus'])) {
-            $masuk = strtotime(strip_tags($data['jam_masuk']));
-            $shift = strtotime('08:00:00');
+        // Hanya hitung jika ada data shift dan jam actual
+        if (!empty($data['jam_masuk_shift']) && !empty($data['jam_pulang_shift'])) {
+            $shiftMasuk = strtotime($data['jam_masuk_shift']);
+            $shiftPulang = strtotime($data['jam_pulang_shift']);
 
-            if ($masuk > $shift) {
-                $stats['terlambat'] += ($masuk - $shift);
-                $stats['jumlahTerlambat']++;
-            } else {
-                $stats['jumlahTepatWaktu']++;
+            $actualMasuk = !empty($data['jam_masuk']) ? strtotime(strip_tags($data['jam_masuk'])) : null;
+            $actualPulang = !empty($data['jam_pulang']) ? strtotime(strip_tags($data['jam_pulang'])) : null;
+
+            // Tambah counter hari shift aktif
+            $stats['countShiftDays']++;
+
+            // --- Selisih Masuk ---
+            if ($actualMasuk) {
+                $selisihMasuk = $actualMasuk - $shiftMasuk;
+                $stats['totalSelisihMasuk'] += $selisihMasuk;
+
+                // Hitung terlambat atau tepat waktu
+                if ($selisihMasuk > 60) { // lebih dari 1 menit
+                    $stats['jumlahTerlambat']++;
+                    $stats['terlambat'] += $selisihMasuk;
+                } elseif ($selisihMasuk <= 60 && $selisihMasuk >= -60) {
+                    $stats['jumlahTepatWaktu']++;
+                }
             }
+
+            // --- Selisih Pulang ---
+            if ($actualPulang) {
+                $selisihPulang = $actualPulang - $shiftPulang;
+                $stats['totalSelisihPulang'] += $selisihPulang;
+
+                // Hitung pulang awal / lambat
+                if ($selisihPulang < -60) {
+                    $stats['jumlahPulangAwal']++;
+                } elseif ($selisihPulang > 60) {
+                    $stats['jumlahPulangLambat']++;
+                    $stats['lembur'] += $selisihPulang;
+                }
+            }
+
+            // Tambahkan ke total jam untuk rata-rata
+            if ($actualMasuk)  $stats['totalMasukActual'] += $actualMasuk;
+            if ($actualPulang) $stats['totalPulangActual'] += $actualPulang;
+
+            $stats['totalMasukShift']  += $shiftMasuk;
+            $stats['totalPulangShift'] += $shiftPulang;
         }
     }
+
 
 
 }
