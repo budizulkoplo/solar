@@ -1,4 +1,4 @@
-@extends('layouts.presensi')
+@extends('layouts.mobile')
 @section('header')
    <!-- App Header -->
    <div class="appHeader bg-primary text-light">
@@ -71,7 +71,7 @@
             var tahun = $("#tahun").val();
             $.ajax({
                 type: 'POST',
-                url: '/gethistori',
+                url: '/mobile/presensi/gethistori',
                 data: {
                     _token: "{{ csrf_token() }}",
                     bulan: bulan,
