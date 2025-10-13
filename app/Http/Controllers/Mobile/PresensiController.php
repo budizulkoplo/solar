@@ -364,48 +364,79 @@ class PresensiController extends BaseMobileController
         return view('mobile.presensi.izinsakit', compact('izinsakit'));
     }
 
-    public function approvedizinsakit(Request $request){
-        $status_approved = $request->status_approved;
-        $id_izinsakit_form = $request->id_izinsakit_form;
-        $update = DB::table('pengajuan_izin')->where('id', $id_izinsakit_form)->update([
+    // Menampilkan semua pengajuan untuk approval (global)
+    public function approvalizin(Request $request)
+    {
+        $query = Pengajuanizin::query();
+        $query->select('pengajuan_izin.*', 'users.name', 'users.jabatan')
+            ->join('users', 'pengajuan_izin.nik', '=', 'users.nik');
+
+        if (!empty($request->status)) {
+            $query->where('status', $request->status);
+        }
+        if (!empty($request->status_approved)) {
+            $query->where('status_approved', $request->status_approved);
+        }
+        if (!empty($request->dari) && !empty($request->sampai)) {
+            $query->whereBetween('tgl_izin', [$request->dari, $request->sampai]);
+        }
+
+        // Filter berdasarkan input bulan (format yyyy-mm)
+        if (!empty($request->bulan)) {
+            $bulan = explode('-', $request->bulan)[1];
+            $tahun = explode('-', $request->bulan)[0];
+            $query->whereYear('tgl_izin', $tahun)
+                ->whereMonth('tgl_izin', $bulan);
+        }
+
+        $query->orderBy('tgl_izin', 'desc');
+        $izinsakit = $query->paginate(50);
+        $izinsakit->appends($request->all());
+
+        return view('mobile.presensi.approvalizin', compact('izinsakit'));
+    }
+
+    // Approve / Decline pengajuan
+    public function approvedizin(Request $request)
+    {
+        $id = $request->id_izinsakit_form;
+        $status_approved = $request->status_approved; // 1: Approve, 2: Decline
+
+        $update = DB::table('pengajuan_izin')->where('id', $id)->update([
             'status_approved' => $status_approved
         ]);
+
         if ($update) {
-            return Redirect::back()->with(['success' => 'Data Berhasil Di Update']);
+            return Redirect::back()->with(['success' => 'Status berhasil diupdate']);
         } else {
-            return Redirect::back()->with(['warning' => 'Data Gagal Di Update']);
+            return Redirect::back()->with(['warning' => 'Gagal mengupdate status']);
         }
     }
 
-    public function batalkanizinsakit($id)
+    // Batalkan approval (set ke pending / 0)
+    public function batalkanizin($id)
     {
         $update = DB::table('pengajuan_izin')->where('id', $id)->update([
             'status_approved' => 0
         ]);
+
         if ($update) {
-            return Redirect::back()->with(['success' => 'Data Berhasil Di Update']);
+            return Redirect::back()->with(['success' => 'Status berhasil dibatalkan']);
         } else {
-            return Redirect::back()->with(['warning' => 'Data Gagal Di Update']);
-        }
-    }
-    
-    public function deleteizinsakit($id)
-    {
-        $delete = DB::table('pengajuan_izin')->where('id', $id)->delete();
-        if ($delete) {
-            return Redirect::back()->with(['success' => 'Data Berhasil Dihapus']);
-        } else {
-            return Redirect::back()->with(['warning' => 'Data Gagal Dihapus']);
+            return Redirect::back()->with(['warning' => 'Gagal membatalkan status']);
         }
     }
 
-    public function cekpengajuanizin(Request $request)
+    // Hapus pengajuan
+    public function hapusizin($id)
     {
-        $tgl_izin = $request->tgl_izin;
-        $nik = $this->user->nik;
-        
-        $cek = DB::table('pengajuan_izin')->where('nik', $nik)->where('tgl_izin', $tgl_izin)->count();;
-        return $cek;
+        $delete = DB::table('pengajuan_izin')->where('id', $id)->delete();
+
+        if ($delete) {
+            return Redirect::back()->with(['success' => 'Data berhasil dihapus']);
+        } else {
+            return Redirect::back()->with(['warning' => 'Gagal menghapus data']);
+        }
     }
     
 }

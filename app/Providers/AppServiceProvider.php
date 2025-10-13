@@ -24,21 +24,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Pastikan hanya force https jika benar-benar di balik proxy
+        // Force HTTPS jika berada di balik proxy
         if (request()->isSecure() || request()->header('x-forwarded-proto') === 'https') {
             URL::forceScheme('https');
         }
 
-        // Pastikan tabel mobilemenu ada agar tidak error di awal migrasi
+        // Pastikan tabel mobilemenu ada
         if (Schema::hasTable('mobilemenu')) {
             View::composer('mobile.*', function ($view) {
-                // Cache hasil query 1 jam
-                $drawerMenus = Cache::remember('drawerMenus', 360, function () {
-                    return DB::table('mobilemenu')
-                        ->where('status', 'drawer')
-                        ->orderBy('idmenu')
-                        ->get();
-                });
+                $userId = auth()->check() ? auth()->user()->id : null;
+
+                // Ambil menu drawer sesuai user
+                $drawerMenus = DB::table('mobilemenu')
+                    ->where('status', 'drawer')
+                    ->orderBy('idmenu')
+                    ->when($userId, function($query) use ($userId) {
+                        $query->where(function($q) use ($userId) {
+                            $q->whereNull('userakses') // menu untuk semua user
+                            ->orWhere('userakses', 'like', "%{$userId}%"); // menu khusus user
+                        });
+                    })
+                    ->get();
 
                 $view->with('drawerMenus', $drawerMenus);
             });

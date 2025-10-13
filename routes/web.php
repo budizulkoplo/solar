@@ -230,7 +230,13 @@ Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.transaksi_a
     Route::get('/buatizin', [PresensiController::class, 'buatizin']);
     Route::post('/storeizin', [PresensiController::class, 'storeizin']);
     Route::post('/cekpengajuanizin', [PresensiController::class, 'cekpengajuanizin']);
-    
+
+    // Approval Izin/Sakit/Cuti
+    Route::get('/approvalizin', [PresensiController::class, 'approvalizin']);
+    Route::post('/approvedizin', [PresensiController::class, 'approvedizin']);
+    Route::post('/batalkanizin/{id}', [PresensiController::class, 'batalkanizin']);
+    Route::delete('/hapusizin/{id}', [PresensiController::class, 'hapusizin']);
+
     //Edit Profile
     Route::get('/editprofile', [PresensiController::class, 'editprofile']);
     Route::post('{nik}/updateprofile', [PresensiController::class, 'updateprofile']);
