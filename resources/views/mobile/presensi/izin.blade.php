@@ -30,11 +30,11 @@
                             $bgColor = '#e8f1ff'; // biru muda lembut
                             $icon = 'bandage-outline';
                             break;
-                        case 'i':
+                        case 'c':
                             $bgColor = '#fde8ec'; // merah muda lembut
                             $icon = 'document-text-outline';
                             break;
-                        case 'c':
+                        case 'i':
                             $bgColor = '#fff7e6'; // kuning lembut
                             $icon = 'calendar-outline';
                             break;
