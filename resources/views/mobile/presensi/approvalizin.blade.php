@@ -24,22 +24,37 @@
     @endif
 
     {{-- Filter --}}
-    <form method="GET" class="mb-3 d-flex flex-wrap gap-2">
-        <select name="status" class="form-control" style="width:auto;">
+<form method="GET" class="mb-3 d-flex flex-wrap gap-2 align-items-end">
+    <div style="flex: 1 1 120px;">
+        <label class="form-label small mb-0">Status</label>
+        <select name="status" class="form-control form-control-sm w-100">
             <option value="">Semua Status</option>
             <option value="i" {{ request('status')=='i'?'selected':'' }}>Izin</option>
             <option value="s" {{ request('status')=='s'?'selected':'' }}>Sakit</option>
             <option value="c" {{ request('status')=='c'?'selected':'' }}>Cuti</option>
         </select>
-        <select name="status_approved" class="form-control" style="width:auto;">
+    </div>
+
+    <div style="flex: 1 1 120px;">
+        <label class="form-label small mb-0">Approval</label>
+        <select name="status_approved" class="form-control form-control-sm w-100">
             <option value="">Semua Approval</option>
             <option value="0" {{ request('status_approved')==='0'?'selected':'' }}>Pending</option>
             <option value="1" {{ request('status_approved')=='1'?'selected':'' }}>Approved</option>
             <option value="2" {{ request('status_approved')=='2'?'selected':'' }}>Declined</option>
         </select>
-        <input type="month" name="bulan" class="form-control" style="width:auto;" value="{{ request('bulan') }}">
-        <button type="submit" class="btn btn-primary">Filter</button>
-    </form>
+    </div>
+
+    <div style="flex: 1 1 140px;">
+        <label class="form-label small mb-0">Bulan</label>
+        <input type="month" name="bulan" class="form-control form-control-sm w-100" value="{{ request('bulan') }}">
+    </div>
+
+    <div style="flex: 0 0 auto;">
+        <button type="submit" class="btn btn-primary btn-sm mt-1">Filter</button>
+    </div>
+</form>
+
 
     @if($izinsakit->count())
         @foreach($izinsakit as $d)
@@ -78,30 +93,27 @@
                     </div>
 
                     {{-- Actions --}}
-                    {{-- Actions --}}
-@if($d->status_approved == 0)
-    <div class="d-flex gap-2">
-        <form action="{{ url('/mobile/presensi/approvedizin') }}" method="POST">
-            @csrf
-            <input type="hidden" name="id_izinsakit_form" value="{{ $d->id }}">
-            <input type="hidden" name="status_approved" value="1">
-            <button type="submit" class="btn btn-success btn-sm">Approve</button>
-        </form>
-        <form action="{{ url('/mobile/presensi/approvedizin') }}" method="POST">
-            @csrf
-            <input type="hidden" name="id_izinsakit_form" value="{{ $d->id }}">
-            <input type="hidden" name="status_approved" value="2">
-            <button type="submit" class="btn btn-danger btn-sm">Decline</button>
-        </form>
-        <form action="{{ url('/mobile/presensi/hapusizin/'.$d->id) }}" method="POST" onsubmit="return confirm('Yakin hapus?');">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-secondary btn-sm">Hapus</button>
-        </form>
-    </div>
-@endif
-
-
+                    @if($d->status_approved == 0)
+                        <div class="d-flex gap-2">
+                            <form action="{{ url('/mobile/presensi/approvedizin') }}" method="POST">
+                                @csrf
+                                <input type="hidden" name="id_izinsakit_form" value="{{ $d->id }}">
+                                <input type="hidden" name="status_approved" value="1">
+                                <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                            </form>
+                            <form action="{{ url('/mobile/presensi/approvedizin') }}" method="POST">
+                                @csrf
+                                <input type="hidden" name="id_izinsakit_form" value="{{ $d->id }}">
+                                <input type="hidden" name="status_approved" value="2">
+                                <button type="submit" class="btn btn-danger btn-sm">Decline</button>
+                            </form>
+                            <form action="{{ url('/mobile/presensi/hapusizin/'.$d->id) }}" method="POST" onsubmit="return confirm('Yakin hapus?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-secondary btn-sm">Hapus</button>
+                            </form>
+                        </div>
+                    @endif
                 </div>
             </div>
         @endforeach
