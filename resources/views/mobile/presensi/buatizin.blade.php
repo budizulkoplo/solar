@@ -8,7 +8,7 @@
     .datepicker-date-display {
         background-color: #0f3a7e !important;
     }
-    </style>
+</style>
    <!-- App Header -->
    <div class="appHeader bg-primary text-light">
         <div class="left">
@@ -16,11 +16,12 @@
                 <ion-icon name="chevron-back-outline"></ion-icon>
             </a>
         </div>
-        <div class="pageTitle">Form Izin</div>
+        <div class="pageTitle">Form Izin / Cuti</div>
         <div class="right"></div>
     </div>
     <!-- * App Header -->
 @endsection
+
 @section('content')
 <div class="row" style="margin-top:70px">
     <div class="col">
@@ -31,9 +32,10 @@
                 </div>
                 <div class="form-group">
                     <select name="status" id="status" class="form-control">
-                        <option value="">Izin / Sakit</option>
+                        <option value="">Izin / Sakit / Cuti</option>
                         <option value="i">Izin</option>
                         <option value="s">Sakit</option>
+                        <option value="c">Cuti</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -42,72 +44,69 @@
                 <div class="form-group">
                     <button class="btn btn-primary w-100">Kirim</button>
                 </div>
-    </form>
-</div>
+        </form>
+    </div>
 </div>  
 @endsection
+
 @push('myscript')
 <script>
-    var currYear = (new Date()).getFullYear();
-
 $(document).ready(function() {
-  $(".datepicker").datepicker({
+    $(".datepicker").datepicker({
+        format: "yyyy/mm/dd"    
+    });
 
-    format: "yyyy/mm/dd"    
-  });
-
-  $("#tgl_izin").change(function(e) {
-    var tgl_izin = $(this).val();
-    $.ajax({
-        type: 'POST'
-        ,   url: '/mobile/presensi/cekpengajuanizin'
-        ,   data: {
-            _token: "{{ csrf_token() }}"
-            ,   tgl_izin: tgl_izin
-        }
-        ,   cache: false
-        ,   success: function(respond) {
-            if (respond == 1) {
-                Swal.fire({
+    $("#tgl_izin").change(function(e) {
+        var tgl_izin = $(this).val();
+        $.ajax({
+            type: 'POST',
+            url: '/mobile/presensi/cekpengajuanizin',
+            data: {
+                _token: "{{ csrf_token() }}",
+                tgl_izin: tgl_izin
+            },
+            cache: false,
+            success: function(respond) {
+                if (respond == 1) {
+                    Swal.fire({
                         title: 'Oopsl !',
-                        text: 'Anda Sudah Melakukan Input Pengajuan Izin Pada Tanggal Tersebut !',
+                        text: 'Anda Sudah Melakukan Input Pengajuan Pada Tanggal Tersebut !',
                         icon: 'warning'
-                }).then((result) => {
-                    $("#tgl_izin").val("");
-                });
+                    }).then((result) => {
+                        $("#tgl_izin").val("");
+                    });
+                }
             }
+        });
+    });
+
+    $('#frmIzin').submit(function(){
+        var tgl_izin = $('#tgl_izin').val();
+        var status = $('#status').val();
+        var keterangan = $('#keterangan').val(); 
+        if (tgl_izin == "") {
+            Swal.fire({
+                title: 'Oopsl !',
+                text: 'Tanggal harus diisi',
+                icon: 'warning'
+            });
+            return false;
+        } else if (status == ""){
+            Swal.fire({
+                title: 'Oopsl !',
+                text: 'Status harus diisi',
+                icon: 'warning'
+            });
+            return false;
+        } else if (keterangan == ""){
+            Swal.fire({
+                title: 'Oopsl !',
+                text: 'Keterangan harus diisi',
+                icon: 'warning'
+            });
+            return false;
         }
     });
-  });
-
-  $('#frmIzin').submit(function(){
-    var tgl_izin = $('#tgl_izin').val();
-    var status = $('#status').val();
-    var keterangan = $('#keterangan').val(); 
-    if (tgl_izin == "") {
-        Swal.fire({
-                    title: 'Oopsl !',
-                    text: 'Tanggal harus diisi',
-                    icon: 'warning'
-       });
-        return false;
-    } else if (status == ""){
-        Swal.fire({
-                    title: 'Oopsl !',
-                    text: 'Status harus diisi',
-                    icon: 'warning'
-       });
-        return false;
-    } else if (Keterangan == ""){
-        Swal.fire({
-                    title: 'Oopsl !',
-                    text: 'Keterangan harus diisi',
-                    icon: 'warning'
-       });
-        return false;
-    }
-  });
 });
-
 </script>
 @endpush
