@@ -24,6 +24,7 @@ use App\Http\Controllers\ProjectSelectionController;
 use App\Http\Controllers\PegawaiController;
 use App\Http\Controllers\CoaController;
 use App\Http\Controllers\NotaController;
+use App\Http\Controllers\HRISController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -96,6 +97,10 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{id}', [PegawaiController::class, 'destroy'])->name('pegawai.destroy'); // untuk hapus
     });
 
+    Route::prefix('hris')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('/absensi', [HRISController::class, 'absensi'])->name('hris.absensi');
+        Route::get('/absensi/getdata', [HRISController::class, 'getAbsensiData'])->name('hris.absensi.getdata');
+    });
 
     // Companies
     Route::prefix('companies')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
