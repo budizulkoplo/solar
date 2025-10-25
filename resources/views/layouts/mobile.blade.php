@@ -53,13 +53,13 @@
         @yield('content')
     </div>
     <!-- * App Capsule -->
-
-    {{-- Hanya tampilkan bottomNav jika bukan halaman presensi/create --}}
-    @if (!request()->is('mobile/presensi/create'))
+    {{-- Hanya tampilkan bottomNav jika bukan halaman presensi/create atau lembur --}}
+    @if (!request()->is('mobile/presensi/create') && !request()->is('mobile/presensi/lembur'))
         @include('layouts.bottomNav')
     @endif
+
     @include('layouts.script')
-    
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const loader = document.getElementById('loader-wrapper');

@@ -34,6 +34,7 @@
             @endphp
             <div id="user-role">{{ $setting->nama_perusahaan ?? 'Perusahaan' }}</div>
             <h3>{{ $user->name ?? 'Nama User' }}</h3>
+            <div id="user-role">Unit: {{ $user->unitkerja?->namaunit ?? '-' }}</div>
         </div>
     </div>
 </div>
@@ -111,6 +112,7 @@
                                         $tglLabel = \Carbon\Carbon::parse($tanggal)->translatedFormat('l, d F Y');
                                         $jamMasuk = $data['masuk']->jam_in ?? null;
                                         $jamPulang = $data['pulang']->jam_in ?? null;
+                                        $jamMasukShift = $data['jam_masuk_shift'];
                                     @endphp
 
                                     <li class="presence-card">
@@ -126,7 +128,7 @@
                                                 </div>
                                                 <div class="presence-info">
                                                     <small class="presence-label">Absen Masuk</small>
-                                                    <h6 class="presence-time {{ $jamMasuk && $jamMasuk > '08:00' ? 'text-danger' : 'text-success' }}">
+                                                    <h6 class="presence-time {{ $jamMasuk && $jamMasuk > $jamMasukShift ? 'text-danger' : 'text-success' }}">
                                                         {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
                                                     </h6>
                                                 </div>
@@ -188,7 +190,7 @@
                                             <div class="leaderboard-right">
                                                 <div class="time-row">
                                                     <span class="time-label">Masuk:</span>
-                                                    <span class="time-badge {{ $jamMasuk && $jamMasuk > '08:00' ? 'badge-late' : 'badge-ontime' }}">
+                                                    <span class="time-badge {{ isset($jamMasukShift) && $jamMasuk && $jamMasuk > $jamMasukShift ? 'badge-late' : 'badge-ontime' }}">
                                                         {{ $jamMasuk ? \Carbon\Carbon::parse($jamMasuk)->format('H:i') : '-' }}
                                                     </span>
                                                 </div>

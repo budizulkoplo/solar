@@ -22,10 +22,19 @@ class User extends Authenticatable implements MustVerifyEmail
      * @var list<string>
      */
     protected $fillable = [
+        'nip',
+        'nik',
+        'username',
         'name',
         'email',
         'password',
-        'username',
+        'jabatan',
+        'id_unitkerja',
+        'tanggal_masuk',
+        'status',
+        'nohp',
+        'alamat',
+        'email_verified_at',
     ];
 
     /**
@@ -61,6 +70,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Project::class, 'user_projects', 'user_id', 'project_id')
                     ->withTimestamps()
                     ->whereNull('user_projects.deleted_at');
+    }
+
+    public function unitkerja()
+    {
+        return $this->belongsTo(UnitKerja::class, 'id_unitkerja');
+    }
+    
+    public function pegawaiDtl()
+    {
+        return $this->hasOne(PegawaiDtl::class, 'nik', 'nik');
     }
 
 }

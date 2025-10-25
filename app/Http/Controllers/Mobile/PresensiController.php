@@ -21,6 +21,14 @@ class PresensiController extends BaseMobileController
         return view('mobile.presensi.create', compact('cek'));
     }
 
+    public function lembur()
+    {
+        $hariini = date("Y-m-d");
+        $nik = $this->user->nik;
+        $cek = DB::table('presensi')->where('tgl_presensi', $hariini)->where('nik', $nik)->count();
+        return view('mobile.presensi.lembur', compact('cek'));
+    }
+
     public function store(Request $request)
     {
         $nik = $this->user->nik;
@@ -28,8 +36,9 @@ class PresensiController extends BaseMobileController
         $jam = date("H:i:s");
         $lokasi = $request->lokasi;
         $image = $request->image;
-        $inoutmode = $request->inoutmode; // 1 = Masuk, 2 = Pulang
+        $inoutmode = (int) $request->inoutmode; // cast ke integer
 
+        // Validasi gambar
         if (!$image) {
             return response()->json([
                 'status' => 'error',
@@ -38,49 +47,57 @@ class PresensiController extends BaseMobileController
         }
 
         // Validasi mode
-        if (!in_array($inoutmode, [1, 2])) {
+        if (!in_array($inoutmode, [1, 2, 3, 4])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Mode presensi tidak valid.'
             ]);
         }
 
-        // Cek apakah sudah ada presensi masuk/pulang
-        $cekMasuk = DB::table('presensi')
+        // Cek presensi sesuai mode
+        $cek = DB::table('presensi')
             ->where('nik', $nik)
             ->where('tgl_presensi', $tgl_presensi)
-            ->where('inoutmode', 1)
+            ->where('inoutmode', $inoutmode)
             ->first();
 
-        $cekPulang = DB::table('presensi')
-            ->where('nik', $nik)
-            ->where('tgl_presensi', $tgl_presensi)
-            ->where('inoutmode', 2)
-            ->first();
-
-        if ($inoutmode == 1 && $cekMasuk) {
+        if ($cek) {
+            $modeText = [
+                1 => 'absen masuk',
+                2 => 'absen pulang',
+                3 => 'lembur masuk',
+                4 => 'lembur pulang'
+            ];
             return response()->json([
                 'status' => 'error',
-                'message' => 'Anda sudah absen masuk hari ini.'
+                'message' => 'Anda sudah melakukan ' . $modeText[$inoutmode] . ' hari ini.'
             ]);
         }
 
-        if ($inoutmode == 2 && !$cekMasuk) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Anda belum melakukan absen masuk hari ini.'
-            ]);
-        }
-
-        if ($inoutmode == 2 && $cekPulang) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Anda sudah absen pulang hari ini.'
-            ]);
+        // Validasi khusus: pulang/lembur hanya jika sebelumnya ada masuk/lembur masuk
+        if (in_array($inoutmode, [2, 4])) { // pulang & lembur out
+            $cekMasuk = DB::table('presensi')
+                ->where('nik', $nik)
+                ->where('tgl_presensi', $tgl_presensi)
+                ->whereIn('inoutmode', [1, 3]) // Masuk atau Lembur In
+                ->first();
+            if (!$cekMasuk) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Anda belum melakukan presensi masuk/lembur sebelumnya.'
+                ]);
+            }
         }
 
         // Simpan foto
-        $formatName = $nik . "-" . $tgl_presensi . "-" . ($inoutmode == 1 ? "in" : "out");
+        $modeFileMap = [
+            1 => 'in',
+            2 => 'out',
+            3 => 'lembur_in',
+            4 => 'lembur_out',
+        ];
+        $formatName = $nik . "-" . $tgl_presensi . "-" . $modeFileMap[$inoutmode];
+
         $image_parts = explode(";base64,", $image);
         if (count($image_parts) < 2) {
             return response()->json([
@@ -88,7 +105,6 @@ class PresensiController extends BaseMobileController
                 'message' => 'Format gambar tidak valid.'
             ]);
         }
-
         $image_base64 = base64_decode($image_parts[1]);
         $fileName = $formatName . ".png";
         $filePath = 'uploads/absensi/' . $fileName;
@@ -110,18 +126,28 @@ class PresensiController extends BaseMobileController
         if ($simpan) {
             Storage::disk('public')->put($filePath, $image_base64);
 
+            $messages = [
+                1 => 'Absen masuk berhasil!',
+                2 => 'Absen pulang berhasil!',
+                3 => 'Lembur masuk berhasil!',
+                4 => 'Lembur pulang berhasil!',
+            ];
+
+            $type = in_array($inoutmode, [1, 3]) ? 'in' : 'out';
+
             return response()->json([
                 'status' => 'success',
-                'message' => $inoutmode == 1 ? 'Absen masuk berhasil!' : 'Absen pulang berhasil!',
-                'type' => $inoutmode == 1 ? 'in' : 'out'
-            ]);
-        } else {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Gagal menyimpan presensi, silakan coba lagi.'
+                'message' => $messages[$inoutmode],
+                'type' => $type
             ]);
         }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal menyimpan presensi, silakan coba lagi.'
+        ]);
     }
+
 
     public function editprofile()
     {
@@ -439,4 +465,100 @@ class PresensiController extends BaseMobileController
         }
     }
     
+    public function cekRadius(Request $request)
+    {
+        $user = auth()->user();
+        $lokasiUser = explode(',', $request->lokasi);
+
+        if (count($lokasiUser) != 2) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Format lokasi tidak valid'
+            ], 400);
+        }
+
+        $latitude = floatval($lokasiUser[0]);
+        $longitude = floatval($lokasiUser[1]);
+
+        $unitKerja = \App\Models\UnitKerja::find($user->id_unitkerja);
+
+        if (!$unitKerja) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unit kerja tidak ditemukan'
+            ], 404);
+        }
+
+        // ✅ Jika lokasi_lock = 0, langsung lolos tanpa cek radius
+        if ($unitKerja->lokasi_lock == 0) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Presensi tanpa batasan lokasi (lokasi_lock=0)'
+            ]);
+        }
+
+        // 🔒 Jika lokasi_lock = 1, maka harus dicek radius
+        if (!$unitKerja->lokasi) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lokasi unit kerja belum diset'
+            ], 404);
+        }
+
+        [$unitLat, $unitLng] = array_map('floatval', explode(',', $unitKerja->lokasi));
+
+        // Hitung jarak dalam meter
+        $earthRadius = 6371000; // meter
+        $latFrom = deg2rad($latitude);
+        $lonFrom = deg2rad($longitude);
+        $latTo = deg2rad($unitLat);
+        $lonTo = deg2rad($unitLng);
+        $latDelta = $latTo - $latFrom;
+        $lonDelta = $lonTo - $lonFrom;
+
+        $angle = 2 * asin(sqrt(
+            pow(sin($latDelta / 2), 2) +
+            cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)
+        ));
+
+        $distance = $earthRadius * $angle;
+
+        if ($distance > 100) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda berada di luar area absensi (' . round($distance, 1) . ' m dari titik unit kerja)'
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Anda berada dalam radius absensi (' . round($distance, 1) . ' m)'
+        ]);
+    }
+
+
+    public function getUnitKerjaLocation(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak terautentikasi'], 401);
+        }
+
+        $unitKerja = \App\Models\UnitKerja::find($user->id_unitkerja);
+        if (!$unitKerja || !$unitKerja->lokasi) {
+            return response()->json(['status' => 'error', 'message' => 'Lokasi unit kerja tidak ditemukan'], 404);
+        }
+
+        [$lat, $lng] = array_map('floatval', explode(',', $unitKerja->lokasi));
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'lat' => $lat,
+                'lng' => $lng,
+                'namaunit' => $unitKerja->namaunit ?? 'Unit Kerja',
+            ]
+        ]);
+    }
+
 }

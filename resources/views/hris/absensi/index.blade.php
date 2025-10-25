@@ -1,229 +1,256 @@
 <x-app-layout>
-    <x-slot name="pagetitle">Laporan Absensi</x-slot>
+    <x-slot name="pagetitle">Plotting Absensi Pegawai</x-slot>
 
     <div class="app-content-header">
         <div class="container-fluid">
-            <h3 class="mb-0">Laporan Absensi Pegawai</h3>
+            <h3 class="mb-0"><i class="bi bi-calendar-check"></i> Plotting Absensi Pegawai</h3>
         </div>
     </div>
 
     <div class="app-content">
         <div class="container-fluid">
+
+            {{-- Filter Periode --}}
+            <div class="card card-info card-outline mb-3">
+                <div class="card-body row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label>Bulan</label>
+                        <select id="bulan" class="form-select form-select-sm">
+                            @for($m=1;$m<=12;$m++)
+                                <option value="{{ $m }}" {{ $m==date('n')?'selected':'' }}>
+                                    {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                                </option>
+                            @endfor
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label>Tahun</label>
+                        <select id="tahun" class="form-select form-select-sm">
+                            @for($y=date('Y')-2;$y<=date('Y')+2;$y++)
+                                <option value="{{ $y }}" {{ $y==date('Y')?'selected':'' }}>{{ $y }}</option>
+                            @endfor
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button id="btnTampil" class="btn btn-sm btn-primary">
+                            <i class="bi bi-search"></i> Tampilkan
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Loading --}}
+            <div id="loading" class="text-center my-4" style="display:none;">
+                <div class="spinner-border text-info" role="status"></div>
+                <p class="mt-2">Memuat data...</p>
+            </div>
+
+            {{-- Tabel --}}
             <div class="card card-info card-outline">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <div>
-                            <label for="bulan" class="form-label me-2">Periode Bulan:</label>
-                            <input type="month" id="bulan" name="bulan" 
-                                   class="form-control form-control-sm d-inline-block"
-                                   style="width: auto;" value="{{ $bulan }}">
+                <div class="card-body table-responsive">
+                    <style>
+                        /* ✅ Sticky Kolom Nama / Unit */
+                        #tblPlotting th, #tblPlotting td {
+                            white-space: nowrap;
+                            min-width: 100px;
+                            text-align: center;
+                            vertical-align: middle;
+                        }
+
+                        #tblPlotting th:first-child,
+                        #tblPlotting td:first-child {
+                            position: sticky;
+                            left: 0;
+                            background: #f8f9fa;
+                            z-index: 2;
+                        }
+
+                        #tblPlotting th:nth-child(2),
+                        #tblPlotting td:nth-child(2) {
+                            position: sticky;
+                            left: 60px;
+                            background: #f8f9fa;
+                            z-index: 2;
+                            text-align: left;
+                        }
+
+                        #tblPlotting {
+                            font-size: 12px;
+                            min-width: 1300px;
+                        }
+                    </style>
+                    <!-- Filter Pencarian Nama -->
+                    <div class="row mb-2">
+                        <div class="col-md-3">
+                            <input type="text" id="searchNama" class="form-control form-control-sm" placeholder="Cari Nama...">
                         </div>
                     </div>
-                    <button id="btnFilter" class="btn btn-sm btn-primary">
-                        <i class="bi bi-funnel"></i> Tampilkan
-                    </button>
-                </div>
-
-                <div class="card-body table-responsive">
-                    <table id="tbabsensi" class="table table-bordered table-striped table-sm nowrap" width="100%">
-                        <thead>
-                            <tr id="thead-row">
-                                <th class="bg-light">No</th>
-                                <th class="bg-light">Nama / Jabatan</th>
-                                {{-- Kolom tanggal akan dibuat dinamis --}}
+                    <table id="tblPlotting" class="table table-bordered table-sm text-center align-middle">
+                        <thead class="table-info">
+                            <tr>
+                                <th style="width:50px;">No</th>
+                                <th style="min-width:200px;">Nama / Unit</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {{-- Data akan diisi oleh DataTable --}}
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
+
         </div>
     </div>
 
     <x-slot name="jscustom">
-    <script>
-    $(document).ready(function () {
-        let currentData = [];
+        <script>
+            function getShiftColor(shift) {
+                switch (shift?.toLowerCase()) {
+                    case 'pagi': return 'bg-success text-white';
+                    case 'siang': return 'bg-warning text-dark';
+                    case 'malam': return 'bg-primary text-white';
+                    case 'libur': return 'bg-secondary text-white';
+                    case 'gs': return 'bg-warning text-dark';
+                    default: return '';
+                }
+            }
 
-        // Format waktu untuk menentukan status
-        function getStatusColor(jamIn, jamOut) {
-            if (jamIn === '-' && jamOut === '-') return '';
-            
-            const jamMasukNormal = '08:00:00';
-            if (jamIn !== '-' && jamIn > jamMasukNormal) return 'bg-warning';
-            
-            return 'bg-success text-white';
-        }
+            function getIzinColor(status) {
+                switch (status?.toUpperCase()) {
+                    case 'IZIN': return 'bg-warning text-white';
+                    case 'SAKIT': return 'bg-info text-dark';
+                    case 'CUTI': return 'bg-danger text-white';
+                    default: return '';
+                }
+            }
 
-        // Custom HTML renderer untuk DataTable
-        function renderAbsensiData(data, type, row) {
-    if (!data || data === '-') return '';
+            function renderHeader(tglList) {
+                let thead = '<tr><th>No</th><th>Nama / Unit</th>';
+                tglList.forEach(d => {
+                    let day = new Date(d);
+                    let tglnum = day.getDate();
+                    let hari = day.toLocaleDateString('id-ID', { weekday: 'short' });
+                    thead += `<th>${tglnum}<br><small>${hari}</small></th>`;
+                });
+                thead += '</tr>';
+                return thead;
+            }
 
-    // Ganti <br> literal dengan <br> HTML
-    const htmlData = data.replace(/<br>/g, '<br>');
-    
-    const parts = data.split('<br>');
-    const jamIn = parts[0] && parts[0] !== '-' ? parts[0] : '-';
-    const jamOut = parts[1] && parts[1] !== '-' ? parts[1] : '-';
-    const statusClass = getStatusColor(jamIn, jamOut);
+            function renderBody(pegawaiData, tglList) {
+                let tbody = '';
+                pegawaiData.forEach((p, i) => {
+                    tbody += `<tr>
+                        <td>${i + 1}</td>
+                        <td class="text-start">
+                            <strong>${p.nama ?? '-'}</strong><br>
+                            <small class="text-muted">${p.unitkerja ?? '-'}</small>
+                        </td>`;
 
-    return `<div class="${statusClass} p-1 rounded" style="font-size:0.75em;">
-                ${htmlData}
-            </div>`;
-}
+                    tglList.forEach(tgl => {
+                        const item = p.hari.find(h => h.tgl === tgl);
+                        const shift = item?.shift ?? '';
+                        const izin = item?.status_izin ?? '';
+                        const izinKet = item?.keterangan_izin ?? '';
 
-        function loadAbsensiTable(bulan) {
-            $.ajax({
-                url: "{{ route('hris.absensi.getdata') }}",
-                data: { bulan: bulan },
-                beforeSend: function() {
-                    if ($.fn.DataTable.isDataTable('#tbabsensi')) {
-                        $('#tbabsensi').DataTable().destroy();
-                    }
-                    $('#tbabsensi tbody').empty();
-                    $('#thead-row').empty().append(
-                        '<th class="bg-light">No</th><th class="bg-light">Nama / Jabatan</th>'
-                    );
-                },
-                success: function(res) {
-                    currentData = res.data || [];
+                        let shiftClass = getShiftColor(shift);
+                        let izinClass = getIzinColor(izin);
 
-                    // Reset header
-                    $('#thead-row').empty();
-                    $('#thead-row').append(
-                        '<th class="bg-light">No</th><th class="bg-light">Nama / Jabatan</th>'
-                    );
+                        // Jika ada izin
+                        if (izin) {
+                            tbody += `
+                                <td style="vertical-align:top; min-width:130px; padding:4px;">
+                                    <div class="${izinClass} fw-bold text-center rounded-pill py-1 mb-1" style="font-size:11px;">
+                                        ${izin}
+                                    </div>
+                                    <div class="text-muted text-start" style="font-size:11px;">${izinKet || '-'}</div>
+                                </td>`;
+                            return;
+                        }
 
-                    if (currentData.length === 0) {
-                        $('#tbabsensi').DataTable({
-                            data: [],
-                            columns: [
-                                { data: 'no', className: 'text-center' },
-                                { data: 'name', defaultContent: '-' }
-                            ],
-                            language: {
-                                emptyTable: "Tidak ada data absensi untuk periode yang dipilih"
-                            },
-                            paging: false,
-                            searching: false,
-                            info: false
-                        });
+                        // Detail presensi
+                        let detail = `
+                            <div style="
+                                display:grid;
+                                grid-template-columns: 55px auto;
+                                gap: 1px 4px;
+                                text-align:left;
+                                font-size:11px;
+                                margin-top:3px;
+                            ">
+                                ${item?.in ? `<div><span class='badge bg-success w-100'>IN</span></div><div>${item.in}</div>` : ''}
+                                ${item?.out ? `<div><span class='badge bg-danger w-100'>OUT</span></div><div>${item.out}</div>` : ''}
+                                ${item?.terlambat > 0 && item?.terlambat_jam ? `<div><i class='bi bi-alarm text-danger'></i></div><div class='text-danger fw-semibold'>${item.terlambat_jam}</div>` : ''}
+                                ${item?.lembur_in ? `<div><span class='badge bg-warning text-dark w-100'>Lmb IN</span></div><div>${item.lembur_in}</div>` : ''}
+                                ${item?.lembur_out ? `<div><span class='badge bg-secondary w-100'>Lmb OUT</span></div><div>${item.lembur_out}</div>` : ''}
+                            </div>
+                        `;
+
+                        if (!item?.in && !item?.out && !item?.lembur_in && !item?.lembur_out && !item?.terlambat_jam) {
+                            detail = `<div class="text-muted text-start" style="font-size:11px; margin-top:3px;">-</div>`;
+                        }
+
+                        tbody += `
+                            <td style="vertical-align:top; min-width:130px; padding:4px;">
+                                <div class="${shiftClass} fw-bold text-center rounded-pill py-1 mb-1" style="font-size:11px;">
+                                    ${shift}
+                                </div>
+                                ${detail}
+                            </td>`;
+                    });
+
+                    tbody += '</tr>';
+                });
+                return tbody;
+            }
+
+            function loadData(bulan, tahun) {
+                $('#loading').show();
+                $.get("{{ route('hris.absensi.getdata') }}", { bulan, tahun }, function(res) {
+                    $('#loading').hide();
+                    if (!res.data || res.data.length === 0) {
+                        Swal.fire('Tidak ada data', 'Periode ini kosong.', 'info');
                         return;
                     }
-
-                    // Ambil kolom tanggal
-                    let firstRow = currentData[0];
-                    let tanggalCols = Object.keys(firstRow).filter(k =>
-                        !['id','user_id','nik','nip','name','jabatan'].includes(k)
-                    );
-
-                    // Urutkan tanggal: 26->31 lalu 01->25
-                    let tanggal26_31 = tanggalCols.filter(n => parseInt(n,10) >= 26)
-                        .sort((a,b) => parseInt(a) - parseInt(b));
-                    let tanggal01_25 = tanggalCols.filter(n => parseInt(n,10) <= 25)
-                        .sort((a,b) => parseInt(a) - parseInt(b));
-                    let sortedCols = [...tanggal26_31, ...tanggal01_25];
-
-                    // Buat header tanggal
-                    sortedCols.forEach(col => {
-                        $('#thead-row').append(
-                            `<th class="text-center bg-light">${col}</th>`
-                        );
-                    });
-
-                    // Columns definition
-                    let columns = [
-                        {
-                            data: null,
-                            render: function(d, type, row, meta) {
-                                return meta.row + 1;
-                            },
-                            className: 'text-center align-middle',
-                            width: '50px',
-                            orderable: false
-                        },
-                        {
-                            data: null,
-                            render: function(d) {
-                                return `<div>
-                                            <div class="fw-semibold">${d.name}</div>
-                                            <div class="text-muted" style="font-size:0.85em;">${d.jabatan || '-'}</div>
-                                        </div>`;
-                            },
-                            className: 'align-middle',
-                            orderable: false
-                        }
-                    ];
-
-                    // Kolom tanggal dengan custom renderer
-                    sortedCols.forEach(col => {
-                        columns.push({
-                            data: col,
-                            className: 'text-center align-middle',
-                            width: '80px',
-                            orderable: false,
-                            render: renderAbsensiData
-                        });
-                    });
-
-                    // Initialize DataTable
-                    $('#tbabsensi').DataTable({
-                        data: currentData,
-                        columns: columns,
-                        scrollX: true,
-                        ordering: false,
-                        paging: false,
-                        searching: true,
-                        info: true,
-                        language: {
-                            search: "Cari:",
-                            zeroRecords: "Tidak ada data yang sesuai",
-                            info: "Menampilkan _TOTAL_ pegawai",
-                            infoEmpty: "Menampilkan 0 pegawai"
-                        },
-                        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>tip'
-                    });
-                },
-                error: function(xhr) {
-                    console.error('Error loading data:', xhr);
-                    alert('Terjadi kesalahan saat memuat data absensi');
-                }
-            });
-        }
-
-        // Filter button
-        $('#btnFilter').click(function () {
-            const bulan = $('#bulan').val();
-            if (!bulan) {
-                alert('Pilih bulan terlebih dahulu');
-                return;
+                    const tglList = res.data[0].hari.map(h => h.tgl);
+                    $('#tblPlotting thead').html(renderHeader(tglList));
+                    $('#tblPlotting tbody').html(renderBody(res.data, tglList));
+                }).fail(() => {
+                    $('#loading').hide();
+                    Swal.fire('Error', 'Gagal memuat data dari server.', 'error');
+                });
             }
-            loadAbsensiTable(bulan);
-        });
 
-        // Load pertama
-        loadAbsensiTable($('#bulan').val());
-    });
-    </script>
+            $(function() {
+                let bulanNow = $('#bulan').val();
+                let tahunNow = $('#tahun').val();
+                loadData(bulanNow, tahunNow);
 
-    <style>
-    .bg-success {
-        background-color: #d4edda !important;
-        color: #155724 !important;
-    }
-    .bg-warning {
-        background-color: #fff3cd !important;
-        color: #856404 !important;
-    }
-    .table th {
-        font-size: 0.8em;
-        padding: 4px 2px;
-    }
-    .table td {
-        padding: 2px;
-    }
-    </style>
+                $('#btnTampil').on('click', function() {
+                    let bulan = $('#bulan').val();
+                    let tahun = $('#tahun').val();
+                    if (!bulan || !tahun) {
+                        Swal.fire('Oops!', 'Pilih bulan dan tahun.', 'warning');
+                        return;
+                    }
+                    loadData(bulan, tahun);
+                });
+            });
+
+            function filterNama() {
+                let keyword = $('#searchNama').val().toLowerCase();
+                $('#tblPlotting tbody tr').each(function(){
+                    let nama = $(this).find('td:nth-child(2)').text().toLowerCase();
+                    if(nama.includes(keyword)){
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            }
+
+            $(function(){
+                // trigger filter saat mengetik
+                $('#searchNama').on('keyup', filterNama);
+            });
+
+        </script>
     </x-slot>
 </x-app-layout>

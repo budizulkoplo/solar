@@ -5,20 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Pengajuanizin extends Model
+class PengajuanIzin extends Model
 {
     use HasFactory;
 
-    protected $table = 'pengajuan_izin'; // nama tabel
-
-    protected $primaryKey = 'id'; // primary key
-    public $timestamps = false; // kalau tidak ada created_at & updated_at
+    protected $table = 'pengajuan_izin';
 
     protected $fillable = [
         'nik',
         'tgl_izin',
-        'status',          // i:izin, s:sakit, c:cuti
+        'status',
         'keterangan',
-        'status_approved', // 0:pending,1:approved,2:declined
+        'status_approved',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'nik', 'nik');
+    }
 }

@@ -25,6 +25,13 @@ use App\Http\Controllers\PegawaiController;
 use App\Http\Controllers\CoaController;
 use App\Http\Controllers\NotaController;
 use App\Http\Controllers\HRISController;
+use App\Http\Controllers\UnitKerjaController;
+use App\Http\Controllers\PlottingUnitKerjaController;
+use App\Http\Controllers\KelompokJamController;
+use App\Http\Controllers\JadwalController;
+use App\Http\Controllers\AbsensiController;
+use App\Http\Controllers\PengajuanIzinController;
+use App\Http\Controllers\PayrollController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -97,9 +104,57 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{id}', [PegawaiController::class, 'destroy'])->name('pegawai.destroy'); // untuk hapus
     });
 
+    Route::prefix('master')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('/unitkerja', [UnitKerjaController::class, 'index'])->name('master.unitkerja');
+        Route::get('/unitkerja/data', [UnitKerjaController::class, 'getdata'])->name('master.unitkerja.data');
+        Route::get('/unitkerja/{id}', [UnitKerjaController::class, 'show'])->name('master.unitkerja.show');
+        Route::post('/unitkerja', [UnitKerjaController::class, 'store'])->name('master.unitkerja.store');
+        Route::delete('/unitkerja/{id}', [UnitKerjaController::class, 'destroy'])->name('master.unitkerja.destroy');
+
+        Route::post('/unitkerja/togglelock', [UnitKerjaController::class, 'toggleLock'])->name('master.unitkerja.togglelock');
+    });
+
+    Route::prefix('master')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('/plotting-unitkerja', [PlottingUnitKerjaController::class, 'index'])->name('plotting.unitkerja');
+        Route::get('/plotting-unitkerja/data', [PlottingUnitKerjaController::class, 'getdata'])->name('plotting.unitkerja.data');
+        Route::post('/plotting-unitkerja/update', [PlottingUnitKerjaController::class, 'updateUnit'])->name('plotting.unitkerja.update');
+    });
+
+    Route::prefix('master')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('kelompokjam', [KelompokJamController::class, 'index'])->name('master.kelompokjam');
+        Route::get('kelompokjam/data', [KelompokJamController::class, 'getdata'])->name('master.kelompokjam.data');
+        Route::post('kelompokjam/store', [KelompokJamController::class, 'store'])->name('master.kelompokjam.store');
+        Route::get('kelompokjam/{id}', [KelompokJamController::class, 'show']);
+        Route::delete('kelompokjam/{id}', [KelompokJamController::class, 'destroy']);
+    });
+
+    Route::prefix('master')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('jadwal', [JadwalController::class, 'index'])->name('master.jadwal');
+        Route::get('jadwal/pegawai', [JadwalController::class, 'getPegawai'])->name('master.jadwal.pegawai');
+        Route::post('jadwal/update', [JadwalController::class, 'updateShift'])->name('master.jadwal.update');
+        Route::post('jadwal/generate', [JadwalController::class, 'generateOtomatis'])->name('master.jadwal.generate');
+    });
+
     Route::prefix('hris')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
-        Route::get('/absensi', [HRISController::class, 'absensi'])->name('hris.absensi');
-        Route::get('/absensi/getdata', [HRISController::class, 'getAbsensiData'])->name('hris.absensi.getdata');
+        Route::get('/absensi', [AbsensiController::class, 'index'])->name('hris.absensi');
+        Route::get('/absensi/getdata', [AbsensiController::class, 'getAbsensiData'])->name('hris.absensi.getdata');
+        Route::get('pengajuan-izin', [PengajuanIzinController::class, 'index'])->name('hris.pengajuanizin');
+        Route::get('pengajuan-izin/data', [PengajuanIzinController::class, 'getdata'])->name('hris.pengajuanizin.data');
+        Route::get('pengajuan-izin/show/{id}', [PengajuanIzinController::class, 'show'])->name('hris.pengajuanizin.show');
+        Route::post('pengajuan-izin/store', [PengajuanIzinController::class, 'store'])->name('hris.pengajuanizin.store');
+        Route::delete('pengajuan-izin/{id}', [PengajuanIzinController::class, 'destroy'])->name('hris.pengajuanizin.destroy');
+        Route::get('pengajuan-izin/select2/pegawai', [PengajuanIzinController::class, 'getPegawaiSelect2'])->name('hris.pengajuanizin.select2pegawai');
+        
+        // Laporan Rekap Absensi
+        Route::get('laporan/rekap-absensi', [LaporanController::class, 'rekapAbsensi'])->name('hris.laporan.rekap_absensi');
+        Route::get('laporan/rekap-absensi/data', [LaporanController::class, 'rekapAbsensiData'])->name('hris.laporan.rekap_absensi.data');
+        Route::post('laporan/rekap-absensi/export-payroll', [LaporanController::class, 'exportPayroll'])->name('hris.laporan.rekap_absensi.export_payroll');
+
+        // === Payroll (Tabel Gaji) ===
+        Route::get('payroll', [PayrollController::class, 'index'])->name('hris.payroll.index');
+        Route::get('payroll/data', [PayrollController::class, 'getData'])->name('hris.payroll.data');
+        Route::post('payroll/update', [PayrollController::class, 'updateManual'])->name('hris.payroll.update_manual');
+        Route::get('payroll/slip/{payroll_id}', [PayrollController::class, 'downloadSlip'])->name('hris.payroll.slip');
     });
 
     // Companies
@@ -116,7 +171,6 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
     });
 
-    
     Route::prefix('coas')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
         Route::get('/', [CoaController::class, 'index'])->name('coas.index');
         Route::get('/getdata', [CoaController::class, 'getData'])->name('coas.getdata');
@@ -226,9 +280,13 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
 });
 
-Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.transaksi_armada.')->group(function () {
+Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.presensi.')->group(function () {
     Route::get('/create', [PresensiController::class, 'create'])->name('create');
     Route::post('/store', [PresensiController::class, 'store'])->name('store');
+    Route::get('/lembur', [PresensiController::class, 'lembur'])->name('lembur');
+    Route::post('/cek-radius', [PresensiController::class, 'cekRadius'])->name('mobile.presensi.cekRadius');
+    Route::get('/get-unitkerja-location', [PresensiController::class, 'getUnitKerjaLocation'])
+            ->name('getUnitKerjaLocation');
 
     //Izin
     Route::get('/izin', [PresensiController::class, 'izin']);
@@ -261,6 +319,12 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
         Route::post('/', [KalenderController::class, 'index']);
         Route::get('/lembur', [KalenderController::class, 'lembur'])->name('lembur'); // Halaman lembur
         Route::get('/statistik', [KalenderController::class, 'statistik'])->name('statistik'); // Statistik per bulan
+    });
+
+    Route::prefix('payroll')->name('payroll.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Mobile\PayrollController::class, 'index'])->name('index');
+        Route::get('/{tahun}/{bulan}', [App\Http\Controllers\Mobile\PayrollController::class, 'detail'])->name('detail');
+        Route::get('/download/{id}', [App\Http\Controllers\Mobile\PayrollController::class, 'downloadSlip'])->name('download');
     });
 });
 

@@ -23,7 +23,28 @@ class DashboardController extends Controller
         $tahunIni = Carbon::now()->format('Y');
         $nik = $user->nik;
 
-        // Presensi bulan ini: group by tanggal
+        // Ambil data jadwal untuk bulan ini sekaligus
+        $startDate = Carbon::create($tahunIni, $bulanIni, 1)->startOfMonth();
+        $endDate = Carbon::create($tahunIni, $bulanIni, 1)->endOfMonth();
+
+        $jadwalBulanIni = DB::table('jadwal')
+            ->where('pegawai_nik', $nik)
+            ->whereBetween('tgl', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->keyBy('tgl');
+
+        // Ambil semua shift yang digunakan untuk mendapatkan jam shift sekaligus
+        $shiftsUsed = $jadwalBulanIni->pluck('shift')->unique()->filter()->values();
+        $jamShiftCollection = collect();
+
+        if ($shiftsUsed->count() > 0) {
+            $jamShiftCollection = DB::table('kelompokjam')
+                ->whereIn('shift', $shiftsUsed)
+                ->get()
+                ->keyBy('shift');
+        }
+
+        // Presensi bulan ini: group by tanggal dengan informasi shift
         $presensiBulanIni = DB::table('presensi')
             ->where('nik', $nik)
             ->whereMonth('tgl_presensi', $bulanIni)
@@ -31,21 +52,30 @@ class DashboardController extends Controller
             ->orderBy('tgl_presensi')
             ->get()
             ->groupBy('tgl_presensi')
-            ->map(function ($items) {
+            ->map(function ($items, $tgl) use ($jadwalBulanIni, $jamShiftCollection) {
+                $jadwalHariIni = $jadwalBulanIni->get($tgl);
+                $shift = $jadwalHariIni->shift ?? '-';
+                
+                $jamShift = null;
+                $jamPulangShift = null;
+                
+                if ($shift && $shift !== '-') {
+                    $shiftData = $jamShiftCollection->get($shift);
+                    $jamShift = $shiftData->jammasuk ?? null;
+                    $jamPulangShift = $shiftData->jampulang ?? null;
+                }
+
                 return [
                     'masuk' => $items->where('inoutmode', 1)->first(),
                     'pulang' => $items->where('inoutmode', 2)->first(),
+                    'shift' => $shift,
+                    'jam_masuk_shift' => $jamShift,
+                    'jam_pulang_shift' => $jamPulangShift,
                 ];
             });
 
-        // Rekap presensi: jumlah hadir & terlambat (hanya absen masuk)
-        $rekapPresensi = DB::table('presensi')
-            ->selectRaw('COUNT(*) as jmlhadir, SUM(IF(jam_in > "08:00",1,0)) as jmlterlambat')
-            ->where('nik', $nik)
-            ->where('inoutmode', 1) // hanya absen masuk
-            ->whereMonth('tgl_presensi', $bulanIni)
-            ->whereYear('tgl_presensi', $tahunIni)
-            ->first();
+        // Hitung rekap presensi berdasarkan jadwal shift
+        $rekapPresensi = $this->calculateRekapPresensi($nik, $bulanIni, $tahunIni);
 
         // Rekap izin & sakit
         $rekapIzin = DB::table('pengajuan_izin')
@@ -56,7 +86,23 @@ class DashboardController extends Controller
             ->where('status_approved', 1)
             ->first();
 
-        // Leaderboard hari ini: gabungkan jam masuk & pulang per user
+        // Ambil jadwal untuk leaderboard hari ini
+        $jadwalHariIni = DB::table('jadwal')
+            ->where('tgl', $hariIni)
+            ->get()
+            ->keyBy('pegawai_nik');
+
+        $shiftsLeaderboard = $jadwalHariIni->pluck('shift')->unique()->filter()->values();
+        $jamShiftLeaderboard = collect();
+
+        if ($shiftsLeaderboard->count() > 0) {
+            $jamShiftLeaderboard = DB::table('kelompokjam')
+                ->whereIn('shift', $shiftsLeaderboard)
+                ->get()
+                ->keyBy('shift');
+        }
+
+        // Leaderboard hari ini dengan informasi shift
         $leaderboard = DB::table('users')
             ->leftJoin('presensi as masuk', function($join) use ($hariIni) {
                 $join->on('users.nik', '=', 'masuk.nik')
@@ -74,12 +120,31 @@ class DashboardController extends Controller
                 'users.foto',
                 'users.jabatan',
                 'masuk.jam_in as jam_masuk',
-                'masuk.foto_in as foto_in', // 🔥 tambahkan ini
+                'masuk.foto_in as foto_in',
                 'pulang.jam_in as jam_pulang',
-                'pulang.foto_in as foto_out' // opsional, kalau kamu juga mau foto pulang
+                'pulang.foto_in as foto_out'
             )
             ->orderBy('masuk.jam_in')
-            ->get();
+            ->get()
+            ->map(function ($item) use ($jadwalHariIni, $jamShiftLeaderboard) {
+                $jadwalUser = $jadwalHariIni->get($item->nik);
+                $shift = $jadwalUser->shift ?? '-';
+                
+                $jamShift = null;
+                $jamPulangShift = null;
+                
+                if ($shift && $shift !== '-') {
+                    $shiftData = $jamShiftLeaderboard->get($shift);
+                    $jamShift = $shiftData->jammasuk ?? null;
+                    $jamPulangShift = $shiftData->jampulang ?? null;
+                }
+
+                return (object) array_merge((array) $item, [
+                    'shift' => $shift,
+                    'jam_masuk_shift' => $jamShift,
+                    'jam_pulang_shift' => $jamPulangShift,
+                ]);
+            });
 
         $namaBulan = [
             "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -98,4 +163,123 @@ class DashboardController extends Controller
         ]);
     }
 
+    /**
+     * Hitung rekap presensi berdasarkan jadwal shift
+     */
+    protected function calculateRekapPresensi(string $nik, int $bulan, int $tahun)
+    {
+        $startDate = Carbon::create($tahun, $bulan, 1)->startOfMonth();
+        $endDate = Carbon::create($tahun, $bulan, 1)->endOfMonth();
+
+        // Ambil data jadwal untuk bulan ini
+        $jadwalCollection = DB::table('jadwal')
+            ->where('pegawai_nik', $nik)
+            ->whereBetween('tgl', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->keyBy('tgl');
+
+        // Ambil data presensi untuk bulan ini
+        $presensiCollection = DB::table('presensi')
+            ->where('nik', $nik)
+            ->whereBetween('tgl_presensi', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('tgl_presensi');
+
+        $jmlHadir = 0;
+        $jmlTerlambat = 0;
+
+        $currentDate = $startDate->copy();
+        while ($currentDate->lte($endDate)) {
+            $tgl = $currentDate->format('Y-m-d');
+            
+            // Cek apakah ada jadwal untuk tanggal ini
+            $jadwal = $jadwalCollection->get($tgl);
+            $shift = $jadwal->shift ?? '-';
+
+            // Cek apakah ada presensi masuk untuk tanggal ini
+            $presensiHariIni = $presensiCollection->get($tgl);
+            $presensiMasuk = $presensiHariIni ? $presensiHariIni->firstWhere('inoutmode', 1) : null;
+
+            if ($presensiMasuk) {
+                $jmlHadir++;
+
+                // Hitung keterlambatan berdasarkan shift
+                if ($shift !== '-' && $shift !== 'libur' && strtolower($shift) !== 'libur') {
+                    // Ambil jam masuk shift dari tabel kelompokjam
+                    $jamShift = DB::table('kelompokjam')
+                        ->where('shift', $shift)
+                        ->first();
+
+                    if ($jamShift && $jamShift->jammasuk) {
+                        $jamMasukShift = $jamShift->jammasuk;
+                        $jamMasukAktual = $presensiMasuk->jam_in;
+
+                        // Hitung keterlambatan
+                        if ($this->isTerlambat($tgl, $jamMasukAktual, $jamMasukShift, $shift)) {
+                            $jmlTerlambat++;
+                        }
+                    }
+                }
+            }
+
+            $currentDate->addDay();
+        }
+
+        return (object) [
+            'jmlhadir' => $jmlHadir,
+            'jmlterlambat' => $jmlTerlambat
+        ];
+    }
+
+    /**
+     * Cek apakah karyawan terlambat berdasarkan shift
+     */
+    protected function isTerlambat(string $tgl, string $jamAktual, string $jamShift, string $shift): bool
+    {
+        try {
+            $shiftStart = Carbon::parse("$tgl $jamShift");
+            $actualTime = Carbon::parse("$tgl $jamAktual");
+
+            // Untuk shift malam (misal 22:00–06:00)
+            $isNightShift = Carbon::parse($jamShift)->hour >= 18 && Carbon::parse($jamShift)->hour <= 23;
+
+            if ($isNightShift) {
+                // Untuk shift malam, tidak dihitung terlambat jika masuk sebelum jam shift
+                // karena mungkin lembur dari hari sebelumnya
+                if ($actualTime->lt($shiftStart) && $actualTime->hour >= 18) {
+                    return false;
+                }
+                
+                // Hitung terlambat hanya jika masuk setelah jam shift
+                if ($actualTime->gt($shiftStart)) {
+                    $diffSeconds = $shiftStart->diffInSeconds($actualTime);
+                    return $diffSeconds > 60; // lebih dari 1 menit
+                }
+                
+                return false;
+            } else {
+                // Untuk shift reguler
+                if ($actualTime->gt($shiftStart)) {
+                    $diffSeconds = $shiftStart->diffInSeconds($actualTime);
+                    return $diffSeconds > 60; // lebih dari 1 menit
+                }
+                
+                return false;
+            }
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Konversi detik ke format jam:menit
+     */
+    protected function secondsToTime(int $seconds): string
+    {
+        $sign = $seconds < 0 ? '-' : '';
+        $seconds = abs($seconds);
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        return sprintf('%s%d:%02d', $sign, $hours, $minutes);
+    }
 }

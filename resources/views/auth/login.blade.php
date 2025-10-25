@@ -6,9 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>LOGIN {{ $setting->nama_perusahaan ?? 'Perusahaan' }}</title>
 
-    <!-- <link rel="icon" type="image/png" href="{{ asset($setting->path_logo ?? 'logo.png') }}"/> -->
-    <link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
-
+    <link rel="icon" type="image/png" href="{{ asset('logosolar.png') }}"/>
     <link href="{{ asset('tabler/dist/css/tabler.min.css') }}" rel="stylesheet"/>
     <link href="{{ asset('tabler/dist/css/tabler-flags.min.css') }}" rel="stylesheet"/>
     <link href="{{ asset('tabler/dist/css/tabler-payments.min.css') }}" rel="stylesheet"/>
@@ -22,33 +20,44 @@
       body {
         font-feature-settings: "cv03", "cv04", "cv11";
       }
-
       .nama-pt {
           color: #1f3236 !important;
           font-weight: 900 !important;
       }
+
+      /* transisi logo */
+      #login-logo {
+        width: 250px;
+        height: auto;
+        transition: opacity 1s ease;
+      }
+      #login-logo.fade {
+        opacity: 0;
+      }
     </style>
   </head>
+
   <body class="d-flex flex-column">
     <script src="{{ asset('tabler/dist/js/demo-theme.min.js') }}"></script>
+
     <div class="page page-center">
       <div class="container container-tight py-4">
         <div class="text-center mb-4">
           <a href="#" class="navbar-brand">
-            <img src="{{ asset($setting->path_logo ?? 'logo.png') }}" height="100" alt="Logo">
+            <!-- logo awal GIF -->
+            <img id="login-logo" src="{{ asset('animsolar.gif') }}" height="150" alt="Logo">
           </a>
         </div>
+
         <div class="card card-md">
           <div class="card-body">
-            <h2 class="nama-pt text-center mb-4">
-                LOGIN
-            </h2>
+            <h2 class="nama-pt text-center mb-4">LOGIN</h2>
+
             {{-- Session status --}}
             @if (session('status'))
-              <div class="alert alert-success">
-                {{ session('status') }}
-              </div>
+              <div class="alert alert-success">{{ session('status') }}</div>
             @endif
+
             {{-- Validation Errors --}}
             @if ($errors->any())
               <div class="alert alert-danger">
@@ -101,11 +110,10 @@
             @endif
           </div>
 
-          {{-- Branding menyatu di dalam card --}}
           <div class="card-footer text-center py-3" style="background-color:#ecf2f8;">
             <img src="{{ asset('piclogo.png') }}" alt="Developer Logo" height="40">
             <p class="text-muted small mb-0 mt-2">
-              &copy; Solar System <b>ERP</b> Project {{ date('Y') }}
+              &copy; PartnerInCode Project {{ date('Y') }}
             </p>
           </div>
         </div>
@@ -114,14 +122,14 @@
 
     <script src="{{ asset('tabler/dist/js/tabler.min.js') }}" defer></script>
     <script>
-      // toggle show/hide password
+      // toggle password
       document.getElementById('toggle-password').addEventListener('click', function(e) {
         e.preventDefault();
         const pw = document.getElementById('password');
         pw.type = pw.type === 'password' ? 'text' : 'password';
       });
 
-      // cegah double submit pada tombol login
+      // cegah double submit
       const loginBtn = document.getElementById('loginBtn');
       if (loginBtn) {
         loginBtn.addEventListener('click', function(e) {
@@ -133,6 +141,19 @@
           this.form.submit();
         });
       }
+
+      // === Ganti GIF ke PNG setelah 5 detik ===
+      window.addEventListener('load', () => {
+        const logo = document.getElementById('login-logo');
+        setTimeout(() => {
+          // efek fade
+          logo.classList.add('fade');
+          setTimeout(() => {
+            logo.src = "{{ asset('logosolar.png') }}";
+            logo.classList.remove('fade');
+          }, 1000); // delay fade-out 1s
+        }, 5000); // tunggu 5 detik sebelum ganti
+      });
     </script>
   </body>
 </html>

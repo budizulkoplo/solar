@@ -3,128 +3,236 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Penerimaan;
-use App\Exports\LaporanPenerimaanExport;
-use App\Models\Barang;
-use App\Models\Unit;
-use Illuminate\Support\Facades\DB;
-use Yajra\DataTables\Facades\DataTables;
+use App\Models\User;
+use App\Models\Presensi;
+use App\Models\Jadwal;
+use App\Models\KelompokJam;
+use App\Models\PengajuanIzin;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http; 
 
 class LaporanController extends Controller
 {
-    public function transaksiArmada(Request $request)
+    // Halaman utama laporan
+    public function rekapAbsensi()
     {
-        $tanggal = $request->get('tanggal', date('Y-m-d'));
-        $project = $request->get('project', 'all');
-
-        $projects = DB::table('projects')->select('id','nama_project')->orderBy('nama_project')->get();
-
-        return view('laporan.transaksi_armada', compact('tanggal','project','projects'));
+        $bulan = now()->format('m');
+        $tahun = now()->format('Y');
+        return view('hris.laporan.rekap_absensi', compact('bulan', 'tahun'));
     }
 
-    public function transaksiArmadaData(Request $request)
+    // Data untuk DataTables (AJAX)
+    public function rekapAbsensiData(Request $request)
     {
-        $tanggal = $request->get('tanggal', date('Y-m-d'));
-        $project = $request->get('project', 'all');
+        $bulan = $request->input('bulan', now()->format('m'));
+        $tahun = $request->input('tahun', now()->format('Y'));
 
-        $query = DB::table('transaksi_armada as t')
-            ->leftJoin('projects as p', 'p.id', '=', 't.project_id')
-            ->leftJoin('armadas as a', 'a.id', '=', 't.armada_id')
-            ->select(
-                't.id',
-                't.tgl_transaksi',
-                'p.nama_project',
-                'a.nopol',
-                't.panjang',
-                't.lebar',
-                't.tinggi',
-                't.plus',
-                't.volume as volume_m3'
-            )
-            ->whereDate('t.tgl_transaksi', $tanggal);
+        $awal = Carbon::createFromDate($tahun, $bulan, 1)->startOfDay();
+        $akhir = $awal->copy()->endOfMonth();
 
-        if ($project != 'all') {
-            $query->where('t.project_id', $project);
+        $pegawaiList = User::with('unitkerja')
+        ->where('status', 'aktif')                // hanya pegawai aktif
+        ->whereHas('pegawaiDtl')                  // hanya yang punya detail pegawai
+        ->get();
+        $data = [];
+
+        foreach ($pegawaiList as $p) {
+            $jadwalCollection = Jadwal::where('pegawai_nik', $p->nik)
+                ->whereBetween('tgl', [$awal, $akhir])
+                ->get()
+                ->keyBy('tgl');
+
+            $presensiCollection = Presensi::where('nik', $p->nik)
+                ->whereBetween('tgl_presensi', [$awal, $akhir])
+                ->get()
+                ->groupBy('tgl_presensi');
+
+            $cutiCount = PengajuanIzin::where('nik', $p->nik)
+                ->whereMonth('tgl_izin', $bulan)
+                ->whereYear('tgl_izin', $tahun)
+                ->where('status', 'c')
+                ->where('status_approved', 1)
+                ->count();
+
+            $jmlAbsensi = 0;
+            $totalTerlambatSeconds = 0;
+            $totalLemburSeconds = 0;
+
+            $cursor = $awal->copy();
+            while ($cursor->lte($akhir)) {
+                $tgl = $cursor->format('Y-m-d');
+                $jadwalRow = $jadwalCollection->get($tgl);
+                $shift = $jadwalRow->shift ?? null;
+                $jam = KelompokJam::firstWhere('shift', $shift);
+                $jammasuk = $jam->jammasuk ?? null;
+
+                $absensiHari = $presensiCollection->get($tgl) ?? collect();
+                $in = optional($absensiHari->firstWhere('inoutmode', 1))->jam_in;
+
+                if ($in) $jmlAbsensi++;
+
+                if ($jammasuk && $in && strtolower($shift) !== 'libur') {
+                    $shiftStart = Carbon::parse("$tgl $jammasuk");
+                    $inDt = Carbon::parse("$tgl $in");
+                    if ($inDt->gt($shiftStart)) {
+                        $totalTerlambatSeconds += $shiftStart->diffInSeconds($inDt);
+                    }
+                }
+
+                $lemburIn = optional($absensiHari->firstWhere('inoutmode', 3))->jam_in;
+                $lemburOut = optional($absensiHari->firstWhere('inoutmode', 4))->jam_in;
+                if ($lemburIn && $lemburOut) {
+                    $inDt = Carbon::parse("$tgl $lemburIn");
+                    $outDt = Carbon::parse("$tgl $lemburOut");
+                    if ($outDt->lt($inDt)) $outDt->addDay();
+                    $totalLemburSeconds += $inDt->diffInSeconds($outDt);
+                }
+
+                $cursor->addDay();
+            }
+
+            $data[] = [
+                'nik' => $p->nik,
+                'nama' => $p->name,
+                'unitkerja' => optional($p->unitkerja)->namaunit ?? '-',
+                'jml_absensi' => $jmlAbsensi,
+                'lembur' => gmdate('H:i', $totalLemburSeconds),
+                'terlambat' => gmdate('H:i', $totalTerlambatSeconds),
+                'cuti' => $cutiCount,
+                'total' => $jmlAbsensi + $cutiCount
+            ];
         }
-
-        $data = $query->orderBy('t.tgl_transaksi','asc')->get();
 
         return response()->json(['data' => $data]);
     }
 
-    public function laporanProject(Request $request)
+    public function exportPayroll(Request $request)
     {
-        // Default start = tgl 1 bulan ini, end = hari ini
-        $start = $request->start_date ?? Carbon::now()->startOfMonth()->format('Y-m-d');
-        $end   = $request->end_date ?? Carbon::now()->format('Y-m-d');
+        $bulan = $request->input('bulan');
+        $tahun = $request->input('tahun');
+        $periode = sprintf('%04d-%02d', $tahun, $bulan);
 
-        $sub = DB::table('transaksi_armada')
-            ->select(
-                'project_id',
-                'armada_id',
-                DB::raw('SUM(volume) as armada_volume'),
-                DB::raw('COUNT(id) as transaksi_count')
-            )
-            ->whereBetween(DB::raw('DATE(tgl_transaksi)'), [$start, $end])
-            ->groupBy('project_id', 'armada_id');
+        // Ambil data rekap absensi
+        $rekapData = $this->rekapAbsensiData($request)->getData()->data;
 
-        $data = DB::table('projects as p')
-            ->joinSub($sub, 't', function($join) {
-                $join->on('p.id', '=', 't.project_id');
-            })
-            ->select(
-                'p.id',
-                'p.nama_project',
-                DB::raw('SUM(t.transaksi_count) as jumlah_input'),
-                DB::raw('ROUND(SUM(t.armada_volume), 2) as total_volume'),
-                DB::raw('ROUND(SUM(t.armada_volume) / SUM(t.transaksi_count), 2) as rata_volume_armada')
-            )
-            ->groupBy('p.id', 'p.nama_project')
-            ->orderBy('p.nama_project')
-            ->get();
+        // Hapus data lama periode yang sama
+        DB::table('payroll')->where('periode', $periode)->delete();
 
-        return view('laporan.project', compact('data', 'start', 'end'));
+        // Ambil data hari libur nasional untuk bulan itu
+        $bulanStr = "$tahun-" . str_pad($bulan, 2, '0', STR_PAD_LEFT);
+        $holidays = $this->filterHolidaysByMonth($bulanStr);
+        $holidayDates = array_keys($holidays);
+
+        foreach ($rekapData as $r) {
+            // Ambil UMK dari unit kerja pegawai
+            $pegawai = User::where('nik', $r->nik)->with('unitkerja')->first();
+            $umk = $pegawai?->unitkerja?->umk ?? 0;
+
+            // Hitung Gaji Pokok (Full hadir atau prorata)
+            $jadwalHariKerja = Jadwal::where('pegawai_nik', $r->nik)
+                ->whereMonth('tgl', $bulan)
+                ->whereYear('tgl', $tahun)
+                ->where('shift', '<>', 'Libur')
+                ->count();
+
+            $hariKerjaAktual = $r->jml_absensi ?? 0;
+            $gajiHarian = $umk / 22;
+            $gajiPokok = ($hariKerjaAktual >= $jadwalHariKerja)
+                ? $umk
+                : $gajiHarian * $hariKerjaAktual;
+
+            // Hitung lembur
+            $totalJamLembur = 0;
+            if (!empty($r->lembur)) {
+                [$jam, $menit] = explode(':', $r->lembur);
+                $totalJamLembur = $jam + ($menit / 60);
+            }
+            $upahPerJam = $umk / 173;
+            $nominalLembur = $totalJamLembur * $upahPerJam;
+
+            // Hitung kerja di hari libur nasional (HLN)
+            $presensiLibur = Presensi::where('nik', $r->nik)
+                ->whereIn('tgl_presensi', $holidayDates)
+                ->get();
+
+            $totalJamHLN = 0;
+            foreach ($presensiLibur as $p) {
+                $in = Carbon::parse($p->jam_in);
+                $out = Carbon::parse($p->created_at);
+                if ($out->lt($in)) $out->addDay();
+                $totalJamHLN += $in->diffInHours($out);
+            }
+
+            $nominalHLN = $totalJamHLN * $upahPerJam;
+
+            // Insert ke tabel payroll
+            DB::table('payroll')->insert([
+                'periode'        => $periode,
+                'nik'            => $r->nik,
+                'nama'           => $r->nama,
+                'jmlabsen'       => $r->jml_absensi,
+                'lembur'         => $r->lembur,
+                'terlambat'      => $r->terlambat,
+                'cuti'           => $r->cuti,
+                'gaji'           => round($gajiPokok, 2),
+                'tunjangan'      => null,
+                'nominallembur'  => round($nominalLembur, 2),
+                'hln'            => round($nominalHLN, 2),
+                'bpjs_kes'       => null,
+                'bpjs_tk'        => null,
+                'kasbon'         => null,
+                'sisakasbon'     => null,
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Data payroll periode $periode berhasil diexport."
+        ]);
     }
 
-    public function laporanVendor(Request $request)
-{
-    // Default start = tgl 1 bulan ini, end = hari ini
-    $start = $request->start_date ?? Carbon::now()->startOfMonth()->format('Y-m-d');
-    $end   = $request->end_date ?? Carbon::now()->format('Y-m-d');
+    // === Holidays ===
+    protected function getNationalHolidays(string $bulan): array
+    {
+        try {
+            $year = date('Y', strtotime($bulan . '-01'));
+            $cacheKey = 'national_holidays_' . $year;
 
-    // Subquery: hitung volume per vendor-armada
-    $sub = DB::table('transaksi_armada as t')
-        ->join('armadas as a', 'a.id', '=', 't.armada_id')
-        ->select(
-            'a.vendor_id',
-            't.armada_id',
-            DB::raw('SUM(t.volume) as armada_volume'),
-            DB::raw('COUNT(t.id) as transaksi_count')
-        )
-        ->whereBetween(DB::raw('DATE(t.tgl_transaksi)'), [$start, $end])
-        ->groupBy('a.vendor_id', 't.armada_id');
+            return cache()->remember($cacheKey, now()->addMonth(), function () use ($year) {
+                $response = Http::timeout(5)->get("https://hari-libur-api.vercel.app/api", [
+                    'year' => $year
+                ]);
 
-    // Agregasi per vendor — rata-rata dibagi jumlah transaksi (bukan jumlah armada)
-    $data = DB::table('vendors as v')
-        ->joinSub($sub, 't', function($join) {
-            $join->on('v.id', '=', 't.vendor_id');
-        })
-        ->select(
-            'v.id',
-            'v.nama_vendor',
-            DB::raw('SUM(t.transaksi_count) as jumlah_input'),                       // total transaksi per vendor
-            DB::raw('ROUND(SUM(t.armada_volume), 2) as total_volume'),               // total volume per vendor
-            DB::raw('ROUND(SUM(t.armada_volume) / NULLIF(SUM(t.transaksi_count), 0), 2) as rata_volume_armada') // rata per transaksi
-        )
-        ->groupBy('v.id', 'v.nama_vendor')
-        ->orderBy('v.nama_vendor')
-        ->get();
+                return $response->ok() ? $this->parseHolidayResponse($response->json()) : [];
+            });
+        } catch (\Exception $e) {
+            logger()->error("Libur API error: " . $e->getMessage());
+            return [];
+        }
+    }
 
-    return view('laporan.vendor', compact('data', 'start', 'end'));
-}
+    protected function parseHolidayResponse(array $holidays): array
+    {
+        $result = [];
+        foreach ($holidays as $holiday) {
+            if (($holiday['is_national_holiday'] ?? false) === true) {
+                $result[$holiday['event_date']] = $holiday['event_name'];
+            }
+        }
+        return $result;
+    }
 
+    protected function filterHolidaysByMonth(string $bulan): array
+    {
+        $holidays = $this->getNationalHolidays($bulan);
+        $selectedMonth = date('m', strtotime($bulan));
+
+        return array_filter($holidays, function ($key) use ($selectedMonth) {
+            return date('m', strtotime($key)) == $selectedMonth;
+        }, ARRAY_FILTER_USE_KEY);
+    }
 
 }
