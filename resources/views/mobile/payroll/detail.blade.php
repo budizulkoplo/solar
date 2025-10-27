@@ -69,7 +69,7 @@
         <small>{{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</small>
     </div>
 
-    <a href="{{ route('mobile.payroll.download', $rekap->id) }}" class="btn btn-outline-primary mt-3 w-100">
+    <a href="{{ route('hris.payroll.slip', $rekap->id) }}" class="btn btn-outline-primary mt-3 w-100">
         <ion-icon name="download-outline"></ion-icon> Download Slip
     </a>
 </div>
