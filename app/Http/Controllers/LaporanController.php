@@ -113,84 +113,102 @@ class LaporanController extends Controller
         $tahun = $request->input('tahun');
         $periode = sprintf('%04d-%02d', $tahun, $bulan);
 
-        // Ambil data rekap absensi
-        $rekapData = $this->rekapAbsensiData($request)->getData()->data;
+        if (!$bulan || !$tahun) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Parameter bulan dan tahun wajib diisi.'
+            ]);
+        }
 
-        // Hapus data lama periode yang sama
+        // Ambil data rekap absensi
+        $rekapData = collect($this->rekapAbsensiData($request)->getData()->data);
+
+        // Ambil semua pegawai aktif
+        $pegawaiList = User::where('status', 'aktif')->get();
+
+        if ($pegawaiList->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => "Tidak ada pegawai aktif untuk periode $periode."
+            ]);
+        }
+
+        // Hapus payroll lama periode yang sama
         DB::table('payroll')->where('periode', $periode)->delete();
 
-        // Ambil data hari libur nasional untuk bulan itu
-        $bulanStr = "$tahun-" . str_pad($bulan, 2, '0', STR_PAD_LEFT);
-        $holidays = $this->filterHolidaysByMonth($bulanStr);
-        $holidayDates = array_keys($holidays);
+        $inserted = 0;
+        $debugLog = [];
 
-        foreach ($rekapData as $r) {
-            // Ambil UMK dari unit kerja pegawai
-            $pegawai = User::where('nik', $r->nik)->with('unitkerja')->first();
-            $umk = $pegawai?->unitkerja?->umk ?? 0;
+        foreach ($pegawaiList as $p) {
+            // Ambil mastergaji terakhir per NIK
+            $gaji = DB::table('mastergaji')
+                ->where('nik', $p->nik)
+                ->whereNull('deleted_at')
+                ->orderByDesc('tgl_aktif')
+                ->first();
 
-            // Hitung Gaji Pokok (Full hadir atau prorata)
-            $jadwalHariKerja = Jadwal::where('pegawai_nik', $r->nik)
-                ->whereMonth('tgl', $bulan)
-                ->whereYear('tgl', $tahun)
-                ->where('shift', '<>', 'Libur')
-                ->count();
-
-            $hariKerjaAktual = $r->jml_absensi ?? 0;
-            $gajiHarian = $umk / 22;
-            $gajiPokok = ($hariKerjaAktual >= $jadwalHariKerja)
-                ? $umk
-                : $gajiHarian * $hariKerjaAktual;
-
-            // Hitung lembur
-            $totalJamLembur = 0;
-            if (!empty($r->lembur)) {
-                [$jam, $menit] = explode(':', $r->lembur);
-                $totalJamLembur = $jam + ($menit / 60);
-            }
-            $upahPerJam = $umk / 173;
-            $nominalLembur = $totalJamLembur * $upahPerJam;
-
-            // Hitung kerja di hari libur nasional (HLN)
-            $presensiLibur = Presensi::where('nik', $r->nik)
-                ->whereIn('tgl_presensi', $holidayDates)
-                ->get();
-
-            $totalJamHLN = 0;
-            foreach ($presensiLibur as $p) {
-                $in = Carbon::parse($p->jam_in);
-                $out = Carbon::parse($p->created_at);
-                if ($out->lt($in)) $out->addDay();
-                $totalJamHLN += $in->diffInHours($out);
+            if (!$gaji) {
+                $debugLog[] = "Mastergaji untuk NIK {$p->nik} tidak ditemukan, dilewati.";
+                continue;
             }
 
-            $nominalHLN = $totalJamHLN * $upahPerJam;
+            // Ambil data rekap absensi per pegawai
+            $rekap = $rekapData->firstWhere('nik', $p->nik);
 
-            // Insert ke tabel payroll
-            DB::table('payroll')->insert([
-                'periode'        => $periode,
-                'nik'            => $r->nik,
-                'nama'           => $r->nama,
-                'jmlabsen'       => $r->jml_absensi,
-                'lembur'         => $r->lembur,
-                'terlambat'      => $r->terlambat,
-                'cuti'           => $r->cuti,
-                'gaji'           => round($gajiPokok, 2),
-                'tunjangan'      => null,
-                'nominallembur'  => round($nominalLembur, 2),
-                'hln'            => round($nominalHLN, 2),
-                'bpjs_kes'       => null,
-                'bpjs_tk'        => null,
-                'kasbon'         => null,
-                'sisakasbon'     => null,
-                'created_at'     => now(),
-                'updated_at'     => now(),
-            ]);
+            $jmlabsen  = $rekap->jml_absensi ?? 0;
+            $lembur    = $rekap->lembur ?? '00:00:00';
+            $terlambat = $rekap->terlambat ?? '00:00:00';
+            $cuti      = $rekap->cuti ?? 0;
+
+            // Hitung total pendapatan
+            $totalPendapatan = ($gaji->gajipokok ?? 0)
+                            + ($gaji->masakerja ?? 0)
+                            + ($gaji->komunikasi ?? 0)
+                            + ($gaji->transportasi ?? 0)
+                            + ($gaji->konsumsi ?? 0)
+                            + ($gaji->tunj_asuransi ?? 0)
+                            + ($gaji->jabatan ?? 0)
+                            + ($gaji->pek_tambahan ?? 0);
+
+            // Hitung zakat 2.5%
+            $zakat = round($totalPendapatan * 0.025, 2);
+
+            // Siapkan data insert payroll
+            $data = [
+                'periode'       => $periode,
+                'nik'           => $p->nik,
+                'nama'          => $p->name,
+                'jmlabsen'      => $jmlabsen,
+                'lembur'        => $lembur,
+                'terlambat'     => $terlambat,
+                'cuti'          => $cuti,
+                'gajipokok'     => round($gaji->gajipokok ?? 0, 2),
+                'pek_tambahan'  => round($gaji->pek_tambahan ?? 0, 2),
+                'masakerja'     => round($gaji->masakerja ?? 0, 2),
+                'komunikasi'    => round($gaji->komunikasi ?? 0, 2),
+                'transportasi'  => round($gaji->transportasi ?? 0, 2),
+                'konsumsi'      => round($gaji->konsumsi ?? 0, 2),
+                'tunj_asuransi' => round($gaji->tunj_asuransi ?? 0, 2),
+                'jabatan'       => round($gaji->jabatan ?? 0, 2),
+                'cicilan'       => 0,
+                'asuransi'      => round($gaji->asuransi ?? 0, 2),
+                'zakat'         => $zakat,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ];
+
+            try {
+                DB::table('payroll')->insert($data);
+                $inserted++;
+            } catch (\Exception $e) {
+                $debugLog[] = "Gagal insert NIK {$p->nik}: " . $e->getMessage();
+            }
         }
 
         return response()->json([
             'success' => true,
-            'message' => "Data payroll periode $periode berhasil diexport."
+            'message' => "Data payroll periode $periode berhasil diexport. ($inserted pegawai)",
+            'log'     => $debugLog,
         ]);
     }
 

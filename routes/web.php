@@ -32,6 +32,7 @@ use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\PengajuanIzinController;
 use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\MasterGajiController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -133,6 +134,15 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('jadwal/pegawai', [JadwalController::class, 'getPegawai'])->name('master.jadwal.pegawai');
         Route::post('jadwal/update', [JadwalController::class, 'updateShift'])->name('master.jadwal.update');
         Route::post('jadwal/generate', [JadwalController::class, 'generateOtomatis'])->name('master.jadwal.generate');
+    });
+
+    Route::prefix('master')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {
+        Route::get('gaji', [MasterGajiController::class, 'index'])->name('master.gaji');
+        Route::get('gaji/pegawai', [MasterGajiController::class, 'getPegawai'])->name('master.gaji.pegawai');
+        Route::get('gaji/riwayat/{nik}', [MasterGajiController::class, 'riwayat'])->name('master.gaji.riwayat');
+        Route::post('gaji/store', [MasterGajiController::class, 'store'])->name('master.gaji.store');
+        Route::delete('gaji/{id}', [MasterGajiController::class, 'destroy'])->name('master.gaji.destroy');
+        Route::put('gaji/{id}', [MasterGajiController::class, 'update'])->name('master.gaji.update');
     });
 
     Route::prefix('hris')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {

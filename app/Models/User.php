@@ -82,4 +82,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(PegawaiDtl::class, 'nik', 'nik');
     }
 
+    public function mastergaji()
+    {
+        return $this->hasMany(MasterGaji::class, 'nik', 'nik');
+    }
+
 }

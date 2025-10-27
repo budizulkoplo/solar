@@ -19,13 +19,23 @@ class Payroll extends Model
         'lembur',
         'terlambat',
         'cuti',
-        'gaji',
-        'tunjangan',
-        'nominallembur',
-        'hln',
-        'bpjs_kes',
-        'bpjs_tk',
-        'kasbon',
-        'sisakasbon',
+        'gajipokok',
+        'pek_tambahan',
+        'masakerja',
+        'komunikasi',
+        'transportasi',
+        'konsumsi',
+        'tunj_asuransi',
+        'jabatan',
+        'cicilan',
+        'asuransi',
+        'zakat',
+        'created_at',
+        'updated_at',
     ];
+
+    public function user()
+        {
+            return $this->belongsTo(User::class, 'nik', 'nik');
+        }
 }

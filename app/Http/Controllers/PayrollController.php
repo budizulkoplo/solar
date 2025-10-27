@@ -4,12 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Payroll;
-use App\Models\User;
 use App\Models\UnitKerja;
-use App\Models\Jadwal;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use PDF; 
+use PDF;
 
 class PayrollController extends Controller
 {
@@ -27,85 +23,93 @@ class PayrollController extends Controller
 
         $periode = sprintf('%04d-%02d', $tahun, $bulan);
 
-        $query = Payroll::query()
-            ->select('payroll.*', 'usr.nip', 'usr.name as nama', 'u.company_name')
-            ->leftJoin('users as usr', 'usr.nik', '=', 'payroll.nik')
-            ->leftJoin('unitkerja as u', 'u.id', '=', 'usr.id_unitkerja')
-            ->where('periode', $periode);
+        $query = Payroll::query()->where('periode', $periode);
 
         if ($unit_id) {
-            $query->where('u.id', $unit_id);
+            $query->whereHas('user', function($q) use ($unit_id){
+                $q->where('id_unitkerja', $unit_id);
+            });
         }
 
-        $data = $query->get();
+        $data = $query->get()->map(function($r) {
+            // Total pendapatan = semua komponen gaji
+            $totalPendapatan = ($r->gajipokok ?? 0) 
+                              + ($r->pek_tambahan ?? 0)
+                              + ($r->masakerja ?? 0)
+                              + ($r->komunikasi ?? 0)
+                              + ($r->transportasi ?? 0)
+                              + ($r->konsumsi ?? 0)
+                              + ($r->tunj_asuransi ?? 0)
+                              + ($r->jabatan ?? 0);
+
+            // Total potongan = cicilan + asuransi + zakat
+            $totalPotongan = ($r->cicilan ?? 0) + ($r->asuransi ?? 0) + ($r->zakat ?? 0);
+
+            $jumlah = $totalPendapatan - $totalPotongan;
+
+            return [
+                'id' => $r->id,
+                'nik' => $r->nik,
+                'nip' => $r->user->nip ?? null,
+                'nama' => $r->nama,
+                'jmlabsen' => $r->jmlabsen,
+                'lembur' => $r->lembur,
+                'terlambat' => $r->terlambat,
+                'cuti' => $r->cuti,
+                'gajipokok' => $r->gajipokok,
+                'pek_tambahan' => $r->pek_tambahan,
+                'masakerja' => $r->masakerja,
+                'komunikasi' => $r->komunikasi,
+                'transportasi' => $r->transportasi,
+                'konsumsi' => $r->konsumsi,
+                'tunj_asuransi' => $r->tunj_asuransi,
+                'jabatan' => $r->jabatan,
+                'cicilan' => $r->cicilan,
+                'asuransi' => $r->asuransi,
+                'zakat' => $r->zakat,
+                'totalPendapatan' => $totalPendapatan,
+                'totalPotongan' => $totalPotongan,
+                'jumlah' => $jumlah,
+            ];
+        });
 
         return response()->json(['data' => $data]);
     }
 
-    // konversi time H:i ke jam desimal
-    private function timeToHours($time)
-    {
-        [$h, $m] = explode(':', $time);
-        return $h + ($m / 60);
-    }
-
-    // === fungsi hari libur ===
-    protected function getNationalHolidays(string $bulan): array
-    {
-        try {
-            $year = date('Y', strtotime($bulan . '-01'));
-            $response = \Http::timeout(5)->get("https://hari-libur-api.vercel.app/api", [
-                'year' => $year
-            ]);
-            return $response->ok() ? $this->parseHolidayResponse($response->json()) : [];
-        } catch (\Exception $e) {
-            return [];
-        }
-    }
-
-    protected function parseHolidayResponse(array $holidays): array
-    {
-        $result = [];
-        foreach ($holidays as $holiday) {
-            if (($holiday['is_national_holiday'] ?? false) === true) {
-                $result[$holiday['event_date']] = $holiday['event_name'];
-            }
-        }
-        return $result;
-    }
-
-    protected function filterHolidaysByMonth(string $bulan): array
-    {
-        $holidays = $this->getNationalHolidays($bulan);
-        $selectedMonth = date('m', strtotime($bulan));
-
-        return array_filter($holidays, function ($key) use ($selectedMonth) {
-            return date('m', strtotime($key)) == $selectedMonth;
-        }, ARRAY_FILTER_USE_KEY);
-    }
-
     public function updateManual(Request $request)
     {
-        $value = (float) str_replace(',', '', $request->value); // pastikan numeric
-        \DB::table('payroll')
-            ->where('nik', $request->nik)
-            ->update([$request->field => $value]);
+        $data = [$request->field => (float) str_replace(',', '', $request->value)];
+        if($request->has('zakat')){
+            $data['zakat'] = (float) str_replace(',', '', $request->zakat);
+        }
+
+        Payroll::where('nik', $request->nik)
+            ->update($data);
 
         return response()->json(['success' => true]);
     }
 
-    public function downloadSlip($payroll_id)
-    {
-        $rekap = Payroll::findOrFail($payroll_id);
-        $pegawai = \DB::table('pegawai_dtl')->where('nik', $rekap->nik)->first();
-        $user = \DB::table('users')->where('nik', $rekap->nik)->first();
-        $unitkerja = \DB::table('unitkerja')->where('id', $user->id_unitkerja)->first();
-        $setting = \DB::table('setting')->first();
-        $periode = $rekap->periode;
+public function downloadSlip($payroll_id)
+{
+    $rekap = Payroll::with('user.unitKerja')->findOrFail($payroll_id);
+    
+    // Ambil unit kerja user
+    $unit = $rekap->user->unitKerja ?? null;
 
-        $pdf = PDF::loadView('hris.payroll.slip_gaji', compact('rekap','user','pegawai','setting','periode','unitkerja'))
-        ->setPaper([0, 0, 226.77, 600], 'portrait');
-        return $pdf->download('SlipGaji_'.$pegawai->nama.'_'.date('Ym', strtotime($periode)).'.pdf');
-    }
+    $setting = [
+        'company_name' => $unit->company_name ?? 'Perusahaan',
+        'npwp' => $unit->npwp ?? '',
+        'alamat' => $unit->alamat ?? '',
+        'logo' => $unit->logo ?? '',
+        'lokasi' => $unit->lokasi ?? ''
+    ];
+
+    $periode = $rekap->periode;
+
+    $pdf = PDF::loadView('hris.payroll.slip_gaji', compact('rekap','setting','periode'))
+        ->setPaper([0,0,226.77,600], 'portrait');
+
+    return $pdf->download('SlipGaji_'.$rekap->nama.'_'.date('Ym', strtotime($periode)).'.pdf');
+}
 
 }

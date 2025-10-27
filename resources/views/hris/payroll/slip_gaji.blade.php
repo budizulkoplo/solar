@@ -4,10 +4,7 @@
     <meta charset="utf-8">
     <title>Slip Gaji</title>
     <style>
-        @page {
-            size: 80mm auto; /* lebar 80mm */
-            margin: 5mm;
-        }
+        @page { size: 80mm auto; margin: 5mm; }
         body {
             font-family: sans-serif;
             font-size: 11px;
@@ -15,10 +12,8 @@
             max-width: 75mm;
             margin: auto;
             padding: 5px;
-            position: relative;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        h5, h4 { margin: 2px 0; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .text-muted { color: #666; font-size: 10px; }
@@ -29,13 +24,8 @@
         .label { width: 60%; }
         .value { width: 40%; text-align: right; }
         .total-row td { font-weight: bold; border-top: 1px solid #000; padding-top: 3px; }
-        .total-potongan td { font-weight: bold; border-top: 1px solid #000; padding-top: 3px; }
         .highlight { font-weight: bold; font-size: 13px; margin: 5px 0; }
         .note { font-size: 10px; margin-top: 3px; }
-        /* img { max-height: 55px; margin-bottom: 2px; } */
-        p { margin: 5px 0; }
-
-        /* === Watermark logo di belakang === */
         .watermark {
             position: fixed;
             top: 40%;
@@ -43,52 +33,49 @@
             transform: translate(-50%, -50%);
             opacity: 0.05;
             z-index: -1;
-     
             text-align: center;
         }
-        .watermark img {
-            height: 100%;
-        }
+        .watermark img { height: 100%; }
     </style>
 </head>
 <body>
 
-    {{-- Watermark Logo --}}
-    @if(!empty($setting->path_logo))
-        <div class="watermark">
-            <img src="{{ public_path('/'.$setting->path_logo) }}" alt="Watermark">
-        </div>
-    @endif
-
     {{-- Header Perusahaan --}}
     <div class="text-center">
-        @if(!empty($setting->path_logo))
-           <img src="{{ public_path('/'.$setting->path_logo) }}" alt="Logo" width="65"><br><br>
+        @if(!empty($setting['logo']))
+           <img src="{{ public_path($setting['logo']) }}" alt="Logo" width="65"><br><br>
         @endif
-        <strong>{{ $setting->nama_perusahaan }}</strong><br>
+        <strong>{{ $setting['company_name'] }}</strong><br>
         Slip Gaji - {{ \Carbon\Carbon::createFromFormat('Y-m', $periode)->translatedFormat('F Y') }}
     </div>
 
     {{-- Identitas Pegawai --}}
     <p>
-        <br>
-        <strong>NIP:</strong> {{ $user->nip ?? '-' }}<br>
-        <strong>Nama:</strong> {{ $pegawai->nama ?? '-' }}<br>
-        <strong>Jabatan:</strong> {{ $user->jabatan ?? '-' }}<br>
-        <strong>Penempatan:</strong> {{ $unitkerja->company_name ?? '-' }}<br>
+        <strong>NIP:</strong> {{ $rekap->user->nip ?? '-' }}<br>
+        <strong>Nama:</strong> {{ $rekap->nama ?? '-' }}<br>
+        <strong>Jabatan:</strong> {{ $rekap->user->jabatan ?? '-' }}<br><br>
+
     </p>
 
     {{-- Pendapatan --}}
     <div class="bg-header">Pendapatan</div>
     <table>
-        <tr><td class="label">Gaji Pokok</td><td class="value">Rp {{ number_format($rekap->gaji) }}</td></tr>
-        <tr><td class="label">Tunjangan</td><td class="value">Rp {{ number_format($rekap->tunjangan) }}</td></tr>
-        <tr><td class="label">Lembur</td><td class="value">Rp {{ number_format($rekap->nominallembur) }}</td></tr>
-        <tr><td class="label">HLN</td><td class="value">Rp {{ number_format($rekap->hln) }}</td></tr>
+        <tr><td class="label">Gaji Pokok</td><td class="value">Rp {{ number_format($rekap->gajipokok) }}</td></tr>
+        <tr><td class="label">Pek. Tambahan</td><td class="value">Rp {{ number_format($rekap->pek_tambahan) }}</td></tr>
+        <tr><td class="label">Masa Kerja</td><td class="value">Rp {{ number_format($rekap->masakerja) }}</td></tr>
+        <tr><td class="label">Komunikasi</td><td class="value">Rp {{ number_format($rekap->komunikasi) }}</td></tr>
+        <tr><td class="label">Transportasi</td><td class="value">Rp {{ number_format($rekap->transportasi) }}</td></tr>
+        <tr><td class="label">Konsumsi</td><td class="value">Rp {{ number_format($rekap->konsumsi) }}</td></tr>
+        <tr><td class="label">Tunj. Asuransi</td><td class="value">Rp {{ number_format($rekap->tunj_asuransi) }}</td></tr>
+        <tr><td class="label">Jabatan</td><td class="value">Rp {{ number_format($rekap->jabatan) }}</td></tr>
         <tr class="total-row">
             <td>Total Pendapatan</td>
             <td class="value">
-                Rp {{ number_format($rekap->gaji + $rekap->tunjangan + $rekap->nominallembur + $rekap->hln) }}
+                Rp {{ number_format(
+                    $rekap->gajipokok + $rekap->pek_tambahan + $rekap->masakerja + 
+                    $rekap->komunikasi + $rekap->transportasi + $rekap->konsumsi + 
+                    $rekap->tunj_asuransi + $rekap->jabatan
+                ) }}
             </td>
         </tr>
     </table>
@@ -96,14 +83,13 @@
     {{-- Potongan --}}
     <div class="bg-header">Potongan</div>
     <table>
-        <tr><td class="label">BPJS Kes</td><td class="value">Rp {{ number_format($rekap->bpjs_kes) }}</td></tr>
-        <tr><td class="label">BPJS TK</td><td class="value">Rp {{ number_format($rekap->bpjs_tk) }}</td></tr>
-        <tr><td class="label">Kasbon</td><td class="value">Rp {{ number_format($rekap->kasbon) }}</td></tr>
-        <tr><td class="label">Sisa Kasbon</td><td class="value">Rp {{ number_format($rekap->sisakasbon) }}</td></tr>
-        <tr class="total-potongan">
+        <tr><td class="label">Cicilan</td><td class="value">Rp {{ number_format($rekap->cicilan) }}</td></tr>
+        <tr><td class="label">Asuransi</td><td class="value">Rp {{ number_format($rekap->asuransi) }}</td></tr>
+        <tr><td class="label">Zakat</td><td class="value">Rp {{ number_format($rekap->zakat) }}</td></tr>
+        <tr class="total-row">
             <td>Total Potongan</td>
             <td class="value">
-                Rp {{ number_format($rekap->bpjs_kes + $rekap->bpjs_tk + $rekap->kasbon + $rekap->sisakasbon) }}
+                Rp {{ number_format($rekap->cicilan + $rekap->asuransi + $rekap->zakat) }}
             </td>
         </tr>
     </table>
@@ -112,10 +98,15 @@
     <div class="text-center">
         <div class="highlight">Total Diterima</div>
         <div class="highlight">
-            Rp {{ number_format(($rekap->gaji + $rekap->tunjangan + $rekap->nominallembur + $rekap->hln)
-                - ($rekap->bpjs_kes + $rekap->bpjs_tk + $rekap->kasbon + $rekap->sisakasbon)) }}
+            Rp {{ number_format(
+                ($rekap->gajipokok + $rekap->pek_tambahan + $rekap->masakerja + 
+                $rekap->komunikasi + $rekap->transportasi + $rekap->konsumsi + 
+                $rekap->tunj_asuransi + $rekap->jabatan) - 
+                ($rekap->cicilan + $rekap->asuransi + $rekap->zakat)
+            ) }}
         </div>
-        <div class="note"><br></div>
+        <div class="note">Slip ini dicetak secara otomatis, simpan untuk arsip.</div>
+        <br>
     </div>
 
     <div class="text-right text-muted">
