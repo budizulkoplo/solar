@@ -9,7 +9,7 @@ class UnitKerja extends Model
 {
     use HasFactory;
 
-    protected $table = 'unitkerja';
+    protected $table = 'company_units';
     protected $primaryKey = 'id';
-    protected $fillable = ['namaunit', 'lokasi', 'umk', 'lokasi_lock'];
+    protected $fillable = ['company_name', 'lokasi', 'lokasi_lock'];
 }

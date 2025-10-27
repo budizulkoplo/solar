@@ -95,7 +95,7 @@ class LaporanController extends Controller
             $data[] = [
                 'nik' => $p->nik,
                 'nama' => $p->name,
-                'unitkerja' => optional($p->unitkerja)->namaunit ?? '-',
+                'unitkerja' => optional($p->unitkerja)->company_name ?? '-',
                 'jml_absensi' => $jmlAbsensi,
                 'lembur' => gmdate('H:i', $totalLemburSeconds),
                 'terlambat' => gmdate('H:i', $totalTerlambatSeconds),

@@ -39,7 +39,7 @@
                         <select id="unit_id" class="form-select form-select-sm">
                             <option value="">Semua Unit</option>
                             @foreach($unitkerja as $uk)
-                                <option value="{{ $uk->id }}">{{ $uk->namaunit }}</option>
+                                <option value="{{ $uk->id }}">{{ $uk->company_name }}</option>
                             @endforeach
                         </select>
                     </div>

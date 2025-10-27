@@ -22,7 +22,6 @@
                                 <th>No</th>
                                 <th>Nama Unit</th>
                                 <th>Lokasi</th>
-                                <th>UMK</th>
                                 <th>Lokasi Lock</th>
                                 <th>Aksi</th>
                             </tr>
@@ -47,11 +46,7 @@
                     <div class="modal-body">
                         <div class="mb-2">
                             <label class="form-label">Nama Unit</label>
-                            <input type="text" class="form-control" name="namaunit" required>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label">UMK (Upah Minimum)</label>
-                            <input type="number" step="0.01" class="form-control" name="umk" id="umk" placeholder="Contoh: 4500000">
+                            <input type="text" class="form-control" name="company_name" required>
                         </div>
                         <div class="mb-2">
                             <label class="form-label">Lokasi (Klik peta untuk memilih)</label>
@@ -85,17 +80,8 @@
                 ajax: "{{ route('master.unitkerja.data') }}",
                 columns: [
                     {data: 'DT_RowIndex', orderable: false, searchable: false},
-                    {data: 'namaunit'},
+                    {data: 'company_name'},
                     {data: 'lokasi'},
-                    {
-                        data: 'umk',
-                        render: function(data) {
-                            if (!data) return '-';
-                            let val = parseFloat(String(data).replace(/[^0-9]/g, ''));
-                            if (isNaN(val)) return '-';
-                            return 'Rp ' + val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                        }
-                    },
                     {
                         data: 'lokasi_lock',
                         render: function(data, type, row) {
@@ -173,9 +159,8 @@
                 let id = $(this).data('id');
                 $.get("{{ url('master/unitkerja') }}/" + id, function(res){
                     $('#fidunit').val(res.id);
-                    $('input[name="namaunit"]').val(res.namaunit);
+                    $('input[name="company_name"]').val(res.company_name);
                     $('input[name="lokasi"]').val(res.lokasi);
-                    $('input[name="umk"]').val(res.umk ?? '');
                     $('#modalUnit').modal('show');
 
                     if (res.lokasi && res.lokasi.includes(',')) {

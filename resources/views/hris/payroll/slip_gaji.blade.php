@@ -75,7 +75,7 @@
         <strong>NIP:</strong> {{ $user->nip ?? '-' }}<br>
         <strong>Nama:</strong> {{ $pegawai->nama ?? '-' }}<br>
         <strong>Jabatan:</strong> {{ $user->jabatan ?? '-' }}<br>
-        <strong>Penempatan:</strong> {{ $unitkerja->namaunit ?? '-' }}<br>
+        <strong>Penempatan:</strong> {{ $unitkerja->company_name ?? '-' }}<br>
     </p>
 
     {{-- Pendapatan --}}

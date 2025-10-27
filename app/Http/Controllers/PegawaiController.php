@@ -18,7 +18,7 @@ class PegawaiController extends Controller
 {
     public function index(): View
     {
-        $unitkerja = UnitKerja::select('id', 'namaunit', 'lokasi')->get();
+        $unitkerja = UnitKerja::select('id', 'company_name', 'lokasi')->get();
         return view('master.pegawai.list', compact('unitkerja'));
     }
 
@@ -29,7 +29,7 @@ class PegawaiController extends Controller
             'nik'                => 'required|string|max:20',
             'name'               => 'required|string|max:150',
             'jabatan'            => 'required|in:Danru,Anggota',
-            'id_unitkerja'       => 'required|integer|exists:unitkerja,id',
+            'id_unitkerja'       => 'required|integer|exists:company_units,id',
             'awal_kontrak'       => 'required|date',
             'akhir_kontrak'      => 'nullable|date',
             'email'              => 'nullable|email',
@@ -127,14 +127,14 @@ class PegawaiController extends Controller
 
         public function getdata(Request $request)
         {
-            $pegawai = User::with('unitkerja:id,namaunit')
+            $pegawai = User::with('unitkerja:id,company_name')
             ->whereHas('pegawaiDtl')
                 ->select(['id', 'nip', 'nik', 'name', 'email', 'jabatan', 'tanggal_masuk', 'status', 'alamat', 'nohp', 'id_unitkerja']);
 
             return DataTables::of($pegawai)
                 ->addIndexColumn()
                 ->addColumn('unitkerja', function ($row) {
-                    return $row->unitkerja->namaunit ?? '-';
+                    return $row->unitkerja->company_name ?? '-';
                 })
                 ->addColumn('aksi', function ($row) {
                     return '

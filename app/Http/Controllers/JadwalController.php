@@ -14,7 +14,7 @@ class JadwalController extends Controller
 {
     public function index()
     {
-        $unitkerja = UnitKerja::orderBy('namaunit')->get();
+        $unitkerja = UnitKerja::orderBy('company_name')->get();
         $kelompokjam = KelompokJam::orderBy('id')->get();
         return view('master.jadwal.index', compact('unitkerja', 'kelompokjam'));
     }
@@ -76,7 +76,7 @@ class JadwalController extends Controller
         $request->validate([
             'bulan' => 'required|integer|min:1|max:12',
             'tahun' => 'required|integer|min:2000',
-            'unit_id' => 'required|integer|exists:unitkerja,id',
+            'unit_id' => 'required|integer|exists:company_units,id',
         ]);
 
         $bulan = $request->bulan;

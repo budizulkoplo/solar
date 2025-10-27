@@ -44,7 +44,7 @@
                             <select id="id_unitkerja" name="id_unitkerja" class="form-select">
                                 <option value="">-- Tidak Ada Unit --</option>
                                 @foreach($unitkerja as $uk)
-                                    <option value="{{ $uk->id }}">{{ $uk->namaunit }}</option>
+                                    <option value="{{ $uk->id }}">{{ $uk->company_name }}</option>
                                 @endforeach
                             </select>
                         </div>

@@ -19,9 +19,8 @@ class UnitKerjaController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'namaunit' => 'required|string|max:150',
+            'company_name' => 'required|string|max:150',
             'lokasi'   => 'nullable|string|max:150',
-            'umk'      => 'nullable|numeric|min:0',
         ]);
 
         $fid = $request->fidunit ?? null;
@@ -41,9 +40,8 @@ class UnitKerjaController extends Controller
             $unit = new UnitKerja();
         }
 
-        $unit->namaunit = $request->namaunit;
+        $unit->company_name = $request->company_name;
         $unit->lokasi   = $request->lokasi;
-        $unit->umk      = $request->umk;
         $unit->save();
 
         return response()->json([
@@ -55,7 +53,7 @@ class UnitKerjaController extends Controller
 
     public function getdata(Request $request)
     {
-        $unit = UnitKerja::select(['id', 'namaunit', 'lokasi', 'umk', 'lokasi_lock']);
+        $unit = UnitKerja::select(['id', 'company_name', 'lokasi', 'lokasi_lock']);
 
         return DataTables::of($unit)
             ->addIndexColumn()

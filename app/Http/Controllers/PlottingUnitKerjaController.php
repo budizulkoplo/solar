@@ -11,7 +11,7 @@ class PlottingUnitKerjaController extends Controller
 {
     public function index()
     {
-        $unitkerja = UnitKerja::orderBy('namaunit')->get();
+        $unitkerja = UnitKerja::orderBy('company_name')->get();
         return view('master.plotting_unitkerja.index', compact('unitkerja'));
     }
 
@@ -22,7 +22,7 @@ class PlottingUnitKerjaController extends Controller
         return DataTables::of($users)
             ->addIndexColumn()
             ->addColumn('unitkerja', function ($row) {
-                return $row->unitkerja->namaunit ?? '-';
+                return $row->unitkerja->company_name ?? '-';
             })
             ->addColumn('aksi', function ($row) {
                 return '

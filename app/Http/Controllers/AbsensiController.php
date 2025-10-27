@@ -170,7 +170,7 @@ class AbsensiController extends Controller
 
             $data[] = [
                 'nama' => $user->name,
-                'unitkerja' => optional($user->unitkerja)->namaunit ?? '-',
+                'unitkerja' => optional($user->unitkerja)->company_name ?? '-',
                 'hari' => $hari,
                 'total_terlambat' => $total_terlambat,
             ];

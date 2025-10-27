@@ -80,8 +80,9 @@
                                 <label class="form-label fw-semibold">Jabatan</label>
                                 <select name="jabatan" class="form-select" required>
                                     <option value="">-- Pilih Jabatan --</option>
-                                    <option value="Danru">Komandan Regu (Danru)</option>
-                                    <option value="Anggota">Anggota</option>
+                                    <option value="Project Manager">Project Manager</option>
+                                    <option value="Accounting">Accounting</option>
+                                    
                                 </select>
                             </div>
 
@@ -90,7 +91,7 @@
                                 <select name="id_unitkerja" class="form-select" required>
                                     <option value="">-- Pilih Unit Kerja --</option>
                                     @foreach ($unitkerja as $u)
-                                        <option value="{{ $u->id }}">{{ $u->namaunit }} ({{ $u->lokasi }})</option>
+                                        <option value="{{ $u->id }}">{{ $u->company_name }} ({{ $u->lokasi }})</option>
                                     @endforeach
                                 </select>
                             </div>

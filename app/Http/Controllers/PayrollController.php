@@ -15,7 +15,7 @@ class PayrollController extends Controller
 {
     public function index()
     {
-        $unitkerja = UnitKerja::orderBy('namaunit')->get();
+        $unitkerja = UnitKerja::orderBy('company_name')->get();
         return view('hris.payroll.index', compact('unitkerja'));
     }
 
@@ -28,7 +28,7 @@ class PayrollController extends Controller
         $periode = sprintf('%04d-%02d', $tahun, $bulan);
 
         $query = Payroll::query()
-            ->select('payroll.*', 'usr.nip', 'usr.name as nama', 'u.namaunit')
+            ->select('payroll.*', 'usr.nip', 'usr.name as nama', 'u.company_name')
             ->leftJoin('users as usr', 'usr.nik', '=', 'payroll.nik')
             ->leftJoin('unitkerja as u', 'u.id', '=', 'usr.id_unitkerja')
             ->where('periode', $periode);
