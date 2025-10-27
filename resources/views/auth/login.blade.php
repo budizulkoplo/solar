@@ -219,7 +219,7 @@
             splash.style.display = 'none';
             loginPage.style.display = 'flex';
           }, 800);
-        }, 1800);
+        }, 4800);
       });
 
       // === Toggle show/hide password ===
