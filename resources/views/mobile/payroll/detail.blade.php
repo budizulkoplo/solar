@@ -72,5 +72,8 @@
     <a href="{{ route('hris.payroll.slip', $rekap->id) }}" class="btn btn-outline-primary mt-3 w-100">
         <ion-icon name="download-outline"></ion-icon> Download Slip
     </a>
+
+</a>
+
 </div>
 @endsection

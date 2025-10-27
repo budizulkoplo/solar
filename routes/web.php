@@ -332,9 +332,10 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
     });
 
     Route::prefix('payroll')->name('payroll.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Mobile\PayrollController::class, 'index'])->name('index');
-        Route::get('/{tahun}/{bulan}', [App\Http\Controllers\Mobile\PayrollController::class, 'detail'])->name('detail');
-        Route::get('/download/{id}', [App\Http\Controllers\Mobile\PayrollController::class, 'downloadSlip'])->name('download');
+        Route::get('/', [App\Http\Controllers\Mobile\MobilePayrollController::class, 'index'])->name('index');
+        Route::get('/{tahun}/{bulan}', [App\Http\Controllers\Mobile\MobilePayrollController::class, 'detail'])->name('detail');
+        Route::get('/download/{id}', [App\Http\Controllers\Mobile\MobilePayrollController::class, 'slip'])->name('slip');
+        
     });
 });
 

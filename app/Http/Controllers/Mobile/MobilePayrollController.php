@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use PDF;
 use DB;
 
-class PayrollController extends Controller
+class MobilePayrollController extends Controller
 {
     public function index(Request $request)
     {
@@ -73,7 +73,7 @@ class PayrollController extends Controller
         ));
     }
 
-    public function downloadSlip($payroll_id)
+    public function slip($payroll_id)
     {
         $rekap = Payroll::with('user')->findOrFail($payroll_id);
         $user = $rekap->user;
