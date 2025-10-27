@@ -6,13 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Payroll;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 use PDF;
 use DB;
 
 class PayrollController extends Controller
 {
-
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -23,7 +21,7 @@ class PayrollController extends Controller
             ->orderBy('tahun', 'desc')
             ->pluck('tahun');
 
-        // Ambil slip berdasarkan NIK dan tahun (cocok dengan format 'YYYY-MM')
+        // Ambil slip berdasarkan NIK dan tahun
         $data = Payroll::where('nik', $user->nik)
             ->whereRaw("LEFT(periode, 4) = ?", [$tahun])
             ->selectRaw("RIGHT(periode, 2) as bulan, MAX(id) as id")
@@ -39,18 +37,61 @@ class PayrollController extends Controller
         $user = Auth::user();
         $periode = sprintf('%04d-%02d', $tahun, $bulan);
 
-        $rekap = Payroll::where('nik', $user->nik)
+        // Ambil data payroll dengan relasi user & unitKerja
+        $rekap = Payroll::with('user')->where('nik', $user->nik)
             ->where('periode', $periode)
             ->firstOrFail();
 
-        $setting = DB::table('setting')->first();
-        $pegawai = DB::table('pegawai_dtl')->where('nik', $rekap->nik)->first();
-        $unitkerja = DB::table('unitkerja')->where('id', $user->id_unitkerja)->first();
-        // $user = \DB::table('users')->where('nik', $rekap->nik)->first();
-       
-        $setting = \DB::table('setting')->first();
+        $user = $rekap->user;
+        $unitkerja = DB::table('company_units')->where('id', $user->id_unitkerja)->first();
 
-        return view('mobile.payroll.detail', compact('rekap', 'pegawai', 'user', 'unitkerja', 'periode', 'setting'));
+        // Hitung total
+        $totalPendapatan = ($rekap->gajipokok ?? 0) 
+                          + ($rekap->pek_tambahan ?? 0)
+                          + ($rekap->masakerja ?? 0)
+                          + ($rekap->komunikasi ?? 0)
+                          + ($rekap->transportasi ?? 0)
+                          + ($rekap->konsumsi ?? 0)
+                          + ($rekap->tunj_asuransi ?? 0)
+                          + ($rekap->jabatan ?? 0);
+
+        $totalPotongan = ($rekap->cicilan ?? 0) + ($rekap->asuransi ?? 0) + ($rekap->zakat ?? 0);
+
+        $jumlah = $totalPendapatan - $totalPotongan;
+
+        $setting = [
+            'company_name' => $unitkerja->company_name ?? 'Perusahaan',
+            'npwp' => $unitkerja->npwp ?? '',
+            'alamat' => $unitkerja->alamat ?? '',
+            'logo' => $unitkerja->logo ?? '',
+            'lokasi' => $unitkerja->lokasi ?? ''
+        ];
+
+        return view('mobile.payroll.detail', compact(
+            'rekap','user','unitkerja','periode','setting',
+            'totalPendapatan','totalPotongan','jumlah'
+        ));
     }
 
+    public function downloadSlip($payroll_id)
+    {
+        $rekap = Payroll::with('user')->findOrFail($payroll_id);
+        $user = $rekap->user;
+        $unit = DB::table('company_units')->where('id', $user->id_unitkerja)->first();
+
+        $setting = [
+            'company_name' => $unit->company_name ?? 'Perusahaan',
+            'npwp' => $unit->npwp ?? '',
+            'alamat' => $unit->alamat ?? '',
+            'logo' => $unit->logo ?? '',
+            'lokasi' => $unit->lokasi ?? ''
+        ];
+
+        $periode = $rekap->periode;
+
+        $pdf = PDF::loadView('hris.payroll.slip_gaji', compact('rekap','user','unit','setting','periode'))
+            ->setPaper([0,0,226.77,600], 'portrait');
+
+        return $pdf->download('SlipGaji_'.$rekap->nama.'_'.date('Ym', strtotime($periode)).'.pdf');
+    }
 }
