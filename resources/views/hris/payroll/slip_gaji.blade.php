@@ -42,10 +42,8 @@
 
     {{-- Header Perusahaan --}}
     <div class="text-center">
-        @if(!empty($unitkerja->logo))
-            <div class="text-center mb-2">
-                <img src="{{ public_path($unitkerja->logo) }}" alt="Logo" width="65">
-            </div>
+        @if(!empty($setting['logo']))
+           <img src="storage/{{$setting['logo']}}" alt="Logo" width="65"><br><br>
         @endif
         <strong>{{ $setting['company_name'] }}</strong><br>
         Slip Gaji - {{ \Carbon\Carbon::createFromFormat('Y-m', $periode)->translatedFormat('F Y') }}
