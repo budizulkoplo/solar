@@ -35,7 +35,7 @@
         font-weight: 900 !important;
       }
 
-      /* === Splash Screen Animasi Awal === */
+      /* === Splash Screen Awal === */
       #splashScreen {
         position: fixed;
         top: 0;
@@ -54,19 +54,20 @@
       #splashScreen img {
         width: 160px;
         height: auto;
-        animation: pulse 1.8s infinite ease-in-out;
+        opacity: 1;
+        transition: opacity 0.6s ease-in-out;
       }
 
       #splashScreen p {
-        margin-top: 12px;
-        color: #1f3236;
+        position: absolute;
+        bottom: 40px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #949494ff;
         font-weight: 600;
         font-size: 15px;
-      }
-
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
+        opacity: 0.8;
       }
 
       /* === Overlay Loading Saat Klik Login === */
@@ -90,9 +91,13 @@
       }
 
       #loadingOverlay p {
-        margin-top: 15px;
+        position: absolute;
+        bottom: 40px;
+        left: 0;
+        width: 100%;
+        text-align: center;
         font-weight: bold;
-        color: #333;
+        color: #a0a0a0ff;
         font-size: 16px;
       }
 
@@ -219,7 +224,7 @@
             splash.style.display = 'none';
             loginPage.style.display = 'flex';
           }, 800);
-        }, 4800);
+        }, 3000);
       });
 
       // === Toggle show/hide password ===
