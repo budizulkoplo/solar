@@ -16,7 +16,7 @@
 <div class="p-3" style="margin-top:40px">
     <div class="text-center mb-3">
         @if(!empty($setting['logo']))
-           <img src="/storage/{{$setting['logo']}}" alt="Logo" width="65"><br><br>
+           <img src="/storage/{{$setting['logo']}}" alt="Logo" width="75"><br>
         @endif
         <h6 class="mt-2 mb-0">{{ $setting['company_name'] }}</h6>
         <small class="text-muted">Slip Gaji - {{ \Carbon\Carbon::createFromFormat('Y-m', $periode)->translatedFormat('F Y') }}</small>
