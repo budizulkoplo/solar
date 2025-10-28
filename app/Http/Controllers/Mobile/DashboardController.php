@@ -168,7 +168,7 @@ class DashboardController extends Controller
                             'ticket_status' => $t['ticket_status'] ?? '-',
                             'ticket_name' => $t['ticket_name'] ?? '-',
                             'status_created_at' => $t['status_created_at'] ?? '-',
-                            'description' => strip_tags($t['description'] ?? '-'),
+                            'description' => $t['description'] ?? '-',
                             'start_date' => $t['start_date'] ?? '-',
                             'due_date' => $t['due_date'] ?? '-',
                         ];

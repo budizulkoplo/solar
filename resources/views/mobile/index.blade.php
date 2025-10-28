@@ -588,6 +588,51 @@
     border: 1px solid #e9ecef;
 }
 
+/* Ticket Description Styles */
+.ticket-description {
+    line-height: 1.5;
+}
+
+.ticket-description p {
+    margin-bottom: 0.5rem;
+}
+
+.ticket-description figure {
+    margin: 1rem 0;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.ticket-description img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.ticket-description .attachment__caption {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+    text-align: center;
+}
+
+.ticket-description .attachment__name {
+    font-weight: 500;
+}
+
+.ticket-description .attachment__size {
+    color: #868e96;
+}
+
+/* Responsive images */
+.img-fluid {
+    max-width: 100%;
+    height: auto;
+}
+
 </style>
 
 <script>
@@ -613,16 +658,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 filtered.forEach(ticket => {
                     const listItem = document.createElement('div');
                     listItem.className = 'list-group-item list-group-item-action border-bottom';
+                    
+                    // Process description to render HTML properly
+                    const processedDescription = decodeHtmlEntities(ticket.description || '');
+                    
                     listItem.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <h6 class="mb-0">${ticket.ticket_name || '-'}</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 text-dark">${ticket.ticket_name || '-'}</h6>
                             <span class="badge bg-${getStatusColor(ticket.ticket_status)}">
                                 ${ticket.ticket_status}
                             </span>
                         </div>
-                        <small class="text-muted">${ticket.status_created_at || '-'}</small>
-                        <p class="mb-0 mt-1">${ticket.description || '-'}</p>
-                        <small class="text-muted">Mulai: ${ticket.start_date || '-'} | Deadline: ${ticket.due_date || '-'}</small>
+                        <small class="text-muted d-block mb-2">${ticket.status_created_at || '-'}</small>
+                        <div class="ticket-description mb-2">
+                            ${processedDescription}
+                        </div>
+                        <small class="text-muted d-block">Mulai: ${ticket.start_date || '-'} | Deadline: ${ticket.due_date || '-'}</small>
                     `;
                     list.appendChild(listItem);
                 });
@@ -664,6 +715,48 @@ document.addEventListener('DOMContentLoaded', function () {
             if (backdrop) backdrop.remove();
         }
     });
+
+    // Function to decode HTML entities
+    function decodeHtmlEntities(text) {
+        if (!text) return '<span class="text-muted">Tidak ada deskripsi</span>';
+        
+        const textArea = document.createElement('textarea');
+        textArea.innerHTML = text;
+        const decoded = textArea.value;
+        
+        // Process images to make them responsive
+        return processImages(decoded);
+    }
+
+    // Function to process images and make them responsive
+    function processImages(html) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Process all images
+        const images = tempDiv.querySelectorAll('img');
+        images.forEach(img => {
+            img.classList.add('img-fluid', 'rounded');
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            
+            // Wrap image in a container if it's inside a figure
+            const figure = img.closest('figure');
+            if (figure) {
+                figure.style.margin = '10px 0';
+                figure.style.textAlign = 'center';
+            }
+        });
+        
+        // Process links to open in new tab
+        const links = tempDiv.querySelectorAll('a');
+        links.forEach(link => {
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+        });
+        
+        return tempDiv.innerHTML;
+    }
 
     function getStatusColor(status) {
         if (!status) return 'dark';
