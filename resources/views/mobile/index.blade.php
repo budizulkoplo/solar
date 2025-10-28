@@ -144,13 +144,13 @@
         <div class="presencetab">
             <ul class="nav nav-tabs" role="tablist">
                 <li class="nav-item flex-fill">
-                    <a class="nav-link active text-center" data-bs-toggle="tab" href="#bulanIni" role="tab">
+                    <a class="nav-link active text-center" data-toggle="tab" href="#bulanIni" role="tab">
                         <ion-icon name="calendar-outline" class="tab-icon"></ion-icon>
                         <span>Bulan Ini</span>
                     </a>
                 </li>
                 <li class="nav-item flex-fill">
-                    <a class="nav-link text-center" data-bs-toggle="tab" href="#leaderboard" role="tab">
+                    <a class="nav-link text-center" data-toggle="tab" href="#leaderboard" role="tab">
                         <ion-icon name="trophy-outline" class="tab-icon"></ion-icon>
                         <span>Leaderboard</span>
                     </a>

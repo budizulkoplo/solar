@@ -336,6 +336,11 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
         Route::get('/download/{id}', [App\Http\Controllers\Mobile\MobilePayrollController::class, 'slip'])->name('slip');
         
     });
+
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('slip/{payroll_id}', [PayrollController::class, 'downloadSlip'])->name('slip');
 });
 
 require __DIR__ . '/auth.php';
