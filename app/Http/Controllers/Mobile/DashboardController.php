@@ -153,23 +153,35 @@ class DashboardController extends Controller
             "Juli", "Agustus", "September", "Oktober", "November", "Desember"
         ];
 
-        // === Ambil data tiket dari API eksternal ===
+        // Ambil data tiket dari API eksternal
         try {
             $response = Http::timeout(5)->get('https://pm.mentarimultitrada.com/api/tickets/latest-status');
+
             if ($response->successful()) {
                 $tickets = collect($response->json());
 
-                // Filter sesuai user yang login
-                $userTickets = $tickets->where('user_id', $user->id);
+                // Filter tiket sesuai user login (ganti assigned_to jadi user_id)
+                $userTickets = $tickets->filter(fn($t) => ($t['user_id'] ?? null) == $user->id)
+                    ->values()
+                    ->map(function($t) {
+                        return [
+                            'ticket_status' => $t['ticket_status'] ?? '-',
+                            'ticket_name' => $t['ticket_name'] ?? '-',
+                            'status_created_at' => $t['status_created_at'] ?? '-',
+                            'description' => strip_tags($t['description'] ?? '-'),
+                            'start_date' => $t['start_date'] ?? '-',
+                            'due_date' => $t['due_date'] ?? '-',
+                        ];
+                    });
 
-                // Group berdasarkan status
-                $ticketSummary = $userTickets
-                    ->groupBy('ticket_status')
-                    ->map(fn($group) => $group->count());
+                // Summary untuk Task Management
+                $ticketSummary = $userTickets->groupBy('ticket_status')->map(fn($group) => $group->count());
             } else {
+                $userTickets = collect();
                 $ticketSummary = collect();
             }
         } catch (\Exception $e) {
+            $userTickets = collect();
             $ticketSummary = collect();
         }
 
@@ -183,6 +195,7 @@ class DashboardController extends Controller
             'bulanini' => $bulanIni,
             'tahunini' => $tahunIni,
             'ticketSummary' => $ticketSummary,
+            'userTickets' => $userTickets,
         ]);
     }
 

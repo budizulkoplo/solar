@@ -203,18 +203,28 @@
 
         <div class="projects-grid">
             @php
+                use Illuminate\Support\Facades\Crypt;
+                use Illuminate\Support\Facades\Auth;
+
                 $userId = Auth::id();
                 $expires = now()->addMinutes(10)->timestamp;
-                $token = rtrim(strtr(base64_encode($userId . '|' . $expires), '+/', '-_'), '=');
+
+                // Data dasar
+                $payload = $userId . '|' . $expires;
+
+                // Enkripsi atau beri tanda tangan HMAC
+                $signature = hash_hmac('sha256', $payload, config('app.key'));
+
+                // Gabung dan encode aman untuk URL
+                $token = rtrim(strtr(base64_encode($payload . '|' . $signature), '+/', '-_'), '=');
             @endphp
+
 
             {{-- Project Management (tetap seperti aslinya) --}}
             <div class="project-card">
                 <form action="{{ 'https://pm.mentarimultitrada.com/external/' . $token }}" method="GET" target="_blank">
                     <button type="submit">
-                        <div class="project-icon">
-                            <i class="fas fa-project-diagram"></i>
-                        </div>
+                        <div class="project-icon"><i class="fas fa-project-diagram"></i></div>
                         <div class="project-company">Solar System</div>
                         <div class="project-name">Project Management</div>
                     </button>

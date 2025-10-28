@@ -118,19 +118,39 @@
     </div>
 </div>
 
+<!-- Modal -->
+<div class="modal fade" id="ticketModal" tabindex="-1" aria-labelledby="ticketModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="ticketModalLabel">Daftar Tiket</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="list-group" id="ticketList">
+          <!-- List tiket akan diisi lewat JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Tabs Bulan Ini & Leaderboard -->
 <div class="performance-card">
     <div class="todaypresence">
         <div class="presencetab">
             <ul class="nav nav-tabs" role="tablist">
                 <li class="nav-item flex-fill">
-                    <a class="nav-link active text-center" data-toggle="tab" href="#bulanIni" role="tab">
+                    <a class="nav-link active text-center" data-bs-toggle="tab" href="#bulanIni" role="tab">
                         <ion-icon name="calendar-outline" class="tab-icon"></ion-icon>
                         <span>Bulan Ini</span>
                     </a>
                 </li>
                 <li class="nav-item flex-fill">
-                    <a class="nav-link text-center" data-toggle="tab" href="#leaderboard" role="tab">
+                    <a class="nav-link text-center" data-bs-toggle="tab" href="#leaderboard" role="tab">
                         <ion-icon name="trophy-outline" class="tab-icon"></ion-icon>
                         <span>Leaderboard</span>
                     </a>
@@ -558,6 +578,55 @@
 .leaderboard-presence {
     border: none !important;
 }
+
+.performance-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+}
+
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+    const allTickets = @json($userTickets);
+    const modalEl = document.getElementById('ticketModal');
+    const modal = new bootstrap.Modal(modalEl);
+    const list = document.getElementById('ticketList');
+
+    document.querySelectorAll('.stat-card').forEach(card => {
+        card.addEventListener('click', function () {
+            const status = this.querySelector('.stat-label').textContent.trim();
+            const filtered = allTickets.filter(t => t.ticket_status.toLowerCase() === status.toLowerCase());
+
+            if (!filtered.length) {
+                list.innerHTML = `<div class="text-center p-3 text-muted">
+                    Tidak ada tiket dengan status <b>${status}</b>.
+                </div>`;
+            } else {
+                list.innerHTML = filtered.map(ticket => `
+                    <div class="list-group-item list-group-item-action border-bottom">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="mb-0">${ticket.ticket_name || '-'}</h6>
+                            <span class="badge bg-${ticket.ticket_status === 'Done' ? 'success' : ticket.ticket_status === 'Review' ? 'warning' : 'info'}">
+                                ${ticket.ticket_status}
+                            </span>
+                        </div>
+                        <small class="text-muted">${ticket.status_created_at}</small>
+                        <p class="mb-0 mt-1">${ticket.description || '-'}</p>
+                        <small class="text-muted">Mulai: ${ticket.start_date} | Deadline: ${ticket.due_date}</small>
+                    </div>
+                `).join('');
+            }
+
+            modal.show(); // panggil modal satu kali
+        });
+    });
+});
+
+</script>
 
 @endsection
