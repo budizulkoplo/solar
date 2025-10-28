@@ -123,7 +123,7 @@
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="ticketModalLabel">Daftar Tiket</h5>
+        <h5 class="section-title text-white" id="ticketModalLabel">Daftar Tiket</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0">
@@ -591,42 +591,91 @@
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-    const allTickets = @json($userTickets);
+document.addEventListener('DOMContentLoaded', function () {
+    const allTickets = @json($userTickets ?? []);
     const modalEl = document.getElementById('ticketModal');
-    const modal = new bootstrap.Modal(modalEl);
     const list = document.getElementById('ticketList');
 
     document.querySelectorAll('.stat-card').forEach(card => {
         card.addEventListener('click', function () {
             const status = this.querySelector('.stat-label').textContent.trim();
-            const filtered = allTickets.filter(t => t.ticket_status.toLowerCase() === status.toLowerCase());
+            const filtered = allTickets.filter(t => 
+                t.ticket_status && t.ticket_status.toLowerCase() === status.toLowerCase()
+            );
+
+            list.innerHTML = '';
 
             if (!filtered.length) {
                 list.innerHTML = `<div class="text-center p-3 text-muted">
                     Tidak ada tiket dengan status <b>${status}</b>.
                 </div>`;
             } else {
-                list.innerHTML = filtered.map(ticket => `
-                    <div class="list-group-item list-group-item-action border-bottom">
+                filtered.forEach(ticket => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'list-group-item list-group-item-action border-bottom';
+                    listItem.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <h6 class="mb-0">${ticket.ticket_name || '-'}</h6>
-                            <span class="badge bg-${ticket.ticket_status === 'Done' ? 'success' : ticket.ticket_status === 'Review' ? 'warning' : 'info'}">
+                            <span class="badge bg-${getStatusColor(ticket.ticket_status)}">
                                 ${ticket.ticket_status}
                             </span>
                         </div>
-                        <small class="text-muted">${ticket.status_created_at}</small>
+                        <small class="text-muted">${ticket.status_created_at || '-'}</small>
                         <p class="mb-0 mt-1">${ticket.description || '-'}</p>
-                        <small class="text-muted">Mulai: ${ticket.start_date} | Deadline: ${ticket.due_date}</small>
-                    </div>
-                `).join('');
+                        <small class="text-muted">Mulai: ${ticket.start_date || '-'} | Deadline: ${ticket.due_date || '-'}</small>
+                    `;
+                    list.appendChild(listItem);
+                });
             }
 
-            modal.show(); // panggil modal satu kali
+            // Simple show modal
+            modalEl.style.display = 'block';
+            modalEl.classList.add('show');
+            document.body.classList.add('modal-open');
+            
+            // Add backdrop
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+            }
         });
     });
-});
 
+    // Manual close handlers
+    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            modalEl.style.display = 'none';
+            modalEl.classList.remove('show');
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) backdrop.remove();
+        });
+    });
+
+    // Close when clicking outside
+    modalEl.addEventListener('click', function(e) {
+        if (e.target === modalEl) {
+            modalEl.style.display = 'none';
+            modalEl.classList.remove('show');
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    });
+
+    function getStatusColor(status) {
+        if (!status) return 'dark';
+        switch(status.toLowerCase()) {
+            case 'done': return 'success';
+            case 'review': return 'warning';
+            case 'in progress': return 'info';
+            case 'to do': return 'secondary';
+            default: return 'dark';
+        }
+    }
+});
 </script>
 
 @endsection
