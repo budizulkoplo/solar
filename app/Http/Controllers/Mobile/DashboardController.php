@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
+
 
 class DashboardController extends Controller
 {
@@ -151,6 +153,26 @@ class DashboardController extends Controller
             "Juli", "Agustus", "September", "Oktober", "November", "Desember"
         ];
 
+        // === Ambil data tiket dari API eksternal ===
+        try {
+            $response = Http::timeout(5)->get('https://pm.mentarimultitrada.com/api/tickets/latest-status');
+            if ($response->successful()) {
+                $tickets = collect($response->json());
+
+                // Filter sesuai user yang login
+                $userTickets = $tickets->where('user_id', $user->id);
+
+                // Group berdasarkan status
+                $ticketSummary = $userTickets
+                    ->groupBy('ticket_status')
+                    ->map(fn($group) => $group->count());
+            } else {
+                $ticketSummary = collect();
+            }
+        } catch (\Exception $e) {
+            $ticketSummary = collect();
+        }
+
         return view('mobile.index', [
             'user' => $user,
             'rekapPresensiBulanIni' => $presensiBulanIni,
@@ -159,7 +181,8 @@ class DashboardController extends Controller
             'leaderboard' => $leaderboard,
             'namabulan' => $namaBulan,
             'bulanini' => $bulanIni,
-            'tahunini' => $tahunIni
+            'tahunini' => $tahunIni,
+            'ticketSummary' => $ticketSummary,
         ]);
     }
 

@@ -34,7 +34,7 @@
             @endphp
             <div id="user-role">{{ $setting->nama_perusahaan ?? 'Perusahaan' }}</div>
             <h3>{{ $user->name ?? 'Nama User' }}</h3>
-            
+            <div id="user-role">Unit: {{ $user->unitkerja?->company_name ?? '-' }}</div>
         </div>
     </div>
 </div>
@@ -78,6 +78,45 @@
     </div>
 </div>
 
+<!-- Task Management Summary -->
+<div class="performance-card mb-3">
+    <div class="todaypresence">
+        <div class="rekappresensi">
+            <h3 class="section-title">Task Management</h3>
+            <div class="row text-center">
+                @if($ticketSummary->count() > 0)
+                    @foreach($ticketSummary as $status => $count)
+                        @php
+                            $color = match(strtolower($status)) {
+                                'to do' => 'secondary',
+                                'in progress' => 'info',
+                                'review' => 'warning',
+                                'done' => 'success',
+                                default => 'dark'
+                            };
+                        @endphp
+                        <div class="col-3 mb-2">
+                            <div class="card stat-card">
+                                <div class="card-body position-relative">
+                                    <span class="badge bg-{{ $color }} position-absolute count-badge">
+                                        {{ $count }}
+                                    </span>
+                                    <ion-icon name="clipboard-outline" class="text-{{ $color }} stat-icon"></ion-icon>
+                                    <br>
+                                    <span class="stat-label">{{ $status }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                @else
+                    <div class="col-12">
+                        <p class="text-muted small">Tidak ada tiket</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Tabs Bulan Ini & Leaderboard -->
 <div class="performance-card">
@@ -97,9 +136,7 @@
                     </a>
                 </li>
             </ul>
-
             <div class="tab-content">
-
                 <!-- Bulan Ini -->
                 <div class="tab-pane fade show active" id="bulanIni" role="tabpanel">
                     <div class="tab-section">
