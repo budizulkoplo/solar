@@ -2,12 +2,11 @@
   "name": "SOLAR SYSTEM",
   "short_name": "SOLAR",
   "description": "SOLAR SYSTEM",
-  "start_url": "/splash.html",
-  "scope": "/",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#e3e3e3",
+  "theme_color": "#e3e3e3",
   "icons": [
     {
       "src": "/logo.png",
