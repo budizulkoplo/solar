@@ -176,9 +176,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
         Route::post('/projects/store', [CompanyController::class, 'storeProject'])->name('companies.projects.store');
         Route::delete('/projects/{id}', [CompanyController::class, 'destroyProject'])->name('companies.projects.destroy');
-        Route::get('/{id}/edit', [CompanyController::class, 'edit']);
-        Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject']);
-
+        Route::get('/{id}/edit', [CompanyController::class, 'edit'])->name('companies.edit');
+        Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject'])->name('companies.projects.edit');
     });
 
     Route::prefix('coas')->middleware(['role:superadmin|admin', 'global.app'])->group(function () {

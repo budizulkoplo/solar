@@ -71,6 +71,7 @@ class GlobalApp
             'login',
             'logout',
             'dashboard',
+            'companies.edit',
             'dashboard.pesananHariIniData',
         ];
 
