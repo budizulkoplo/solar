@@ -39,7 +39,7 @@ class PlottingUnitKerjaController extends Controller
     {
         $request->validate([
             'id_user' => 'required|integer|exists:users,id',
-            'id_unitkerja' => 'nullable|integer|exists:unitkerja,id',
+            'id_unitkerja' => 'nullable|integer|exists:company_units,id',
         ]);
 
         $user = User::find($request->id_user);

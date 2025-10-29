@@ -50,16 +50,16 @@
             <div class="row text-center">
                 @php
                     $presensiData = [
-                        ['label' => 'Hadir', 'icon' => 'accessibility-outline', 'value' => $rekappresensi->jmlhadir ?? 0, 'color' => 'primary'],
-                        ['label' => 'Izin', 'icon' => 'newspaper-outline', 'value' => $rekapizin->jmlizin ?? 0, 'color' => 'warning'],
-                        ['label' => 'Sakit', 'icon' => 'medkit-outline', 'value' => $rekapizin->jmlsakit ?? 0, 'color' => 'danger'],
-                        ['label' => 'Telat', 'icon' => 'alarm-outline', 'value' => $rekappresensi->jmlterlambat ?? 0, 'color' => 'danger'],
+                        ['label' => 'Hadir', 'icon' => 'accessibility-outline', 'value' => $rekappresensi->jmlhadir ?? 0, 'color' => 'primary', 'type' => 'presensi'],
+                        ['label' => 'Izin', 'icon' => 'newspaper-outline', 'value' => $rekapizin->jmlizin ?? 0, 'color' => 'warning', 'type' => 'presensi'],
+                        ['label' => 'Sakit', 'icon' => 'medkit-outline', 'value' => $rekapizin->jmlsakit ?? 0, 'color' => 'danger', 'type' => 'presensi'],
+                        ['label' => 'Telat', 'icon' => 'alarm-outline', 'value' => $rekappresensi->jmlterlambat ?? 0, 'color' => 'danger', 'type' => 'presensi'],
                     ];
                 @endphp
 
                 @foreach($presensiData as $data)
                 <div class="col-3 mb-2">
-                    <div class="card stat-card">
+                    <div class="card stat-card" data-type="{{ $data['type'] }}" data-label="{{ $data['label'] }}">
                         <div class="card-body position-relative">
                             @if($data['value'] > 0)
                                 <span class="badge bg-danger position-absolute count-badge">
@@ -96,7 +96,7 @@
                             };
                         @endphp
                         <div class="col-3 mb-2">
-                            <div class="card stat-card">
+                            <div class="card stat-card" data-type="ticket" data-status="{{ $status }}">
                                 <div class="card-body position-relative">
                                     <span class="badge bg-{{ $color }} position-absolute count-badge">
                                         {{ $count }}
@@ -118,7 +118,27 @@
     </div>
 </div>
 
-<!-- Modal -->
+<!-- Modal Presensi -->
+<div class="modal fade" id="presensiModal" tabindex="-1" aria-labelledby="presensiModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="section-title text-white" id="presensiModalLabel">Detail Presensi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="list-group" id="presensiList">
+          <!-- List presensi akan diisi lewat JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tiket -->
 <div class="modal fade" id="ticketModal" tabindex="-1" aria-labelledby="ticketModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
@@ -634,89 +654,201 @@
 }
 
 </style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const allTickets = @json($userTickets ?? []);
-    const modalEl = document.getElementById('ticketModal');
-    const list = document.getElementById('ticketList');
+    const presensiModalEl = document.getElementById('presensiModal');
+    const ticketModalEl = document.getElementById('ticketModal');
+    const presensiList = document.getElementById('presensiList');
+    const ticketList = document.getElementById('ticketList');
+
+    // Data presensi dari controller (akan diisi via AJAX atau langsung dari data yang ada)
+    const presensiData = @json($rekapPresensiBulanIni ?? []);
 
     document.querySelectorAll('.stat-card').forEach(card => {
         card.addEventListener('click', function () {
-            const status = this.querySelector('.stat-label').textContent.trim();
-            const filtered = allTickets.filter(t => 
-                t.ticket_status && t.ticket_status.toLowerCase() === status.toLowerCase()
-            );
+            const type = this.getAttribute('data-type');
+            const label = this.getAttribute('data-label');
+            const status = this.getAttribute('data-status');
 
-            list.innerHTML = '';
-
-            if (!filtered.length) {
-                list.innerHTML = `<div class="text-center p-3 text-muted">
-                    Tidak ada tiket dengan status <b>${status}</b>.
-                </div>`;
-            } else {
-                filtered.forEach(ticket => {
-                    const listItem = document.createElement('div');
-                    listItem.className = 'list-group-item list-group-item-action border-bottom';
-                    
-                    // Process description to render HTML properly
-                    const processedDescription = decodeHtmlEntities(ticket.description || '');
-                    
-                    listItem.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0 text-dark">${ticket.ticket_name || '-'}</h6>
-                            <span class="badge bg-${getStatusColor(ticket.ticket_status)}">
-                                ${ticket.ticket_status}
-                            </span>
-                        </div>
-                        <small class="text-muted d-block mb-2">${ticket.status_created_at || '-'}</small>
-                        <div class="ticket-description mb-2">
-                            ${processedDescription}
-                        </div>
-                        <small class="text-muted d-block">Mulai: ${ticket.start_date || '-'} | Deadline: ${ticket.due_date || '-'}</small>
-                    `;
-                    list.appendChild(listItem);
-                });
-            }
-
-            // Simple show modal
-            modalEl.style.display = 'block';
-            modalEl.classList.add('show');
-            document.body.classList.add('modal-open');
-            
-            // Add backdrop
-            let backdrop = document.querySelector('.modal-backdrop');
-            if (!backdrop) {
-                backdrop = document.createElement('div');
-                backdrop.className = 'modal-backdrop fade show';
-                document.body.appendChild(backdrop);
+            if (type === 'presensi') {
+                showPresensiModal(label);
+            } else if (type === 'ticket') {
+                showTicketModal(status);
             }
         });
     });
 
-    // Manual close handlers
+    function showPresensiModal(label) {
+        let filteredData = [];
+        let modalTitle = 'Detail Presensi';
+        
+        // Filter data berdasarkan label
+        Object.keys(presensiData).forEach(tanggal => {
+            const data = presensiData[tanggal];
+            const jamMasuk = data.masuk?.jam_in;
+            const jamPulang = data.pulang?.jam_in;
+            const jamMasukShift = data.jam_masuk_shift;
+            
+            let status = 'Hadir';
+            if (!jamMasuk && !jamPulang) {
+                status = 'Tidak Hadir';
+            } else if (jamMasuk && jamMasukShift) {
+                const isTerlambat = new Date(`1970-01-01T${jamMasuk}`) > new Date(`1970-01-01T${jamMasukShift}`);
+                if (isTerlambat) {
+                    status = 'Terlambat';
+                }
+            }
+
+            // Filter sesuai label
+            if (label === 'Hadir' && (status === 'Hadir' || status === 'Terlambat')) {
+                filteredData.push({ tanggal, data, status });
+            } else if (label === 'Telat' && status === 'Terlambat') {
+                filteredData.push({ tanggal, data, status });
+            }
+        });
+
+        // Jika label Izin atau Sakit, tampilkan pesan kosong
+        if (label === 'Izin' || label === 'Sakit') {
+            presensiList.innerHTML = `<div class="text-center p-3 text-muted">
+                Tidak ada data ${label.toLowerCase()} untuk bulan ini.
+            </div>`;
+            document.getElementById('presensiModalLabel').textContent = `${modalTitle} - ${label}`;
+            showModal(presensiModalEl);
+            return;
+        }
+
+        // Tampilkan hasil filter
+        presensiList.innerHTML = '';
+
+        if (filteredData.length === 0) {
+            presensiList.innerHTML = `<div class="text-center p-3 text-muted">
+                Tidak ada data presensi untuk <b>${label}</b>.
+            </div>`;
+        } else {
+            filteredData.forEach(({ tanggal, data, status }) => {
+                const jamMasuk = data.masuk?.jam_in;
+                const jamPulang = data.pulang?.jam_in;
+                const jamMasukShift = data.jam_masuk_shift;
+                
+                const listItem = document.createElement('div');
+                listItem.className = 'list-group-item list-group-item-action border-bottom';
+                
+                const tglLabel = new Date(tanggal).toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                listItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 text-dark">${tglLabel}</h6>
+                        <span class="badge px-3 bg-${getPresensiStatusColor(status)}">
+                            ${status}
+                        </span>
+                    </div>
+                    <div class="row small text-muted">
+                        <div class="col-6">
+                            <strong>Masuk:</strong> ${jamMasuk ? new Date(`1970-01-01T${jamMasuk}`).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        </div>
+                        <div class="col-6">
+                            <strong>Pulang:</strong> ${jamPulang ? new Date(`1970-01-01T${jamPulang}`).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        </div>
+                    </div>
+                    ${data.shift && data.shift !== '-' ? `<small class="text-muted">Shift: ${data.shift}</small>` : ''}
+                    ${jamMasukShift ? `<small class="text-muted d-block">Jam Shift: ${jamMasukShift}</small>` : ''}
+                `;
+                presensiList.appendChild(listItem);
+            });
+        }
+
+        document.getElementById('presensiModalLabel').textContent = `${modalTitle} - ${label}`;
+        showModal(presensiModalEl);
+    }
+
+
+    function showTicketModal(status) {
+        const filtered = allTickets.filter(t => 
+            t.ticket_status && t.ticket_status.toLowerCase() === status.toLowerCase()
+        );
+
+        ticketList.innerHTML = '';
+
+        if (!filtered.length) {
+            ticketList.innerHTML = `<div class="text-center p-3 text-muted">
+                Tidak ada tiket dengan status <b>${status}</b>.
+            </div>`;
+        } else {
+            filtered.forEach(ticket => {
+                const listItem = document.createElement('div');
+                listItem.className = 'list-group-item list-group-item-action border-bottom';
+                
+                const processedDescription = decodeHtmlEntities(ticket.description || '');
+                
+                listItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 text-dark">${ticket.ticket_name || '-'}</h6>
+                        <span class="badge px-3 bg-${getStatusColor(ticket.ticket_status)}">
+                            ${ticket.ticket_status}
+                        </span>
+                    </div>
+                    <small class="text-muted d-block mb-2">${ticket.status_created_at || '-'}</small>
+                    <div class="ticket-description mb-2">
+                        ${processedDescription}
+                    </div>
+                    <small class="text-muted d-block">
+                        Mulai: <span class="text-success fw-semibold">${ticket.start_date || '-'}</span> |
+                        Deadline: <span class="text-danger fw-semibold">${ticket.due_date || '-'}</span>
+                    </small>
+                `;
+                ticketList.appendChild(listItem);
+            });
+        }
+
+        showModal(ticketModalEl);
+    }
+
+    function showModal(modalEl) {
+        modalEl.style.display = 'block';
+        modalEl.classList.add('show');
+        document.body.classList.add('modal-open');
+        
+        let backdrop = document.querySelector('.modal-backdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            document.body.appendChild(backdrop);
+        }
+    }
+
+    // Close handlers untuk semua modal
     document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
         btn.addEventListener('click', function() {
-            modalEl.style.display = 'none';
-            modalEl.classList.remove('show');
-            document.body.classList.remove('modal-open');
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) backdrop.remove();
+            closeAllModals();
         });
     });
 
-    // Close when clicking outside
-    modalEl.addEventListener('click', function(e) {
-        if (e.target === modalEl) {
-            modalEl.style.display = 'none';
-            modalEl.classList.remove('show');
-            document.body.classList.remove('modal-open');
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) backdrop.remove();
-        }
+    // Close ketika klik outside modal
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeAllModals();
+            }
+        });
     });
 
-    // Function to decode HTML entities
+    function closeAllModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+        });
+        document.body.classList.remove('modal-open');
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) backdrop.remove();
+    }
+
+    // Helper functions
     function decodeHtmlEntities(text) {
         if (!text) return '<span class="text-muted">Tidak ada deskripsi</span>';
         
@@ -724,23 +856,19 @@ document.addEventListener('DOMContentLoaded', function () {
         textArea.innerHTML = text;
         const decoded = textArea.value;
         
-        // Process images to make them responsive
         return processImages(decoded);
     }
 
-    // Function to process images and make them responsive
     function processImages(html) {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         
-        // Process all images
         const images = tempDiv.querySelectorAll('img');
         images.forEach(img => {
             img.classList.add('img-fluid', 'rounded');
             img.style.maxWidth = '100%';
             img.style.height = 'auto';
             
-            // Wrap image in a container if it's inside a figure
             const figure = img.closest('figure');
             if (figure) {
                 figure.style.margin = '10px 0';
@@ -748,7 +876,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         
-        // Process links to open in new tab
         const links = tempDiv.querySelectorAll('a');
         links.forEach(link => {
             link.target = '_blank';
@@ -765,6 +892,15 @@ document.addEventListener('DOMContentLoaded', function () {
             case 'review': return 'warning';
             case 'in progress': return 'info';
             case 'to do': return 'secondary';
+            default: return 'dark';
+        }
+    }
+
+    function getPresensiStatusColor(status) {
+        switch(status) {
+            case 'Hadir': return 'success';
+            case 'Terlambat': return 'danger';
+            case 'Tidak Hadir': return 'secondary';
             default: return 'dark';
         }
     }
