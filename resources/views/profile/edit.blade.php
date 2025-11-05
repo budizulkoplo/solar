@@ -24,8 +24,7 @@
                                 <li class="list-group-item"><b>UserName</b> <span class="float-end">{{ Auth::user()->username }}</span></li>
                                 <li class="list-group-item"><b>Jabatan</b> <span class="float-end">{{ Auth::user()->jabatan }}</span></li>
                                 <li class="list-group-item"><b>Telp/HP</b> <span class="float-end">{{ Auth::user()->nohp }}</span></li>
-                                <li class="list-group-item"><b>Limit PPOB</b> <span class="float-end">{{ format_rupiah(Auth::user()->limit_ppob) }}</span></li>
-                                <li class="list-group-item"><b>Limit Hutang</b> <span class="float-end">{{ format_rupiah(Auth::user()->limit_hutang) }}</span></li>
+                                
                             </ul>
                         </div>
                         <!-- /.card-body -->

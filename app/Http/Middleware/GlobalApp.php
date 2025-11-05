@@ -71,9 +71,14 @@ class GlobalApp
             'login',
             'logout',
             'dashboard',
+            'companies.edit',
             'hris.payroll.slip',
             'profile.edit',
+            'profile.update',
+            'profile.destroy',
+            'profile.upload',
             'dashboard.pesananHariIniData',
+
         ];
 
         $currentRoute = strtolower($request->route()->getName() ?? '');
