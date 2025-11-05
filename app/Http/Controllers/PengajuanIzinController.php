@@ -18,17 +18,13 @@ class PengajuanIzinController extends Controller
 
     public function getdata(Request $request)
     {
-        $bulan = $request->input('bulan', date('m')); // default bulan sekarang
-        $tahun = $request->input('tahun', date('Y')); // default tahun sekarang
+        $bulan = $request->input('bulan', date('m'));
+        $tahun = $request->input('tahun', date('Y'));
 
         $izin = PengajuanIzin::with('user')
-            ->select(['id', 'nik', 'tgl_izin', 'status', 'keterangan', 'status_approved'])
-            ->when($bulan, function ($q) use ($bulan) {
-                $q->whereMonth('tgl_izin', $bulan);
-            })
-            ->when($tahun, function ($q) use ($tahun) {
-                $q->whereYear('tgl_izin', $tahun);
-            })
+            ->select(['id', 'nik', 'tgl_izin', 'status', 'izin_mulai', 'izin_selesai', 'keterangan', 'status_approved', 'lampiran'])
+            ->when($bulan, fn($q) => $q->whereMonth('tgl_izin', $bulan))
+            ->when($tahun, fn($q) => $q->whereYear('tgl_izin', $tahun))
             ->orderByDesc('tgl_izin');
 
         return DataTables::of($izin)
@@ -51,14 +47,23 @@ class PengajuanIzinController extends Controller
                 };
             })
             ->addColumn('aksi', function ($row) {
-                return '
-                    <span class="badge bg-info btn-edit" data-id="' . $row->id . '" style="cursor:pointer;">
-                        <i class="bi bi-pencil-square"></i>
-                    </span>
-                    <span class="badge bg-danger btn-hapus" data-id="' . $row->id . '" style="cursor:pointer;">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </span>
-                ';
+                $btnEdit = '<span class="badge bg-info btn-edit" data-id="' . $row->id . '" style="cursor:pointer;">
+                                <i class="bi bi-pencil-square"></i>
+                            </span>';
+                $btnHapus = '<span class="badge bg-danger btn-hapus" data-id="' . $row->id . '" style="cursor:pointer;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </span>';
+
+                // tombol surat sakit
+                $btnSurat = '';
+                if ($row->status === 's' && !empty($row->lampiran)) {
+                    $url = asset('storage/surat_sakit/' . $row->lampiran);
+                    $btnSurat = '<a href="' . $url . '" target="_blank" class="badge bg-primary" title="Lihat Surat Sakit">
+                                    <i class="bi bi-file-earmark-medical"></i>
+                                </a>';
+                }
+
+                return $btnSurat . ' ' . $btnEdit . ' ' . $btnHapus;
             })
             ->rawColumns(['aksi', 'approved_text'])
             ->make(true);

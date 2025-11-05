@@ -7,7 +7,7 @@
             <ion-icon name="chevron-back-outline"></ion-icon>
         </a>
     </div>
-    <div class="pageTitle">Profil Saya</div>
+    <div class="pageTitle">Profil Sayass</div>
     <div class="right"></div>
 </div>
 @endsection

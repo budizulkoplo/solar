@@ -5,7 +5,7 @@
         <div class="row g-2 align-items-center">
             <div class="col">
                 <h2 class="page-title">
-                    Data Izin / Sakit
+                    Data Izin / Sakits
                 </h2>
             </div>
         </div>

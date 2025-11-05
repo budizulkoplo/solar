@@ -87,9 +87,37 @@
                         <span class="ms-auto badge {{ $d->status_approved==1?'bg-success':($d->status_approved==2?'bg-danger':'bg-warning') }}">{{ $approvalText }}</span>
                     </div>
 
-                    {{-- Keterangan --}}
+                    {{-- Keterangan & Detail --}}
                     <div class="mb-2">
-                        <small class="text-muted">{{ $d->keterangan }}</small>
+                        <small class="text-muted d-block mb-1">
+                            {{ $d->keterangan }}
+                        </small>
+
+                        {{-- Jika Izin, tampilkan jam mulai & selesai --}}
+                        @if($d->status == 'i' && ($d->izin_mulai || $d->izin_selesai))
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <ion-icon name="time-outline" style="font-size:1rem; color:#0d6efd;"></ion-icon>
+                                <small>
+                                    <strong>Jam:</strong>
+                                    {{ $d->izin_mulai ? date('H:i', strtotime($d->izin_mulai)) : '-' }}
+                                    s/d
+                                    {{ $d->izin_selesai ? date('H:i', strtotime($d->izin_selesai)) : '-' }}
+                                </small>
+                            </div>
+                        @endif
+
+                        {{-- Jika Sakit, tampilkan lampiran --}}
+                        @if($d->status == 's' && $d->lampiran)
+                            <div class="d-flex align-items-center gap-2">
+                                <ion-icon name="document-attach-outline" style="font-size:1rem; color:#dc3545;"></ion-icon>
+                                <small>
+                                    <strong>Lampiran:</strong>
+                                    <a href="{{ asset('storage/uploads/lampiranizin/'.$d->lampiran) }}" target="_blank" class="text-primary" style="text-decoration: underline;">
+                                        Lihat Surat Sakit
+                                    </a>
+                                </small>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- Actions --}}

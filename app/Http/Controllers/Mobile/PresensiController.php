@@ -254,17 +254,39 @@ class PresensiController extends BaseMobileController
         $tgl_izin = $request->tgl_izin;
         $status = $request->status;
         $keterangan = $request->keterangan;
+        $izin_mulai = null;
+        $izin_selesai = null;
+
+        if ($request->status == 'i') {
+            $izin_mulai = $request->tgl_izin . ' ' . $request->izin_mulai . ':00';
+            $izin_selesai = $request->tgl_izin . ' ' . $request->izin_selesai . ':00';
+        }
+        $lampiran = null;
+
+        // Simpan file lampiran jika ada
+        if ($request->hasFile('lampiran')) {
+            $file = $request->file('lampiran');
+            $filename = $nik . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->storeAs('uploads/lampiranizin', $filename, 'public');
+            $lampiran = $filename;
+        }
 
         $data = [
             'nik' => $nik,
             'tgl_izin' => $tgl_izin,
             'status' => $status,
-            'keterangan' => $keterangan
+            'izin_mulai' => $izin_mulai,
+            'izin_selesai' => $izin_selesai,
+            'lampiran' => $lampiran,
+            'keterangan' => $keterangan,
+            'status_approved' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
         ];
 
         $simpan = DB::table('pengajuan_izin')->insert($data);
 
-        if( $simpan) {
+        if ($simpan) {
             return redirect('/mobile/presensi/izin')->with(['success' => 'Data Berhasil Disimpan']);
         } else {
             return redirect('/mobile/presensi/izin')->with(['error' => 'Data Gagal Disimpan']);

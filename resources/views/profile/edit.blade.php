@@ -12,10 +12,38 @@
                     <div class="card card-primary card-outline">
                         <div class="card-body box-profile">
                             <div class="text-center">
-                                @if (isset(Auth::user()->foto) && Storage::disk('private')->exists("img/foto/".Auth::user()->foto))
-                                    <img class="rounded mx-auto d-block" data-bs-toggle="modal" data-bs-target="#exampleModal" style="cursor: pointer;max-height: 150px;" src="{{ url('/doc/file/foto/'.Auth::user()->foto.'?t='. time()) }}" alt="User profile picture">
+                                @php
+                                    $user = Auth::user();
+                                @endphp
+                            
+                                @if ($user && $user->foto)
+                                    <img 
+                                        src="{{ asset('storage/uploads/karyawan/' . $user->foto) }}" 
+                                        alt="User Image"
+                                        class="elevation-2 shadow-sm"
+                                        style="
+                                            width: 100px; 
+                                            height: 100px; 
+                                            border-radius: 50%; 
+                                            object-fit: cover;
+                                            border: 2px solid #fff;
+                                        "
+                                        loading="lazy"
+                                    >
                                 @else
-                                    <img class="rounded-circle mx-auto d-block" data-bs-toggle="modal" data-bs-target="#exampleModal" style="width: 120px;cursor: pointer;" src="{{ url('/doc/file/foto/default.png') }}" alt="User profile picture">
+                                    <img 
+                                        src="{{ asset('assets/img/avatar1.jpg') }}" 
+                                        alt="User Image"
+                                        class="elevation-2 shadow-sm"
+                                        style="
+                                            width: 100px; 
+                                            height: 100px; 
+                                            border-radius: 50%; 
+                                            object-fit: cover;
+                                            border: 2px solid #fff;
+                                        "
+                                        loading="lazy"
+                                    >
                                 @endif
                             </div>
                             <h3 class="profile-username text-center fs-4">{{ Auth::user()->name }}</h3>
@@ -225,6 +253,25 @@
                     }
                 });
             });
+
+            document.querySelectorAll('.toggle-password').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const input = document.getElementById(targetId);
+                    const icon = this.querySelector('i');
+
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        icon.classList.remove('bi-eye');
+                        icon.classList.add('bi-eye-slash');
+                    } else {
+                        input.type = 'password';
+                        icon.classList.remove('bi-eye-slash');
+                        icon.classList.add('bi-eye');
+                    }
+                });
+            });
+
         </script>
     </x-slot>
 </x-app-layout>

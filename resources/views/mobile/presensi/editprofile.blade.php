@@ -76,11 +76,32 @@
             </div>
         </div>
 
-        {{-- Password --}}
-        <div class="form-group boxed">
-            <div class="input-wrapper">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" id="password" class="form-control" name="password" placeholder="Kosongkan jika tidak diubah" autocomplete="off">
+        {{-- PASSWORD DENGAN TOGGLE --}}
+        <div class="mb-3 position-relative">
+            <label class="form-label">Password</label>
+            <div class="position-relative">
+                <input 
+                    type="password" 
+                    name="password" 
+                    class="form-control pe-5" 
+                    placeholder="Kosongkan jika tidak diubah" 
+                    id="passwordField" 
+                    autocomplete="off"
+                >
+                <button 
+                    type="button" 
+                    class="btn btn-link position-absolute toggle-password text-secondary" 
+                    style="
+                        top: 50%; 
+                        right: 0.75rem; 
+                        transform: translateY(-50%);
+                        padding: 0;
+                        height: 100%;
+                        display: flex; 
+                        align-items: center;
+                    ">
+                    <ion-icon name="eye-outline" size="small"></ion-icon>
+                </button>
             </div>
         </div>
 
@@ -118,3 +139,21 @@
     </div>
 </form>
 @endsection
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.toggle-password').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const input = this.previousElementSibling;
+                const icon = this.querySelector('ion-icon');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.setAttribute('name', 'eye-off-outline');
+                } else {
+                    input.type = 'password';
+                    icon.setAttribute('name', 'eye-outline');
+                }
+            });
+        });
+    });
+</script>

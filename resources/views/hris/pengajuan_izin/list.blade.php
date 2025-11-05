@@ -40,7 +40,7 @@
                                 <th>No</th>
                                 <th>NIK</th>
                                 <th>Nama</th>
-                                <th>Tanggal Izin</th>
+                                <th>Tanggal & Jam</th>
                                 <th>Status</th>
                                 <th>Keterangan</th>
                                 <th>Approved</th>
@@ -53,10 +53,10 @@
         </div>
     </div>
 
-    <!-- Modal Add/Edit -->
+    {{-- Modal Form --}}
     <div class="modal fade" id="modalIzin" tabindex="-1">
         <div class="modal-dialog">
-            <form id="frmIzin">
+            <form id="frmIzin" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="fidizin" id="fidizin">
                 <div class="modal-content">
@@ -69,10 +69,26 @@
                             <label class="form-label">Pegawai (NIK - Nama)</label>
                             <select class="form-control select2" name="nik" id="nik" required style="width: 100%;"></select>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label">Tanggal Izin</label>
-                            <input type="date" class="form-control" name="tgl_izin" id="tgl_izin" required>
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Tanggal Izin</label>
+                                <input type="date" class="form-control" name="tgl_izin" id="tgl_izin" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Jam Mulai</label>
+                                <input type="time" class="form-control" name="izin_mulai" id="izin_mulai">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Jam Selesai</label>
+                                <input type="time" class="form-control" name="izin_selesai" id="izin_selesai">
+                            </div>
                         </div>
+                        <div class="mb-2" id="div_lampiran" style="display:none;">
+                            <label class="form-label">Upload Surat Sakit (PDF / JPG / PNG)</label>
+                            <input type="file" class="form-control" name="lampiran" id="lampiran" accept=".pdf,.jpg,.jpeg,.png">
+                            <div id="lampiran_preview" class="mt-1"></div>
+                        </div>
+
                         <div class="mb-2">
                             <label class="form-label">Status</label>
                             <select name="status" id="status" class="form-control" required>
@@ -81,10 +97,12 @@
                                 <option value="s">Sakit</option>
                             </select>
                         </div>
+
                         <div class="mb-2">
                             <label class="form-label">Keterangan</label>
                             <textarea class="form-control" name="keterangan" id="keterangan" required></textarea>
                         </div>
+
                         <div class="mb-2 approval-section" style="display:none;">
                             <label class="form-label">Approval</label>
                             <select name="approved" id="approved" class="form-control">
@@ -105,14 +123,7 @@
 
     <x-slot name="jscustom">
         <script>
-            function getFilterParams() {
-                return {
-                    bulan: $('#filterBulan').val(),
-                    tahun: $('#filterTahun').val(),
-                };
-            }
-
-            // DataTable
+            // Datatable init
             let table = $('#tbizin').DataTable({
                 processing: true,
                 serverSide: true,
@@ -135,38 +146,39 @@
                 ]
             });
 
-            // Tombol filter
-            $('#btnFilter').on('click', function () {
-                table.ajax.reload();
-            });
+            $('#btnFilter').click(() => table.ajax.reload());
 
             // select2 pegawai
-           $('.select2').select2({
+            $('.select2').select2({
                 ajax: {
                     url: "{{ route('hris.pengajuanizin.select2pegawai') }}",
                     dataType: 'json',
                     delay: 250,
-                    processResults: function (data) {
-                        return {
-                            results: data.results
-                        };
-                    }
+                    processResults: data => ({ results: data.results })
                 },
                 placeholder: 'Pilih Pegawai',
                 allowClear: true,
-                dropdownParent: $('#modalIzin') // 👈 penting untuk modal!
+                dropdownParent: $('#modalIzin')
             });
 
-            // tambah baru
+            // tampil lampiran hanya untuk sakit
+            $('#status').on('change', function () {
+                if ($(this).val() === 's') $('#div_lampiran').show();
+                else $('#div_lampiran').hide();
+            });
+
+            // tambah data baru
             $('#btnAdd').on('click', function(){
-                $('#fidizin').val('');
                 $('#frmIzin')[0].reset();
+                $('#fidizin').val('');
                 $('#nik').val(null).trigger('change');
+                $('#div_lampiran').hide();
+                $('#lampiran_preview').html('');
                 $('.approval-section').hide();
-                $('#modalIzin .modal-title').text('Form Pengajuan Izin');
+                $('#modalIzin .modal-title').text('Tambah Pengajuan Izin');
             });
 
-            // submit form
+            // simpan form
             $('#frmIzin').on('submit', function(e){
                 e.preventDefault();
                 $.ajax({
@@ -175,15 +187,13 @@
                     data: new FormData(this),
                     processData: false,
                     contentType: false,
-                    success: function(res){
+                    success: function(){
                         $('#modalIzin').modal('hide');
                         table.ajax.reload();
                         $('#frmIzin')[0].reset();
                         $('#nik').val(null).trigger('change');
                     },
-                    error: function(err){
-                        alert('Terjadi kesalahan saat menyimpan data.');
-                    }
+                    error: () => alert('Terjadi kesalahan saat menyimpan data.')
                 });
             });
 
@@ -193,13 +203,26 @@
                 $.get("{{ url('hris/pengajuan-izin/show') }}/" + id, function(res){
                     $('#fidizin').val(res.id);
                     $('#tgl_izin').val(res.tgl_izin);
-                    $('#status').val(res.status);
+                    $('#status').val(res.status).trigger('change');
                     $('#keterangan').val(res.keterangan);
-                    $('#approved').val(res.approved ?? 0);
+                    $('#approved').val(res.status_approved ?? 0);
+                    $('#izin_mulai').val(res.izin_mulai ? res.izin_mulai.substring(11,16) : '');
+                    $('#izin_selesai').val(res.izin_selesai ? res.izin_selesai.substring(11,16) : '');
 
                     let pegawaiText = res.nik + ' - ' + (res.user?.name ?? '');
                     let newOption = new Option(pegawaiText, res.nik, true, true);
                     $('#nik').append(newOption).trigger('change');
+
+                    if(res.status === 's'){
+                        $('#div_lampiran').show();
+                        if(res.lampiran){
+                            let url = "{{ asset('storage/surat_sakit') }}/" + res.lampiran;
+                            $('#lampiran_preview').html(`<a href="${url}" target="_blank" class="text-primary"><i class="bi bi-file-earmark-pdf"></i> Lihat Lampiran</a>`);
+                        }
+                    } else {
+                        $('#div_lampiran').hide();
+                        $('#lampiran_preview').html('');
+                    }
 
                     $('.approval-section').show();
                     $('#modalIzin .modal-title').text('Edit Pengajuan Izin');
@@ -215,9 +238,7 @@
                         url: "{{ url('hris/pengajuan-izin') }}/" + id,
                         method: "DELETE",
                         data: {_token: "{{ csrf_token() }}"},
-                        success: function(res){
-                            table.ajax.reload();
-                        }
+                        success: () => table.ajax.reload()
                     });
                 }
             });

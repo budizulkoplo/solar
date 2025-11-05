@@ -83,15 +83,21 @@
                     <h5 class="modal-title" id="exampleModalLabel">Reset Password</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
+
                 <div class="modal-body">
                     <input type="hidden" name="userid" id="tuserid" required>
-                    <div class="row">
-                        <div class="input-group mb-3">
-                            <span class="input-group-text" id="basic-addon1">New Password</span>
+
+                    <div class="mb-3">
+                        <label for="tpassword" class="form-label">New Password</label>
+                        <div class="input-group">
                             <input type="password" name="new_password" id="tpassword" class="form-control" required>
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="submit" class="btn btn-primary" id="saverole">Save changes</button>
@@ -308,6 +314,21 @@
                 });
 
                 $('#frole').on('change',function(){table.ajax.reload();})
+            });
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const togglePassword = document.querySelector('#togglePassword');
+                const passwordInput = document.querySelector('#tpassword');
+
+                togglePassword.addEventListener('click', function() {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+
+                    // Ganti ikon (kalau pakai Bootstrap Icons)
+                    this.innerHTML = type === 'password'
+                        ? '<i class="bi bi-eye"></i>'
+                        : '<i class="bi bi-eye-slash"></i>';
+                });
             });
         </script>
     </x-slot>
