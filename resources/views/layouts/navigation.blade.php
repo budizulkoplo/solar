@@ -133,13 +133,15 @@
             </li>
             <li class="nav-item"> <a class="nav-link" href="#" data-lte-toggle="fullscreen"> <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i> <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display: none;"></i> </a> </li> <!--end::Fullscreen Toggle--> <!--begin::User Menu Dropdown-->
             <li class="nav-item dropdown user-menu"> 
-                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown"> 
-                    @if (isset(Auth::user()->foto) && Storage::disk('private')->exists("img/foto/".Auth::user()->foto))
-                    <img src="{{ url('/doc/file/foto/'.Auth::user()->foto.'?t='. time()) }}" class="user-image rounded-circle shadow" alt="User Image">
-                    @else
-                        <img src="{{ auth()->user()->avatar_url ?? asset('user.png') }}" class="user-image rounded-circle shadow" alt="User Image">
-                    @endif
+                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                    <img 
+                        src="{{ Auth::user()->foto ? asset('storage/uploads/karyawan/' . Auth::user()->foto) : asset('assets/img/avatar1.jpg') }}" 
+                        class="user-image rounded-circle shadow" 
+                        alt="User Image" 
+                        loading="lazy"
+                    >
                 </a>
+
                 <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end"> 
                     <!--begin::User Info-->
                     <li class="user-header text-bg-primary" style="min-height: 0;"> 

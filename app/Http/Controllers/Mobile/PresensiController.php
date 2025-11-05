@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Mobile;
 
-use App\Models\Pengajuanizin;  
+use App\Models\PengajuanIzin;  
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;

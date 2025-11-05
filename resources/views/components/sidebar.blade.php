@@ -50,19 +50,41 @@
 
         <div class="user-panel d-flex align-items-center p-3">
             <div class="image me-2">
-                @if (isset(Auth::user()->foto) && Storage::disk('private')->exists("img/foto/".Auth::user()->foto))
-                    <img src="{{ url('/doc/file/foto/'.Auth::user()->foto.'?t='. time()) }}"
-                    class="img-circle elevation-2"
-                    alt="User Image"
-                    style="width: 40px; height: 40px; object-fit: cover;">
+                @php
+                    $user = Auth::user();
+                @endphp
+            
+                @if ($user && $user->foto)
+                    <img 
+                        src="{{ asset('storage/uploads/karyawan/' . $user->foto) }}" 
+                        alt="User Image"
+                        class="elevation-2 shadow-sm"
+                        style="
+                            width: 40px; 
+                            height: 40px; 
+                            border-radius: 50%; 
+                            object-fit: cover;
+                            border: 2px solid #fff;
+                        "
+                        loading="lazy"
+                    >
                 @else
-                    <img src="{{ asset('user.png') }}"
-                    class="img-circle elevation-2"
-                    alt="User Image"
-                    style="width: 40px; height: 40px; object-fit: cover;">
+                    <img 
+                        src="{{ asset('assets/img/avatar1.jpg') }}" 
+                        alt="User Image"
+                        class="elevation-2 shadow-sm"
+                        style="
+                            width: 40px; 
+                            height: 40px; 
+                            border-radius: 50%; 
+                            object-fit: cover;
+                            border: 2px solid #fff;
+                        "
+                        loading="lazy"
+                    >
                 @endif
-                
             </div>
+
             <div class="info">
                 <a href="#" class="d-block text-white">{{ $displayName }}</a>
 

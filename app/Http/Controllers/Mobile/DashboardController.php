@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 
-
 class DashboardController extends Controller
 {
     /**
@@ -185,6 +184,9 @@ class DashboardController extends Controller
             $ticketSummary = collect();
         }
 
+        // Data untuk modal presensi
+        $presensiModalData = $this->getPresensiModalData($presensiBulanIni);
+
         return view('mobile.index', [
             'user' => $user,
             'rekapPresensiBulanIni' => $presensiBulanIni,
@@ -196,6 +198,7 @@ class DashboardController extends Controller
             'tahunini' => $tahunIni,
             'ticketSummary' => $ticketSummary,
             'userTickets' => $userTickets,
+            'presensiModalData' => $presensiModalData,
         ]);
     }
 
@@ -318,4 +321,44 @@ class DashboardController extends Controller
         $minutes = floor(($seconds % 3600) / 60);
         return sprintf('%s%d:%02d', $sign, $hours, $minutes);
     }
+
+    /**
+     * Data untuk modal presensi
+     */
+    protected function getPresensiModalData($presensiBulanIni)
+    {
+        $data = [];
+        
+        foreach ($presensiBulanIni as $tanggal => $presensi) {
+            $jamMasuk = $presensi['masuk']->jam_in ?? null;
+            $jamPulang = $presensi['pulang']->jam_in ?? null;
+            $jamMasukShift = $presensi['jam_masuk_shift'] ?? null;
+            $status = 'Tidak Hadir'; // default
+
+            // Tentukan status kehadiran
+            if ($jamMasuk || $jamPulang) {
+                // Anggap hadir dulu
+                $status = 'Hadir';
+
+                // Jika ada jam shift dan masuk lebih dari jadwal, ubah jadi Terlambat
+                if ($jamMasuk && $jamMasukShift && 
+                    $this->isTerlambat($tanggal, $jamMasuk, $jamMasukShift, $presensi['shift'])) {
+                    $status = 'Terlambat';
+                }
+            }
+
+            $data[] = [
+                'tanggal' => $tanggal,
+                'tanggal_label' => Carbon::parse($tanggal)->translatedFormat('l, d F Y'),
+                'jam_masuk' => $jamMasuk ? Carbon::parse($jamMasuk)->format('H:i') : '-',
+                'jam_pulang' => $jamPulang ? Carbon::parse($jamPulang)->format('H:i') : '-',
+                'jam_masuk_shift' => $jamMasukShift,
+                'status' => $status,
+                'shift' => $presensi['shift']
+            ];
+        }
+
+        return $data;
+    }
+
 }

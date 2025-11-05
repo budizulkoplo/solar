@@ -28,7 +28,7 @@ class PegawaiController extends Controller
             'nip'                => 'required|string|max:30',
             'nik'                => 'required|string|max:20',
             'name'               => 'required|string|max:150',
-            'jabatan'            => 'required|in:Danru,Anggota',
+            'jabatan'            => 'required',
             'id_unitkerja'       => 'required|integer|exists:company_units,id',
             'awal_kontrak'       => 'required|date',
             'akhir_kontrak'      => 'nullable|date',

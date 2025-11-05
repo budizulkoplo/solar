@@ -253,4 +253,67 @@ class LaporanController extends Controller
         }, ARRAY_FILTER_USE_KEY);
     }
 
+    // ==========================
+    // LAPORAN PAYROLL
+    // ==========================
+    public function laporanPayroll()
+    {
+        $bulan = now()->format('m');
+        $tahun = now()->format('Y');
+        return view('hris.laporan.laporan_payroll', compact('bulan', 'tahun'));
+    }
+
+    public function laporanPayrollData(Request $request)
+    {
+        $bulan = $request->input('bulan', now()->format('m'));
+        $tahun = $request->input('tahun', now()->format('Y'));
+        $periode = sprintf('%04d-%02d', $tahun, $bulan);
+
+        $data = DB::table('payroll')
+            ->where('periode', $periode)
+            ->join('users', 'payroll.nik', '=', 'users.nik')
+            ->leftJoin('company_units', 'users.id_unitkerja', '=', 'company_units.id')
+            ->select(
+                'payroll.*','users.nip as nip',
+                'users.name as nama',
+                'company_units.company_name as unitkerja'
+            )
+            ->orderBy('users.name')
+            ->get();
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function monitoringPresensi()
+    {
+        return view('hris.laporan.monitoring_presensi');
+    }
+
+    public function monitoringPresensiData(Request $request)
+    {
+        $tanggal = $request->tanggal ?? date('Y-m-d');
+
+        $data = DB::table('presensi as p')
+            ->select(
+                'p.nik',
+                'k.nip',
+                'k.name',
+                'u.company_name',
+                DB::raw('MAX(CASE WHEN p.inoutmode = 1 THEN p.jam_in END) as jam_masuk'),
+                DB::raw('MAX(CASE WHEN p.inoutmode = 2 THEN p.jam_in END) as jam_pulang'),
+                DB::raw('MAX(CASE WHEN p.inoutmode = 1 THEN p.foto_in END) as foto_masuk'),
+                DB::raw('MAX(CASE WHEN p.inoutmode = 2 THEN p.foto_in END) as foto_pulang'),
+                DB::raw('MAX(CASE WHEN p.inoutmode = 1 THEN p.lokasi END) as lokasi_masuk'),
+                DB::raw('MAX(CASE WHEN p.inoutmode = 2 THEN p.lokasi END) as lokasi_pulang')
+            )
+            ->join('users as k', 'p.nik', '=', 'k.nik')
+            ->leftJoin('company_units as u', 'k.id_unitkerja', '=', 'u.id')
+            ->where('p.tgl_presensi', $tanggal)
+            ->groupBy('k.nip','p.nik', 'k.name', 'u.company_name')
+            ->orderBy('k.name')
+            ->get();
+
+        // ✅ Ini yang benar untuk DataTables
+        return response()->json(['data' => $data]);
+    }
 }

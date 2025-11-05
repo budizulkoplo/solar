@@ -98,8 +98,7 @@ class UsersController extends Controller
         
         if($validatedData){
             if(!empty($request->fidusers)){
-                $id = Crypt::decryptString($request->fidusers);
-                $usr = User::find($id);
+                $usr = User::find($request->fidusers);
             }else{
                 $usr = new User;
                 $usr->nip = $this->genCode();
@@ -114,19 +113,29 @@ class UsersController extends Controller
             $usr->jabatan = $request->jabatan;
             $usr->status = $request->status ? 'aktif' : 'nonaktif';
             $usr->save();
-
-            if($usr){
-                return response()->json('success', 200);
-            }else{
-                return response()->json('gagal', 500);
-            }
+    
+            return response()->json('success', 200);
         }
     }
 
-    function genCode(){
-        $total = User::withTrashed()->whereDate('created_at', date("Y-m-d"))->count();
-        $nomorUrut = $total + 1;
-        $newcode = 'KTX-'.date("ymd").str_pad($nomorUrut, 3, '0', STR_PAD_LEFT);
+
+    function genCode()
+    {
+        // Ambil user terakhir yang punya kode dengan format IDxxxxx
+        $lastUser = User::withTrashed()
+            ->where('nip', 'like', 'ID%')
+            ->orderBy('nip', 'desc')
+            ->first();
+    
+        if ($lastUser) {
+            // Ambil angka setelah "ID"
+            $lastNumber = (int) substr($lastUser->nip, 2);
+            $nomorUrut = $lastNumber + 1;
+        } else {
+            $nomorUrut = 1;
+        }
+    
+        $newcode = 'ID' . str_pad($nomorUrut, 5, '0', STR_PAD_LEFT);
         return $newcode;
     }
 

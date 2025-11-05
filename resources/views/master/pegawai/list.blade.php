@@ -80,11 +80,20 @@
                                 <label class="form-label fw-semibold">Jabatan</label>
                                 <select name="jabatan" class="form-select" required>
                                     <option value="">-- Pilih Jabatan --</option>
-                                    <option value="Project Manager">Project Manager</option>
+                                    <option value="Komisaris Utama">Komisaris Utama</option>
+                                    <option value="Komisaris">Komisaris</option>
+                                    <option value="Direktur Utama">Direktur Utama</option>
+                                    <option value="Direktur">Direktur</option>
                                     <option value="Accounting">Accounting</option>
-                                    
+                                    <option value="HRD">HRD</option>
+                                    <option value="IT">IT</option>
+                                    <option value="Project Manager">Project Manager</option>
+                                    <option value="Project Administrator">Project Administrator</option>
+                                    <option value="Marketing Manager">Marketing Manager</option>
+                                    <option value="Marketing">Marketing</option>
                                 </select>
                             </div>
+
 
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Unit Kerja</label>

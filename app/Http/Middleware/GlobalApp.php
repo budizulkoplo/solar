@@ -71,6 +71,8 @@ class GlobalApp
             'login',
             'logout',
             'dashboard',
+            'hris.payroll.slip',
+            'profile.edit',
             'dashboard.pesananHariIniData',
         ];
 
