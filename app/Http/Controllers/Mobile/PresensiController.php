@@ -420,7 +420,7 @@ class PresensiController extends BaseMobileController
             ->join('users', 'pengajuan_izin.nik', '=', 'users.nik');
 
         if (!empty($request->status)) {
-            $query->where('status', $request->status);
+            $query->where('pengajuan_izin.status', $request->status);
         }
         if (!empty($request->status_approved)) {
             $query->where('status_approved', $request->status_approved);
