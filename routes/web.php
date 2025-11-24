@@ -197,13 +197,20 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{coa}', [CoaController::class, 'destroy'])->name('coas.destroy');
     });
 
-    Route::prefix('transaksi')->middleware(['role:superadmin|admin','global.app'])->group(function(){
-        Route::get('notas', [NotaController::class,'index'])->name('transaksi.notas.index');
-        Route::get('notas/getdata', [NotaController::class,'getData'])->name('transaksi.notas.getdata');
-        Route::post('notas/store', [NotaController::class,'store'])->name('transaksi.notas.store');
-        Route::get('notas/{nota}', [NotaController::class,'show'])->name('transaksi.notas.show');
-        Route::put('notas/{nota}', [NotaController::class,'update'])->name('transaksi.notas.update');
-        Route::delete('notas/{nota}', [NotaController::class,'destroy'])->name('transaksi.notas.destroy');
+    Route::prefix('transaksi')->middleware(['role:superadmin|admin','global.app'])->group(function() {
+
+        // === TRANSAKSI PT ===
+        Route::prefix('pt')->group(function() {
+            Route::get('out', [PTController::class,'out'])->name('transaksi.pt.out');
+            Route::get('in', [PTController::class,'in'])->name('transaksi.pt.in');
+        });
+
+        // === TRANSAKSI PROJECT ===
+        Route::prefix('project')->group(function() {
+            Route::get('out', [ProjectController::class,'out'])->name('transaksi.project.out');
+            Route::get('in', [ProjectController::class,'in'])->name('transaksi.project.in');
+        });
+
     });
 
     Route::get('/rekening/{id}/saldo', [RekeningController::class,'getSaldo']);
