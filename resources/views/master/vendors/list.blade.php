@@ -11,13 +11,13 @@
             <div class="card card-info card-outline mb-4">
                 <div class="card-header pt-1 pb-1">
                     <div class="card-tools">
-                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalVendor">
+                        <button class="btn btn-sm btn-primary" id="btnTambahVendor">
                             <i class="bi bi-file-earmark-plus"></i> Tambah Vendor
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <table id="tbVendors" class="table table-sm table-striped w-100" style="font-size: small;">
+                    <table id="tbVendors" class="table table-sm table-striped w-100 text-center" style="font-size: small;">
                         <thead>
                             <tr>
                                 <th>No</th>
@@ -77,8 +77,8 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Simpan</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Simpan</button>
                     </div>
                 </form>
             </div>
@@ -89,9 +89,10 @@
         <script>
             let tbVendors = $('#tbVendors').DataTable({
                 responsive: true,
-                ajax: "{{ route('vendors.index') }}",
+                serverSide: true,
+                ajax: "{{ route('vendors.getdata') }}",
                 columns: [
-                    { data: 'DT_RowIndex' },
+                    { data: 'DT_RowIndex', className: 'text-center', orderable: false }, // <--- disable order
                     { data: 'namavendor' },
                     { 
                         data: 'jenis',
@@ -111,6 +112,12 @@
                     { data: 'aksi', orderable:false, searchable:false }
                 ]
             });
+            // Tambah Vendor
+            $('#btnTambahVendor').click(function(){
+                $('#frmVendor')[0].reset();
+                $('#idVendor').val('');
+                $('#modalVendor').modal('show');
+            });
 
             // Submit form
             $('#frmVendor').submit(function(e){
@@ -128,12 +135,10 @@
                 $.post("{{ url('vendors') }}/"+id+"/update-jenis", {
                     _token: '{{ csrf_token() }}',
                     jenis: val
-                }, function(){
-                    tbVendors.ajax.reload(null,false);
-                });
+                }, function(){ tbVendors.ajax.reload(null,false); });
             });
 
-            // Edit
+            // Edit Vendor
             $('#tbVendors').on('click','.editVendor', function(){
                 $.get('/vendors/'+$(this).data('id')+'/edit', function(d){
                     $('#idVendor').val(d.id);
@@ -147,25 +152,25 @@
                 });
             });
 
-            // Delete
+            // Delete Vendor
             $('#tbVendors').on('click','.deleteVendor', function(){
                 if(confirm('Hapus vendor ini?')){
                     $.ajax({
                         url:'/vendors/'+$(this).data('id'),
                         type:'DELETE',
                         data:{_token:'{{ csrf_token() }}'},
-                        success:function(){
-                            tbVendors.ajax.reload();
-                        }
+                        success:function(){ tbVendors.ajax.reload(); }
                     });
                 }
             });
 
             // Reset form saat modal dibuka
-            $('#modalVendor').on('show.bs.modal', function(){
+            $('#btnTambahVendor').click(function(){
                 $('#frmVendor')[0].reset();
                 $('#idVendor').val('');
+                $('#modalVendor').modal('show');
             });
+
         </script>
     </x-slot>
 </x-app-layout>

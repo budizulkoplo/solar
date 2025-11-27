@@ -33,6 +33,7 @@ use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\PengajuanIzinController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\MasterGajiController;
+use App\Http\Controllers\KodetransaksiController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -197,6 +198,19 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{coa}', [CoaController::class, 'destroy'])->name('coas.destroy');
     });
 
+    Route::prefix('kodetransaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+        Route::get('/', [KodetransaksiController::class,'index'])->name('kodetransaksi.index');
+        Route::get('/data', [KodetransaksiController::class,'getData'])->name('kodetransaksi.data');
+
+        Route::post('/store', [KodetransaksiController::class,'store'])->name('kodetransaksi.store');
+
+        Route::get('/{id}/edit', [KodetransaksiController::class,'edit'])->name('kodetransaksi.edit')->where('id', '[0-9]+');
+        Route::put('/{id}', [KodetransaksiController::class,'update'])->name('kodetransaksi.update')->where('id', '[0-9]+');
+        Route::delete('/{id}', [KodetransaksiController::class,'destroy'])->name('kodetransaksi.destroy')->where('id', '[0-9]+');
+
+        Route::patch('/{id}/update-coa', [KodetransaksiController::class,'updateCoa'])->name('kodetransaksi.updateCoa');
+    });
+
     Route::prefix('transaksi')->middleware(['role:superadmin|admin','global.app'])->group(function() {
 
         // === TRANSAKSI PT ===
@@ -223,13 +237,13 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{id}', [RekeningController::class, 'destroy'])->name('rekening.destroy');
     });
 
-    // Vendors
-    Route::prefix('vendors')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('vendors')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt','global.app'])->group(function () {
         Route::get('/', [VendorController::class, 'index'])->name('vendors.index');
         Route::get('/getdata', [VendorController::class, 'getData'])->name('vendors.getdata');
         Route::post('/store', [VendorController::class, 'store'])->name('vendors.store');
+        Route::get('/{id}/edit', [VendorController::class, 'edit'])->name('vendors.edit');
         Route::delete('/{id}', [VendorController::class, 'destroy'])->name('vendors.destroy');
-        Route::post('{id}/update-jenis', [VendorController::class, 'updateJenis'])->name('vendors.updateJenis');
+        Route::post('/{id}/update-jenis', [VendorController::class, 'updateJenis'])->name('vendors.updateJenis');
     });
 
     // User Projects

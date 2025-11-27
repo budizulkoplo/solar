@@ -29,7 +29,6 @@ class GlobalApp
     public function handle(Request $request, Closure $next, $role = null): Response
     {
         $user = Auth::user();
-
         if (!$user) {
             return redirect()->route('login');
         }
@@ -39,7 +38,6 @@ class GlobalApp
 
         // Ambil menu sesuai role & module
         $menuQuery = Menu::orderBy('seq', 'asc');
-
         if ($userRole) {
             $menuQuery->where(function ($q) use ($userRole) {
                 $q->where('role', 'like', "%;$userRole;%")
@@ -60,11 +58,9 @@ class GlobalApp
         $menus = $menuQuery->get();
 
         // Bangun tree menu
-        $request->merge([
-            'menu' => $this->buildTree($menus),
-        ]);
+        $request->merge(['menu' => $this->buildTree($menus)]);
 
-        // Routes yang selalu diizinkan (pilih project/module)
+        // Routes yang selalu diizinkan
         $alwaysAllowed = [
             'choose.project',
             'choose.project.store',
@@ -78,7 +74,6 @@ class GlobalApp
             'profile.destroy',
             'profile.upload',
             'dashboard.pesananHariIniData',
-
         ];
 
         $currentRoute = strtolower($request->route()->getName() ?? '');
@@ -87,17 +82,11 @@ class GlobalApp
             return $next($request);
         }
 
-        // PERBAIKAN: Izinkan route mobile tanpa module check
-        if (Str::startsWith($currentRoute, 'mobile.')) {
+        // Izinkan route mobile dan auth
+        if (Str::startsWith($currentRoute, 'mobile.') || Str::startsWith($currentRoute, 'auth.')) {
             return $next($request);
         }
 
-        // PERBAIKAN: Izinkan route auth
-        if (Str::startsWith($currentRoute, 'auth.')) {
-            return $next($request);
-        }
-
-        // Jika tidak ada active module, izinkan akses
         if (!$activeModule) {
             return $next($request);
         }
@@ -105,11 +94,22 @@ class GlobalApp
         // Ambil semua route yang diizinkan dari menu
         $allowedRoutes = $this->getAllAllowedRoutes($menus);
 
-        $hasAccess = in_array($currentRoute, $allowedRoutes) || 
-                    $this->isRouteAllowed($currentRoute, $allowedRoutes);
+        // AUTO ALLOW: jika route child dari parent menu, izinkan
+        $segments = $request->segments();
+        if (count($segments) > 0) {
+            $firstSegment = strtolower($segments[0]);
+            foreach ($menus as $menu) {
+                if ($menu->link && strtolower($menu->link) == $firstSegment) {
+                    return $next($request); // izinkan semua child route
+                }
+            }
+        }
+
+        // Cek akses berdasarkan nama route
+        $hasAccess = in_array($currentRoute, $allowedRoutes) ||
+                     $this->isRouteAllowed($currentRoute, $allowedRoutes);
 
         if (!$hasAccess) {
-            // Debug information - bisa dihapus setelah testing
             \Log::info('Access denied', [
                 'current_route' => $currentRoute,
                 'allowed_routes' => $allowedRoutes,
@@ -121,19 +121,16 @@ class GlobalApp
         return $next($request);
     }
 
-    /**
-     * Mendapatkan semua route yang diizinkan dari menu
-     */
     private function getAllAllowedRoutes($menus)
     {
         $allowedRoutes = [];
-        
+
         foreach ($menus as $menu) {
             if ($menu->link) {
                 $baseRoute = strtolower($menu->link);
                 $allowedRoutes[] = $baseRoute;
-                
-                // Untuk route resource conventional (index, show, edit, update, destroy)
+
+                // Tambahkan resource conventional
                 $allowedRoutes = array_merge($allowedRoutes, [
                     $baseRoute . '.index',
                     $baseRoute . '.show',
@@ -143,67 +140,25 @@ class GlobalApp
                     $baseRoute . '.update',
                     $baseRoute . '.destroy',
                 ]);
-
-                // PERBAIKAN: Untuk route dengan pattern seperti pegawai.getdata, users.getdata, dll
-                // Ambil base segment pertama sebagai parent
-                $routeParts = explode('.', $baseRoute);
-                $parentRoute = $routeParts[0];
-                
-                // Tambahkan semua kemungkinan route child berdasarkan parent
-                $commonChildRoutes = [
-                    'getdata', 'getcode', 'list', 'store', 'update', 'destroy', 
-                    'show', 'edit', 'create', 'assignrole', 'updatepassword',
-                    'kasihrole', 'permission', 'addrole', 'deleterole', 'deletepermission',
-                    'toggle', 'getuserprojects', 'getsaldo', 'updatejenis',
-                    'datamenu', 'transaksi_armada', 'transaksi_armada_data',
-                    'laporan_project', 'laporan_vendor'
-                ];
-
-                foreach ($commonChildRoutes as $child) {
-                    $allowedRoutes[] = $parentRoute . '.' . $child;
-                }
-
-                // Untuk route dengan prefix (seperti companies.projects)
-                if (count($routeParts) > 1) {
-                    $parentPrefix = $routeParts[0];
-                    foreach ($commonChildRoutes as $child) {
-                        $allowedRoutes[] = $parentPrefix . '.' . $child;
-                    }
-                }
             }
         }
-        
+
         return array_unique($allowedRoutes);
     }
 
-    /**
-     * Cek apakah route saat ini diizinkan berdasarkan pattern matching
-     */
     private function isRouteAllowed($currentRoute, $allowedRoutes)
     {
         foreach ($allowedRoutes as $allowedRoute) {
-            // Exact match
-            if ($currentRoute === $allowedRoute) {
+            if ($currentRoute === $allowedRoute || Str::startsWith($currentRoute, $allowedRoute . '.')) {
                 return true;
             }
 
-            // Prefix match (misal: pegawai. diawali dengan pegawai.)
-            if (Str::startsWith($currentRoute, $allowedRoute . '.')) {
-                return true;
-            }
-
-            // PERBAIKAN: Group prefix match
-            // Jika allowedRoute adalah 'pegawai', maka izinkan semua 'pegawai.*'
             $currentParts = explode('.', $currentRoute);
             $allowedParts = explode('.', $allowedRoute);
-            
-            if (count($currentParts) > 0 && count($allowedParts) > 0) {
-                if ($currentParts[0] === $allowedParts[0]) {
-                    return true;
-                }
+            if (count($currentParts) > 0 && count($allowedParts) > 0 && $currentParts[0] === $allowedParts[0]) {
+                return true;
             }
 
-            // Pattern match untuk route dengan parameter (misal: companies/{id})
             if ($this->matchesRoutePattern($currentRoute, $allowedRoute)) {
                 return true;
             }
@@ -212,17 +167,12 @@ class GlobalApp
         return false;
     }
 
-    /**
-     * Cek pattern matching untuk route dengan parameter
-     */
     private function matchesRoutePattern($currentRoute, $allowedRoute)
     {
-        // Jika allowed route tidak mengandung parameter, skip
         if (!Str::contains($allowedRoute, '{')) {
             return false;
         }
 
-        // Ubah pattern route menjadi regex
         $pattern = preg_quote($allowedRoute, '/');
         $pattern = str_replace('\\{', '{', $pattern);
         $pattern = preg_replace('/\{[^}]+\}/', '[^/.]+', $pattern);
