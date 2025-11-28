@@ -227,13 +227,11 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
     });
 
-    Route::get('/rekening/{id}/saldo', [RekeningController::class,'getSaldo']);
-
-    // Rekening
     Route::prefix('rekening')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
         Route::get('/', [RekeningController::class, 'index'])->name('rekening.index');
         Route::post('/store', [RekeningController::class, 'store'])->name('rekening.store');
         Route::get('/{id}/edit', [RekeningController::class, 'edit'])->name('rekening.edit');
+        Route::get('/{id}/saldo', [RekeningController::class, 'getSaldo'])->name('rekening.saldo'); // PINDAHKAN KE DALAM GROUP
         Route::delete('/{id}', [RekeningController::class, 'destroy'])->name('rekening.destroy');
     });
 
