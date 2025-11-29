@@ -48,36 +48,36 @@ class RekeningController extends Controller
     }
 
     public function edit($id)
-{
-    try {
-        $rek = Rekening::with('company', 'project.company')->findOrFail($id);
-        
-        \Log::info('Edit rekening:', [
-            'id' => $id,
-            'data' => $rek->toArray()
-        ]);
-        
-        return response()->json([
-            'idrek' => $rek->idrek,
-            'norek' => $rek->norek,
-            'namarek' => $rek->namarek,
-            'saldo' => $rek->saldo,
-            'saldoakhir' => $rek->saldoakhir,
-            'idcompany' => $rek->idcompany,
-            'idproject' => $rek->idproject
-        ]);
+    {
+        try {
+            $rek = Rekening::with('company', 'project.company')->findOrFail($id);
+            
+            \Log::info('Edit rekening:', [
+                'id' => $id,
+                'data' => $rek->toArray()
+            ]);
+            
+            return response()->json([
+                'idrek' => $rek->idrek,
+                'norek' => $rek->norek,
+                'namarek' => $rek->namarek,
+                'saldo' => $rek->saldo,
+                'saldoakhir' => $rek->saldoakhir,
+                'idcompany' => $rek->idcompany,
+                'idproject' => $rek->idproject
+            ]);
 
-    } catch (\Exception $e) {
-        \Log::error('Edit rekening error:', [
-            'id' => $id,
-            'error' => $e->getMessage()
-        ]);
-        
-        return response()->json([
-            'error' => 'Data tidak ditemukan'
-        ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Edit rekening error:', [
+                'id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'error' => 'Data tidak ditemukan'
+            ], 404);
+        }
     }
-}
 
     public function store(Request $request)
     {
