@@ -112,114 +112,68 @@
             <input type="text" id="menuSearch" class="form-control form-control-sm" placeholder="Cari menu...">
         </div>
 
+        @php
+            use App\Models\Menu;
+
+            $userRoles = auth()->user()->getRoleNames()->toArray();
+            $allMenu = Menu::orderBy('seq')->get();
+
+            // Ambil module aktif dari session
+            $activeModule = session('active_project_module', null);
+
+            function getChildMenu($allMenu, $parentId, $userRoles, $activeModule) {
+                $children = $allMenu->filter(fn($m) => $m->parent_id == $parentId)
+                                    ->filter(function($m) use ($userRoles, $activeModule) {
+                                        $roles = array_filter(explode(';', $m->role));
+                                        $hasRole = count(array_intersect($roles, $userRoles)) > 0;
+
+                                        // Jika menu punya module, harus sama dengan active module
+                                        $moduleOk = !$m->module || ($activeModule && $m->module == $activeModule);
+
+                                        return $hasRole && $moduleOk;
+                                    });
+
+                return $children;
+            }
+
+            function renderMenu($allMenu, $parentId, $userRoles, $activeModule) {
+                $menus = getChildMenu($allMenu, $parentId, $userRoles, $activeModule);
+
+                foreach ($menus as $menu) {
+                    $children = getChildMenu($allMenu, $menu->id, $userRoles, $activeModule);
+                    $isActiveParent = request()->routeIs($menu->link) || ($children->contains(fn($c) => request()->routeIs($c->link)));
+
+                    echo '<li class="nav-item menu-item ' . ($isActiveParent ? 'menu-open' : '') . '">';
+
+                    $href = $menu->link && Route::has($menu->link) ? route($menu->link) : '#';
+                    echo '<a href="' . $href . '" class="nav-link menu-link ' . ($isActiveParent ? 'active' : '') . '">';
+                    echo '<i class="nav-icon ' . ($menu->icon ?? '') . '"></i>';
+                    echo '<p>' . $menu->name;
+                    if ($children->count()) echo ' <i class="nav-arrow bi bi-chevron-right"></i>';
+                    echo '</p></a>';
+
+                    if ($children->count()) {
+                        echo '<ul class="nav nav-treeview submenu ps-4" style="' . ($isActiveParent ? 'display: block;' : '') . '">';
+                        renderMenu($allMenu, $menu->id, $userRoles, $activeModule);
+                        echo '</ul>';
+                    }
+
+                    echo '</li>';
+                }
+            }
+        @endphp
         <nav class="mt-2">
             <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu" data-accordion="false">
-                @foreach (request()->menu as $item)
-                    @php
-                        $p1 = explode(';', $item->role);
-                        $lanjut = 0;
-                        $isActiveParent = false;
-
-                        if (!empty($item->children)) {
-                            foreach ($item->children as $chl) {
-                                $p2 = explode(';', $chl->role);
-                                $inarray = array_intersect(auth()->user()->getRoleNames()->toArray(), $p2);
-                                if ($inarray) $lanjut++;
-
-                                if (Route::is($chl->link)) $isActiveParent = true;
-
-                                if (!empty($chl->children)) {
-                                    foreach ($chl->children as $chl2) {
-                                        $p4 = explode(';', $chl2->role);
-                                        $inarray2 = array_intersect(auth()->user()->getRoleNames()->toArray(), $p4);
-                                        if ($inarray2 && Route::is($chl2->link)) $isActiveParent = true;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (array_intersect(auth()->user()->getRoleNames()->toArray(), $p1)) {
-                            $lanjut++;
-                        }
-
-                        $itemActive = request()->routeIs($item->link);
-                    @endphp
-
-                    @if ($lanjut > 0)
-                        <li class="nav-item menu-item {{ $isActiveParent || $itemActive ? 'menu-open' : '' }}">
-                            <a href="{{ $item->children ? '#' : (Route::has($item->link) ? route($item->link) : '') }}"
-                               class="nav-link menu-link {{ $itemActive || $isActiveParent ? 'active' : '' }}">
-                                <i class="nav-icon {{ $item->icon }}"></i>
-                                <p>
-                                    {{ $item->name }}
-                                    @if ($item->children)
-                                        <i class="nav-arrow bi bi-chevron-right"></i>
-                                    @endif
-                                </p>
-                            </a>
-
-                            @if ($item->children)
-                                <ul class="nav nav-treeview submenu ps-4" style="{{ $isActiveParent ? 'display: block;' : '' }}">
-                                    @foreach ($item->children as $chl)
-                                        @php
-                                            $p3 = explode(';', $chl->role);
-                                            $inarray1 = array_intersect(auth()->user()->getRoleNames()->toArray(), $p3);
-                                            $isActiveSub = Route::is($chl->link);
-                                            $isActiveSubChild = false;
-
-                                            if (!empty($chl->children)) {
-                                                foreach ($chl->children as $chl2) {
-                                                    if (Route::is($chl2->link)) {
-                                                        $isActiveSubChild = true;
-                                                    }
-                                                }
-                                            }
-                                        @endphp
-
-                                        @if ($inarray1)
-                                            <li class="nav-item menu-item {{ $isActiveSubChild ? 'menu-open' : '' }}">
-                                                @if ($chl->children)
-                                                    <a href="#" class="nav-link menu-link {{ $isActiveSubChild ? 'active' : '' }}">
-                                                        <i class="nav-icon {{ $chl->icon }}"></i>
-                                                        <p>{{ $chl->name }}</p>
-                                                        <i class="nav-arrow bi bi-chevron-right"></i>
-                                                    </a>
-                                                    <ul class="nav nav-treeview submenu ps-5" style="{{ $isActiveSubChild ? 'display: block;' : '' }}">
-                                                        @foreach ($chl->children as $chl2)
-                                                            @php
-                                                                $p4 = explode(';', $chl2->role);
-                                                                $inarray2 = array_intersect(auth()->user()->getRoleNames()->toArray(), $p4);
-                                                            @endphp
-                                                            @if ($inarray2 && Route::has($chl2->link))
-                                                                <li class="nav-item menu-item">
-                                                                    <a href="{{ route($chl2->link) }}"
-                                                                       class="nav-link menu-link {{ request()->routeIs($chl2->link) ? 'active' : '' }}">
-                                                                        <i class="nav-icon {{ $chl2->icon }}"></i>
-                                                                        <p>{{ $chl2->name }}</p>
-                                                                    </a>
-                                                                </li>
-                                                            @endif
-                                                        @endforeach
-                                                    </ul>
-                                                @else
-                                                    @if (Route::has($chl->link))
-                                                        <a href="{{ route($chl->link) }}"
-                                                           class="nav-link menu-link {{ $isActiveSub ? 'active' : '' }}">
-                                                            <i class="nav-icon {{ $chl->icon }}"></i>
-                                                            <p>{{ $chl->name }}</p>
-                                                        </a>
-                                                    @endif
-                                                @endif
-                                            </li>
-                                        @endif
-                                    @endforeach
-                                </ul>
-                            @endif
-                        </li>
-                    @endif
-                @endforeach
+                @if(session('active_project_module'))
+                    @php renderMenu($allMenu, null, $userRoles, session('active_project_module')); @endphp
+                @else
+                    <li class="nav-item">
+                        <span class="text-muted ps-3">Pilih module/project terlebih dahulu</span>
+                    </li>
+                @endif
             </ul>
         </nav>
+
     </div>
 </aside>
 

@@ -108,6 +108,7 @@
                     case 'siang': return 'bg-warning text-dark';
                     case 'malam': return 'bg-primary text-white';
                     case 'libur': return 'bg-secondary text-white';
+                    case 'marketing': return 'bg-danger text-white';
                     case 'gs': return 'bg-warning text-dark';
                     default: return '';
                 }
