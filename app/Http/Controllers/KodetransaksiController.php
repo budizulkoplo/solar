@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Kodetransaksi;
+use App\Models\KodeTransaksi;
 use App\Models\Coa;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;

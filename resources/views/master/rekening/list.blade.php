@@ -30,8 +30,8 @@
                                         <th>No.</th>
                                         <th>No Rek</th>
                                         <th>Nama</th>
+                                        <th>Saldo Awal</th>
                                         <th>Saldo</th>
-                                        <th>Saldo Akhir</th>
                                         <th>Company</th>
                                         <th>Aksi</th>
                                     </tr>
@@ -59,8 +59,8 @@
                                         <th>No.</th>
                                         <th>No Rek</th>
                                         <th>Nama</th>
+                                        <th>Saldo Awal</th>
                                         <th>Saldo</th>
-                                        <th>Saldo Akhir</th>
                                         <th>Project</th>
                                         <th>Aksi</th>
                                     </tr>
@@ -97,11 +97,11 @@
                         </div>
                         <div class="mb-2">
                             <label class="form-label">Saldo Awal</label>
-                            <input type="number" class="form-control form-control-sm" name="saldo" id="saldo" value="0" step="0.01">
+                            <input type="number" class="form-control form-control-sm" name="saldoawal" id="saldoawal" value="0" step="0.01">
                         </div>
                         <div class="mb-2">
-                            <label class="form-label">Saldo Akhir</label>
-                            <input type="number" class="form-control form-control-sm" name="saldoakhir" id="saldoakhir" value="0" step="0.01">
+                            <label class="form-label">Saldo</label>
+                            <input type="number" class="form-control form-control-sm" name="saldo" id="saldo" value="0" step="0.01">
                         </div>
                         <div class="mb-2 selectCompany d-none">
                             <label class="form-label">Company <span class="text-danger">*</span></label>
@@ -172,8 +172,8 @@
                 { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                 { data: 'norek' },
                 { data: 'namarek' },
+                { data: 'saldoawal', render: d => formatRupiah(d) },
                 { data: 'saldo', render: d => formatRupiah(d) },
-                { data: 'saldoakhir', render: d => formatRupiah(d) },
                 { data: 'company.company_name' },
                 { data: 'aksi', orderable: false, searchable: false }
             ]
@@ -191,8 +191,8 @@
                 { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                 { data: 'norek' },
                 { data: 'namarek' },
+                { data: 'saldoawal', render: d => formatRupiah(d) },
                 { data: 'saldo', render: d => formatRupiah(d) },
-                { data: 'saldoakhir', render: d => formatRupiah(d) },
                 { data: 'project.namaproject' },
                 { data: 'aksi', orderable: false, searchable: false }
             ]
@@ -276,7 +276,7 @@
                             if (response.norek) $('#norek').val(response.norek);
                             if (response.namarek) $('#namarek').val(response.namarek);
                             if (response.saldo) $('#saldo').val(response.saldo);
-                            if (response.saldoakhir) $('#saldoakhir').val(response.saldoakhir);
+                            if (response.saldoawal) $('#saldoawal').val(response.saldoawal);
                             
                             // Handle type
                             $('.selectCompany, .selectProject').addClass('d-none');
