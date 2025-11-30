@@ -26,8 +26,8 @@ class Nota extends Model
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
-        'tgl_tempo' => 'date',
+        'tanggal' => 'date:Y-m-d',
+        'tgl_tempo' => 'date:Y-m-d',
         'total' => 'decimal:2'
     ];
 
