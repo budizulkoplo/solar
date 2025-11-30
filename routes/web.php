@@ -34,6 +34,7 @@ use App\Http\Controllers\PengajuanIzinController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\MasterGajiController;
 use App\Http\Controllers\KodetransaksiController;
+use App\Http\Controllers\ProjectController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -211,18 +212,22 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::patch('/{id}/update-coa', [KodetransaksiController::class,'updateCoa'])->name('kodetransaksi.updateCoa');
     });
 
-    Route::prefix('transaksi')->middleware(['role:superadmin|admin','global.app'])->group(function() {
-
-        // === TRANSAKSI PT ===
-        Route::prefix('pt')->group(function() {
-            Route::get('out', [PTController::class,'out'])->name('transaksi.pt.out');
-            Route::get('in', [PTController::class,'in'])->name('transaksi.pt.in');
-        });
+    Route::prefix('transaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
 
         // === TRANSAKSI PROJECT ===
         Route::prefix('project')->group(function() {
+            // halaman list
+            Route::get('in',  [ProjectController::class,'in'])->name('transaksi.project.in');
             Route::get('out', [ProjectController::class,'out'])->name('transaksi.project.out');
-            Route::get('in', [ProjectController::class,'in'])->name('transaksi.project.in');
+
+            // datatables
+            Route::get('getdata/{type}', [ProjectController::class,'getdata'])->name('transaksi.project.getdata');
+
+            // store header + detail
+            Route::post('store/{type}', [ProjectController::class,'store'])->name('transaksi.project.store');
+
+            // ambil saldo rekening - PERBAIKI ROUTE INI
+            Route::get('rekening/{id}/saldo', [ProjectController::class,'saldoRekening'])->name('transaksi.project.rekening.saldo');
         });
 
     });

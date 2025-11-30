@@ -9,17 +9,32 @@ class Cashflow extends Model
 {
     use HasFactory;
 
+    protected $table = 'cashflows';
     protected $fillable = [
-        'rekening_id','nota_id','amount','saldo_akhir','keterangan'
+        'idrek',
+        'idnota',
+        'tanggal',
+        'cashflow',
+        'nominal',
+        'saldo_awal',
+        'saldo_akhir',
+        'keterangan'
+    ];
+
+    protected $casts = [
+        'tanggal' => 'date',
+        'nominal' => 'decimal:2',
+        'saldo_awal' => 'decimal:2',
+        'saldo_akhir' => 'decimal:2'
     ];
 
     public function rekening()
     {
-        return $this->belongsTo(Rekening::class, 'rekening_id');
+        return $this->belongsTo(Rekening::class, 'idrek');
     }
 
     public function nota()
     {
-        return $this->belongsTo(Nota::class, 'nota_id');
+        return $this->belongsTo(Nota::class, 'idnota');
     }
 }
