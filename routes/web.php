@@ -223,10 +223,15 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             // datatables
             Route::get('getdata/{type}', [ProjectController::class,'getdata'])->name('transaksi.project.getdata');
 
-            // store header + detail
+            // CRUD operations
             Route::post('store/{type}', [ProjectController::class,'store'])->name('transaksi.project.store');
+            Route::get('{id}', [ProjectController::class,'show'])->name('transaksi.project.show');
+            Route::get('{id}/edit', [ProjectController::class,'edit'])->name('transaksi.project.edit');
+            Route::put('{id}/{type}', [ProjectController::class,'update'])->name('transaksi.project.update');
+            Route::delete('{id}', [ProjectController::class,'destroy'])->name('transaksi.project.destroy');
+            Route::post('{id}/status', [ProjectController::class,'updateStatus'])->name('transaksi.project.status');
 
-            // ambil saldo rekening - PERBAIKI ROUTE INI
+            // ambil saldo rekening
             Route::get('rekening/{id}/saldo', [ProjectController::class,'saldoRekening'])->name('transaksi.project.rekening.saldo');
         });
 

@@ -304,4 +304,219 @@ class ProjectController extends Controller
             ]);
         }
     }
+
+        public function show($id)
+    {
+        try {
+            $nota = Nota::with([
+                'project',
+                'vendor', 
+                'transactions.kodeTransaksi',
+                'payments.rekening',
+                'cashflows'
+            ])->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'data' => $nota
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nota tidak ditemukan'
+            ], 404);
+        }
+    }
+
+    /**
+     * Get data untuk form edit
+     */
+    public function edit($id)
+    {
+        try {
+            $nota = Nota::with(['transactions'])->findOrFail($id);
+
+            $data = [
+                'nota' => $nota,
+                'transactions' => $nota->transactions
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nota tidak ditemukan'
+            ], 404);
+        }
+    }
+
+    /**
+     * Update transaksi
+     */
+    public function update(Request $request, $id, $type)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'nota_no' => 'required|string|max:50',
+                'tanggal' => 'required|date',
+                'vendor_id' => 'required|exists:vendors,id',
+                'idrek' => 'required|exists:rekening,idrek',
+                'paymen_method' => 'required|in:cash,tempo',
+                'transactions' => 'required|array|min:1',
+                'transactions.*.idkodetransaksi' => 'required|exists:kodetransaksi,id',
+                'transactions.*.description' => 'required|string|max:255',
+                'transactions.*.nominal' => 'required|numeric|min:0',
+                'transactions.*.jml' => 'required|numeric|min:0',
+                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            ]);
+
+            // Cari nota yang akan diupdate
+            $nota = Nota::findOrFail($id);
+
+            // Handle upload bukti nota baru
+            $buktiNotaPath = $nota->bukti_nota;
+            if ($request->hasFile('bukti_nota')) {
+                // Hapus file lama jika ada
+                if ($buktiNotaPath) {
+                    Storage::disk('public')->delete($buktiNotaPath);
+                }
+                
+                $file = $request->file('bukti_nota');
+                $filename = 'nota_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
+            }
+
+            // Hitung total transaksi baru
+            $total = 0;
+            foreach ($request->transactions as $transaction) {
+                $total += ($transaction['nominal'] * $transaction['jml']);
+            }
+
+            // Update data nota
+            $nota->update([
+                'nota_no' => $request->nota_no,
+                'tanggal' => $request->tanggal,
+                'vendor_id' => $request->vendor_id,
+                'paymen_method' => $request->paymen_method,
+                'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
+                'total' => $total,
+                'bukti_nota' => $buktiNotaPath,
+            ]);
+
+            // Hapus detail transaksi lama
+            NotaTransaction::where('idnota', $nota->id)->delete();
+
+            // Simpan detail transaksi baru
+            foreach ($request->transactions as $transaction) {
+                NotaTransaction::create([
+                    'idnota' => $nota->id,
+                    'idkodetransaksi' => $transaction['idkodetransaksi'],
+                    'description' => $transaction['description'],
+                    'nominal' => $transaction['nominal'],
+                    'jml' => $transaction['jml'],
+                    'total' => $transaction['nominal'] * $transaction['jml'],
+                ]);
+            }
+
+            // Jika status berubah dari tempo ke cash, buat pembayaran
+            if ($nota->paymen_method == 'tempo' && $request->paymen_method == 'cash') {
+                $nota->update(['status' => 'paid']);
+                $this->processCashPayment($nota, $request->idrek, $total, $request->tanggal);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil diupdate',
+                'nota_id' => $nota->id
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Hapus transaksi
+     */
+    public function destroy($id)
+    {
+        DB::beginTransaction();
+        try {
+            $nota = Nota::with(['payments', 'cashflows'])->findOrFail($id);
+
+            // Hapus file bukti nota jika ada
+            if ($nota->bukti_nota) {
+                Storage::disk('public')->delete($nota->bukti_nota);
+            }
+
+            // Hapus data terkait
+            NotaTransaction::where('idnota', $nota->id)->delete();
+            NotaPayment::where('idnota', $nota->id)->delete();
+            Cashflow::where('idnota', $nota->id)->delete();
+
+            // Hapus nota
+            $nota->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil dihapus'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update status nota (paid, partial, cancel)
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'status' => 'required|in:paid,partial,cancel'
+            ]);
+
+            $nota = Nota::findOrFail($id);
+            $nota->update(['status' => $request->status]);
+
+            // Jika status menjadi paid dan payment method cash, buat pembayaran
+            if ($request->status == 'paid' && $nota->paymen_method == 'cash') {
+                $this->processCashPayment($nota, $nota->idrek, $nota->total, $nota->tanggal);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status transaksi berhasil diupdate'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
