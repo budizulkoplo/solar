@@ -103,112 +103,135 @@
     </div>
 
     <x-slot name="jscustom">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-        <script> window.JSZip = JSZip; </script>
-    <script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script> window.JSZip = JSZip; </script>
 
-    $(function(){
+<script>
+$(function(){
 
-        function formatRupiah(val){ return 'Rp '+Number(val||0).toLocaleString('id-ID'); }
-        function cleanNumber(val){ return Number((val||0).toString().replace(/[^\d]/g,'')); }
+    function formatRupiah(val){ 
+        return 'Rp '+Number(val||0).toLocaleString('id-ID'); 
+    }
 
-        function hitungJumlah(row){
-            let pend = ['gajipokok','pek_tambahan','masakerja','komunikasi','transportasi','konsumsi','tunj_asuransi','jabatan'];
-            let pot = ['cicilan','asuransi'];
+    function cleanNumber(val){ 
+        return Number((val||0).toString().replace(/[^\d]/g,'')); 
+    }
 
-            let totalPend = 0, totalPot = 0;
+    function hitungJumlah(row){
+        let pend = [
+            'gajipokok','pek_tambahan','masakerja','komunikasi',
+            'transportasi','konsumsi','tunj_asuransi','jabatan'
+        ];
 
-            pend.forEach(f=> totalPend += cleanNumber(row.find(`[data-field="${f}"]`).text()));
-            pot.forEach(f=> totalPot += cleanNumber(row.find(`[data-field="${f}"]`).text()));
+        let pot = ['cicilan','asuransi','zakat']; // zakat ikut potongan manual
 
-            // update zakat otomatis 2.5% dari total pendapatan
-            let zakat = Math.round(totalPend * 0.025);
-            row.find('[data-field="zakat"]').text(formatRupiah(zakat));
-            totalPot += zakat;
+        let totalPend = 0, totalPot = 0;
 
-            row.find('.totalPendapatan').text(formatRupiah(totalPend));
-            row.find('.totalPotongan').text(formatRupiah(totalPot));
-            row.find('td.jumlah').text(formatRupiah(totalPend - totalPot));
-        }
+        pend.forEach(f=> totalPend += cleanNumber(row.find(`[data-field="${f}"]`).text()));
+        pot.forEach(f=> totalPot += cleanNumber(row.find(`[data-field="${f}"]`).text()));
 
-        function updatePayroll(nik, field, value, row){
-            // hitung ulang zakat
-            let pend = ['gajipokok','pek_tambahan','masakerja','komunikasi','transportasi','konsumsi','tunj_asuransi','jabatan'];
-            let totalPend = 0;
-            pend.forEach(f=> totalPend += cleanNumber(row.find(`[data-field="${f}"]`).text()));
+        row.find('.totalPendapatan').text(formatRupiah(totalPend));
+        row.find('.totalPotongan').text(formatRupiah(totalPot));
+        row.find('.jumlah').text(formatRupiah(totalPend - totalPot));
+    }
 
-            let zakat = Math.round(totalPend * 0.025);
-            row.find('[data-field="zakat"]').text(formatRupiah(zakat));
+    function updatePayroll(nik, field, value, row){
+        let dataToSend = {
+            _token : "{{ csrf_token() }}",
+            nik    : nik,
+            field  : field,
+            value  : value
+        };
 
-            let dataToSend = {
-                _token:"{{ csrf_token() }}",
-                nik,
-                field,
-                value,
-                zakat // kirim juga zakat
-            };
+        $.post("{{ route('hris.payroll.update_manual') }}", dataToSend, function(res){
+            if(res.success){
+                hitungJumlah(row);
+            } else {
+                alert("❌ Gagal update data!");
+            }
+        }).fail(()=>{
+            alert("⚠️ Gagal terhubung ke server.");
+        });
+    }
 
-            $.post("{{ route('hris.payroll.update_manual') }}", dataToSend,
-            function(res){
-                if(res.success) hitungJumlah(row);
-                else alert("❌ Gagal update!");
-            }).fail(()=>alert("⚠️ Gagal terhubung server."));
-        }
+    $('#btnTampil').click(function(){
+        let bulan   = $('#bulan').val(),
+            tahun   = $('#tahun').val(),
+            unit_id = $('#unit_id').val();
 
-        $('#btnTampil').click(function(){
-            let bulan=$('#bulan').val(), tahun=$('#tahun').val(), unit_id=$('#unit_id').val();
-            $('#periode-text').text($('#bulan option:selected').text()+' '+tahun);
-            $.get("{{ route('hris.payroll.data') }}",{bulan,tahun,unit_id},function(res){
-                let rows='';
-                res.data.forEach((r,i)=>{
-                    let totalPendapatan = r.gajipokok + r.pek_tambahan + r.masakerja + r.komunikasi + r.transportasi + r.konsumsi + r.tunj_asuransi + r.jabatan;
-                    let totalPotongan = r.cicilan + r.asuransi + r.zakat;
-                    rows+=`<tr data-nik="${r.nik}">
-                        <td class="bg-key">${i+1}</td>
-                        <td class="bg-key">
-                            <a href="/hris/payroll/slip/${r.id}" target="_blank" class="btn btn-sm btn-success">
-                                <i class="bi bi-download"></i>
-                            </a>
-                        </td>
-                        <td class="bg-key" style="text-align:left;">${r.nip}</td>
-                        <td class="bg-key" style="text-align:left;">${r.nama}</td>
+        $('#periode-text').text($('#bulan option:selected').text()+' '+tahun);
 
-                        <td contenteditable class="editable pendapatan" data-field="gajipokok">${formatRupiah(r.gajipokok)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="pek_tambahan">${formatRupiah(r.pek_tambahan)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="masakerja">${formatRupiah(r.masakerja)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="komunikasi">${formatRupiah(r.komunikasi)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="transportasi">${formatRupiah(r.transportasi)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="konsumsi">${formatRupiah(r.konsumsi)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="tunj_asuransi">${formatRupiah(r.tunj_asuransi)}</td>
-                        <td contenteditable class="editable pendapatan" data-field="jabatan">${formatRupiah(r.jabatan)}</td>
+        $.get("{{ route('hris.payroll.data') }}",{ bulan, tahun, unit_id },function(res){
+            let rows='';
 
-                        <td contenteditable class="editable potongan" data-field="cicilan">${formatRupiah(r.cicilan)}</td>
-                        <td contenteditable class="editable potongan" data-field="asuransi">${formatRupiah(r.asuransi)}</td>
-                        <td contenteditable class="editable potongan" data-field="zakat">${formatRupiah(r.zakat)}</td>
+            res.data.forEach((r,i)=>{
+                let totalPendapatan = r.gajipokok + r.pek_tambahan + r.masakerja + r.komunikasi +
+                                      r.transportasi + r.konsumsi + r.tunj_asuransi + r.jabatan;
 
-                        <td class="totalPendapatan bg-total">${formatRupiah(totalPendapatan)}</td>
-                        <td class="totalPotongan bg-total">${formatRupiah(totalPotongan)}</td>
-                        <td class="jumlah bg-total">${formatRupiah(totalPendapatan - totalPotongan)}</td>
-                    </tr>`;
+                let totalPotongan = r.cicilan + r.asuransi + r.zakat;
 
-                });
-                $('#tblPayroll tbody').html(rows);
+                rows += `
+                <tr data-nik="${r.nik}">
+                    <td class="bg-key">${i+1}</td>
+                    <td class="bg-key">
+                        <a href="/hris/payroll/slip/${r.id}" target="_blank" class="btn btn-sm btn-success">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </td>
+                    <td class="bg-key" style="text-align:left;">${r.nip}</td>
+                    <td class="bg-key" style="text-align:left;">${r.nama}</td>
+
+                    <td contenteditable class="editable pendapatan" data-field="gajipokok">${formatRupiah(r.gajipokok)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="pek_tambahan">${formatRupiah(r.pek_tambahan)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="masakerja">${formatRupiah(r.masakerja)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="komunikasi">${formatRupiah(r.komunikasi)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="transportasi">${formatRupiah(r.transportasi)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="konsumsi">${formatRupiah(r.konsumsi)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="tunj_asuransi">${formatRupiah(r.tunj_asuransi)}</td>
+                    <td contenteditable class="editable pendapatan" data-field="jabatan">${formatRupiah(r.jabatan)}</td>
+
+                    <td contenteditable class="editable potongan" data-field="cicilan">${formatRupiah(r.cicilan)}</td>
+                    <td contenteditable class="editable potongan" data-field="asuransi">${formatRupiah(r.asuransi)}</td>
+
+                    <!-- ZAKAT SEKARANG EDITABLE & TIDAK OTOMATIS -->
+                    <td contenteditable class="editable potongan" data-field="zakat">${formatRupiah(r.zakat)}</td>
+
+                    <td class="totalPendapatan bg-total">${formatRupiah(totalPendapatan)}</td>
+                    <td class="totalPotongan bg-total">${formatRupiah(totalPotongan)}</td>
+                    <td class="jumlah bg-total">${formatRupiah(totalPendapatan - totalPotongan)}</td>
+                </tr>`;
             });
-        });
 
-        $(document).on('focus','.editable',function(){
-            let el=$(this); el.text(cleanNumber(el.text()));
-            let range=document.createRange(); range.selectNodeContents(el[0]);
-            let sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+            $('#tblPayroll tbody').html(rows);
         });
-
-        $(document).on('blur','.editable',function(){
-            let el=$(this), nik=el.closest('tr').data('nik'), field=el.data('field'), row=el.closest('tr');
-            let value=cleanNumber(el.text()); el.text(formatRupiah(value));
-            updatePayroll(nik,field,value,row);
-        });
-
     });
-    </script>
-    </x-slot>
+
+    $(document).on('focus','.editable',function(){
+        let el=$(this);
+        el.text(cleanNumber(el.text()));
+
+        let range=document.createRange();
+        range.selectNodeContents(el[0]);
+
+        let sel=window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    $(document).on('blur','.editable',function(){
+        let el    = $(this),
+            nik   = el.closest('tr').data('nik'),
+            field = el.data('field'),
+            row   = el.closest('tr');
+
+        let value = cleanNumber(el.text()); 
+        el.text(formatRupiah(value));
+
+        updatePayroll(nik, field, value, row);
+    });
+
+});
+</script>
+</x-slot>
+
 </x-app-layout>
