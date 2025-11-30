@@ -256,7 +256,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Roles
-    Route::prefix('roles')->middleware(['role:superadmin', 'global.app'])->group(function () {
+    Route::prefix('roles')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
         Route::get('/list', [UserRoleController::class, 'index'])->name('roles.list');
         Route::get('/permission', [UserRoleController::class, 'PermissionByRole']);
         Route::post('/add', [UserRoleController::class, 'addRole']);
