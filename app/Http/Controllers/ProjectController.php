@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
 
 class ProjectController extends Controller
@@ -31,20 +32,28 @@ class ProjectController extends Controller
     // Datatable untuk transaksi
     public function getdata($type)
     {
-        $query = Nota::with(['project', 'transactions.kodeTransaksi'])
+        $query = Nota::with([
+                'project:id,namaproject',
+                'vendor:id,namavendor'
+            ])
             ->where('cashflow', $type)
-            ->where('idproject', session('active_project_id'))
-            ->select('notas.*');
+            ->where('idproject', session('active_project_id'));
 
-        return DataTables::of($query)
+        return DataTables::eloquent($query)
             ->addIndexColumn()
             ->addColumn('action', function($row) {
-                $btn = '<div class="btn-group">
-                    <button class="btn btn-sm btn-info view-btn" data-id="'.$row->id.'" title="View"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-sm btn-warning edit-btn" data-id="'.$row->id.'" title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-danger delete-btn" data-id="'.$row->id.'" title="Delete"><i class="bi bi-trash"></i></button>
+                $user = auth()->user();
+                $canDelete = $user->hasRole('direktur') || $user->hasRole('keuangan');
+                
+                $deleteBtn = $canDelete ? 
+                    '<button class="btn btn-sm btn-danger delete-btn" data-id="'.$row->id.'"><i class="bi bi-trash"></i></button>' :
+                    '<button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>';
+
+                return '<div class="btn-group">
+                    <button class="btn btn-sm btn-info view-btn" data-id="'.$row->id.'"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-sm btn-warning edit-btn" data-id="'.$row->id.'"><i class="bi bi-pencil"></i></button>
+                    '.$deleteBtn.'
                 </div>';
-                return $btn;
             })
             ->addColumn('project_name', function($row) {
                 return $row->project ? $row->project->namaproject : '-';
@@ -55,17 +64,44 @@ class ProjectController extends Controller
             ->editColumn('status', function($row) {
                 $badge = [
                     'open' => 'bg-warning',
-                    'paid' => 'bg-success',
+                    'paid' => 'bg-success', 
                     'partial' => 'bg-info',
                     'cancel' => 'bg-danger'
                 ];
                 return '<span class="badge '.$badge[$row->status].'">'.ucfirst($row->status).'</span>';
             })
+            ->filter(function($query) use ($type) {
+                $search = request('search.value');
+                
+                // JIKA ADA SEARCH, CARI DI SEMUA DATA
+                if (!empty($search)) {
+                    $query->where(function($q) use ($search) {
+                        $q->where('nota_no', 'like', "%{$search}%")
+                        ->orWhere('total', 'like', "%{$search}%")
+                        ->orWhereHas('vendor', function($q) use ($search) {
+                            $q->where('namavendor', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('project', function($q) use ($search) {
+                            $q->where('namaproject', 'like', "%{$search}%");
+                        });
+                    });
+                } 
+                // JIKA TIDAK ADA SEARCH, BATASI 1000 DATA TERBARU
+                else {
+                    $query->orderBy('tanggal', 'desc')
+                        ->orderBy('id', 'desc')
+                        ->limit(1000);
+                }
+            })
+            ->order(function($query) {
+                // Default order by tanggal desc
+                $query->orderBy('tanggal', 'desc')->orderBy('id', 'desc');
+            })
             ->rawColumns(['action', 'status'])
-            ->make(true);
+            ->toJson();
     }
 
-    // Simpan transaksi - VERSI YANG DIPERBAIKI
+    // Simpan transaksi
     public function store(Request $request, $type)
     {
         DB::beginTransaction();
@@ -81,13 +117,7 @@ class ProjectController extends Controller
                 'transactions.*.description' => 'required|string|max:255',
                 'transactions.*.nominal' => 'required|numeric|min:0',
                 'transactions.*.jml' => 'required|numeric|min:0',
-                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048', // Validasi file
-            ]);
-
-            // Debug: Log session data
-            \Log::info('Session Data:', [
-                'active_project_id' => session('active_project_id'),
-                'active_project_company_id' => session('active_project_company_id')
+                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             ]);
 
             // Ambil project berdasarkan session
@@ -114,13 +144,11 @@ class ProjectController extends Controller
                 $file = $request->file('bukti_nota');
                 $filename = 'nota_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
-                
-                \Log::info('Bukti nota uploaded:', ['path' => $buktiNotaPath]);
             }
 
             // Hitung total transaksi
             $total = 0;
-            foreach ($request->transactions as $index => $transaction) {
+            foreach ($request->transactions as $transaction) {
                 $itemTotal = $transaction['nominal'] * $transaction['jml'];
                 $total += $itemTotal;
             }
@@ -131,23 +159,22 @@ class ProjectController extends Controller
                 'idproject' => $project->id,
                 'idcompany' => $idcompany,
                 'idretail' => $idretail,
+                'vendor_id' => $request->vendor_id,
+                'idrek' => $request->idrek,
                 'tanggal' => $request->tanggal,
                 'cashflow' => $type,
                 'paymen_method' => $request->paymen_method,
                 'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
                 'total' => $total,
                 'status' => $request->paymen_method == 'cash' ? 'paid' : 'open',
-                'bukti_nota' => $buktiNotaPath, // SIMPAN PATH FILE
+                'bukti_nota' => $buktiNotaPath,
             ];
-
-            \Log::info('Nota Data to be saved:', $notaData);
 
             // Buat nota header
             $nota = Nota::create($notaData);
-            \Log::info('Nota created:', ['nota_id' => $nota->id]);
 
             // Simpan detail transaksi
-            foreach ($request->transactions as $index => $transaction) {
+            foreach ($request->transactions as $transaction) {
                 $itemTotal = $transaction['nominal'] * $transaction['jml'];
                 
                 NotaTransaction::create([
@@ -167,8 +194,6 @@ class ProjectController extends Controller
 
             DB::commit();
 
-            \Log::info('Transaction completed successfully');
-
             return response()->json([
                 'success' => true,
                 'message' => 'Transaksi berhasil disimpan',
@@ -180,8 +205,7 @@ class ProjectController extends Controller
             \Log::error('Transaction Error:', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'line' => $e->getLine()
             ]);
 
             return response()->json([
@@ -197,13 +221,6 @@ class ProjectController extends Controller
     private function processCashPayment($nota, $idrek, $jumlah, $tanggal)
     {
         try {
-            \Log::info('Processing cash payment:', [
-                'nota_id' => $nota->id,
-                'rekening_id' => $idrek,
-                'jumlah' => $jumlah,
-                'tanggal' => $tanggal
-            ]);
-
             // 1. Update saldo rekening
             $rekening = Rekening::find($idrek);
             if (!$rekening) {
@@ -220,12 +237,6 @@ class ProjectController extends Controller
             
             $rekening->save();
 
-            \Log::info('Rekening updated:', [
-                'rekening_id' => $rekening->idrek,
-                'saldo_awal' => $saldoAwal,
-                'saldo_akhir' => $rekening->saldo
-            ]);
-
             // 2. Buat nota payment
             $notaPayment = NotaPayment::create([
                 'idnota' => $nota->id,
@@ -233,8 +244,6 @@ class ProjectController extends Controller
                 'tanggal' => $tanggal,
                 'jumlah' => $jumlah
             ]);
-
-            \Log::info('Nota payment created:', ['payment_id' => $notaPayment->id]);
 
             // 3. Catat di cashflows
             $cashflow = Cashflow::create([
@@ -247,8 +256,6 @@ class ProjectController extends Controller
                 'saldo_akhir' => $rekening->saldo,
                 'keterangan' => "Pembayaran nota {$nota->nota_no} - {$nota->cashflow}"
             ]);
-
-            \Log::info('Cashflow recorded:', ['cashflow_id' => $cashflow->id]);
 
         } catch (\Exception $e) {
             \Log::error('Cash payment processing error:', [
@@ -278,34 +285,8 @@ class ProjectController extends Controller
         }
     }
 
-    // Method untuk debug project data
-    public function debugProject()
-    {
-        try {
-            $projectId = session('active_project_id');
-            $project = Project::find($projectId);
-            
-            $data = [
-                'success' => true,
-                'project_id' => $projectId,
-                'project_exists' => !is_null($project),
-                'project_attributes' => $project ? $project->getAttributes() : null,
-                'session_company_id' => session('active_project_company_id'),
-                'all_columns' => \Schema::getColumnListing('projects')
-            ];
-            
-            \Log::info('Debug Project Data:', $data);
-            
-            return response()->json($data);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-        public function show($id)
+    // Show detail nota
+    public function show($id)
     {
         try {
             $nota = Nota::with([
@@ -335,7 +316,17 @@ class ProjectController extends Controller
     public function edit($id)
     {
         try {
-            $nota = Nota::with(['transactions'])->findOrFail($id);
+            $nota = Nota::with([
+                'vendor', // PASTIKAN VENDOR DIMUAT
+                'transactions.kodeTransaksi'
+            ])->findOrFail($id);
+
+            // Debug data
+            \Log::info('Edit Nota Data:', [
+                'nota_id' => $nota->id,
+                'vendor_id' => $nota->vendor_id,
+                'vendor_data' => $nota->vendor
+            ]);
 
             $data = [
                 'nota' => $nota,
@@ -348,9 +339,14 @@ class ProjectController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Error in edit method:', [
+                'error' => $e->getMessage(),
+                'nota_id' => $id
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Nota tidak ditemukan'
+                'message' => 'Nota tidak ditemukan: ' . $e->getMessage()
             ], 404);
         }
     }
@@ -383,7 +379,7 @@ class ProjectController extends Controller
             $buktiNotaPath = $nota->bukti_nota;
             if ($request->hasFile('bukti_nota')) {
                 // Hapus file lama jika ada
-                if ($buktiNotaPath) {
+                if ($buktiNotaPath && Storage::disk('public')->exists($buktiNotaPath)) {
                     Storage::disk('public')->delete($buktiNotaPath);
                 }
                 
@@ -403,6 +399,7 @@ class ProjectController extends Controller
                 'nota_no' => $request->nota_no,
                 'tanggal' => $request->tanggal,
                 'vendor_id' => $request->vendor_id,
+                'idrek' => $request->idrek,
                 'paymen_method' => $request->paymen_method,
                 'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
                 'total' => $total,
@@ -440,6 +437,11 @@ class ProjectController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Update transaction error:', [
+                'error' => $e->getMessage(),
+                'nota_id' => $id
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
@@ -455,6 +457,15 @@ class ProjectController extends Controller
         DB::beginTransaction();
         try {
             $nota = Nota::with(['payments', 'cashflows'])->findOrFail($id);
+
+            // Cek role user
+            $user = auth()->user();
+            if (!$user->hasRole('direktur') && !$user->hasRole('keuangan')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki izin untuk menghapus transaksi'
+                ], 403);
+            }
 
             // Hapus file bukti nota jika ada
             if ($nota->bukti_nota) {
