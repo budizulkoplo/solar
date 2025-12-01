@@ -62,11 +62,7 @@ class RekeningController extends Controller
                 'norek' => $rek->norek,
                 'namarek' => $rek->namarek,
                 'saldo' => $rek->saldo,
-<<<<<<< HEAD
-                'saldoakhir' => $rek->saldoakhir,
-=======
                 'saldoawal' => $rek->saldoawal,
->>>>>>> a94c95226e8293ff865a2c297dc1f323427b5910
                 'idcompany' => $rek->idcompany,
                 'idproject' => $rek->idproject
             ]);
