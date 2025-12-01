@@ -35,6 +35,7 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\MasterGajiController;
 use App\Http\Controllers\KodetransaksiController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\PTController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -233,6 +234,27 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
             // ambil saldo rekening
             Route::get('rekening/{id}/saldo', [ProjectController::class,'saldoRekening'])->name('transaksi.project.rekening.saldo');
+        });
+
+        // === TRANSAKSI PT (INDUK) ===
+        Route::prefix('pt')->group(function() {
+            // halaman list
+            Route::get('in',  [PTController::class,'in'])->name('transaksi.pt.in');
+            Route::get('out', [PTController::class,'out'])->name('transaksi.pt.out');
+
+            // datatables
+            Route::get('getdata/{type}', [PTController::class,'getdata'])->name('transaksi.pt.getdata');
+
+            // CRUD operations
+            Route::post('store/{type}', [PTController::class,'store'])->name('transaksi.pt.store');
+            Route::get('{id}', [PTController::class,'show'])->name('transaksi.pt.show');
+            Route::get('{id}/edit', [PTController::class,'edit'])->name('transaksi.pt.edit');
+            Route::put('{id}/{type}', [PTController::class,'update'])->name('transaksi.pt.update');
+            Route::delete('{id}', [PTController::class,'destroy'])->name('transaksi.pt.destroy');
+            Route::post('{id}/status', [PTController::class,'updateStatus'])->name('transaksi.pt.status');
+
+            // ambil saldo rekening
+            Route::get('rekening/{id}/saldo', [PTController::class,'saldoRekening'])->name('transaksi.pt.rekening.saldo');
         });
 
     });
