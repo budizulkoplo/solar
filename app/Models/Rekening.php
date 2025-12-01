@@ -19,6 +19,12 @@ class Rekening extends Model
         return $this->belongsTo(CompanyUnit::class, 'idcompany');
     }
 
+    public function scopeForCompany($query, $companyId)
+    {
+        return $query->where('idcompany', $companyId)
+            ->whereNull('idproject');
+    }
+
     public function project()
     {
         return $this->belongsTo(Project::class, 'idproject');

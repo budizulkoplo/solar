@@ -24,7 +24,9 @@ class Nota extends Model
         'tgl_tempo',
         'total',
         'status',
-        'bukti_nota'
+        'bukti_nota',
+        'nip',
+        'namauser'
     ];
 
     protected $casts = [
@@ -37,6 +39,12 @@ class Nota extends Model
     public function project()
     {
         return $this->belongsTo(Project::class, 'idproject');
+    }
+
+    // Relasi ke company_units (PT)
+    public function companyUnit()
+    {
+        return $this->belongsTo(CompanyUnit::class, 'idcompany');
     }
 
     // Relasi ke vendor
