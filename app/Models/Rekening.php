@@ -11,7 +11,7 @@ class Rekening extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'norek', 'namarek', 'saldo', 'saldoakhir', 'idproject', 'idcompany'
+        'norek', 'namarek', 'saldo', 'saldoawal', 'idproject', 'idcompany'
     ];
 
     public function company()

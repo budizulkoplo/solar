@@ -62,7 +62,11 @@ class RekeningController extends Controller
                 'norek' => $rek->norek,
                 'namarek' => $rek->namarek,
                 'saldo' => $rek->saldo,
+<<<<<<< HEAD
                 'saldoakhir' => $rek->saldoakhir,
+=======
+                'saldoawal' => $rek->saldoawal,
+>>>>>>> a94c95226e8293ff865a2c297dc1f323427b5910
                 'idcompany' => $rek->idcompany,
                 'idproject' => $rek->idproject
             ]);
@@ -85,7 +89,7 @@ class RekeningController extends Controller
             'norek' => 'required',
             'namarek' => 'required',
             'saldo' => 'nullable|numeric',
-            'saldoakhir' => 'nullable|numeric',
+            'saldoawal' => 'nullable|numeric',
             'idcompany' => 'nullable|exists:company_units,id',
             'idproject' => 'nullable|exists:projects,id',
         ]);
@@ -110,7 +114,7 @@ class RekeningController extends Controller
                     'norek' => $request->norek,
                     'namarek' => $request->namarek,
                     'saldo' => $request->saldo ?? 0,
-                    'saldoakhir' => $request->saldoakhir ?? 0,
+                    'saldoawal' => $request->saldoawal ?? 0,
                     'idcompany' => $request->idcompany,
                     'idproject' => $request->idproject
                 ]
@@ -151,7 +155,7 @@ class RekeningController extends Controller
         try {
             $rek = Rekening::findOrFail($id);
             return response()->json([
-                'saldo' => $rek->saldoakhir
+                'saldo' => $rek->saldoawal
             ]);
         } catch (\Exception $e) {
             return response()->json([

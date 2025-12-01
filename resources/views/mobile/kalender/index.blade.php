@@ -227,6 +227,10 @@ if (!function_exists('secondsToTime')) {
     background-color: var(--warning-color); 
     color: #000; 
 }
+.shift-marketing { 
+    background-color: var(--danger-color); 
+    color: #fff; 
+}
 .shift-malam { 
     background-color: var(--info-color); 
     color: #fff; 
@@ -471,6 +475,7 @@ if (!function_exists('secondsToTime')) {
                                                 'pagi' => 'shift-pagi',
                                                 'siang' => 'shift-siang',
                                                 'malam' => 'shift-malam',
+                                                'marketing' => 'shift-marketing',
                                                 'libur' => 'libur',
                                                 'gs' => 'shift-gs',
                                             ];
