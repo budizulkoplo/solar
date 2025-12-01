@@ -187,7 +187,7 @@ class ProjectController extends Controller
                 ]);
             }
 
-            // Jika cash, langsung buat pembayaran dan catat cashflow
+            // ATURAN 1: Jika cash, langsung buat pembayaran dan catat cashflow
             if ($request->paymen_method == 'cash') {
                 $this->processCashPayment($nota, $request->idrek, $total, $request->tanggal);
             }
@@ -257,10 +257,122 @@ class ProjectController extends Controller
                 'keterangan' => "Pembayaran nota {$nota->nota_no} - {$nota->cashflow}"
             ]);
 
+            return [
+                'notaPayment' => $notaPayment,
+                'cashflow' => $cashflow,
+                'rekening' => $rekening
+            ];
+
         } catch (\Exception $e) {
             \Log::error('Cash payment processing error:', [
                 'message' => $e->getMessage(),
                 'nota_id' => $nota->id
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Rollback pembayaran cash
+     */
+    private function rollbackCashPayment($nota)
+    {
+        try {
+            \Log::info('=== START Rollback Cash Payment ===', [
+                'nota_id' => $nota->id,
+                'nota_no' => $nota->nota_no,
+                'cashflow' => $nota->cashflow,
+                'total' => $nota->total,
+                'payment_method' => $nota->paymen_method,
+                'status' => $nota->status,
+                'idrek' => $nota->idrek
+            ]);
+
+            // Cari payment dan cashflow terkait - QUERY YANG LEBIH AKURAT
+            $notaPayment = NotaPayment::where('idnota', $nota->id)->first();
+            $cashflow = Cashflow::where('idnota', $nota->id)->first();
+            
+            \Log::info('Data ditemukan untuk rollback:', [
+                'notaPayment_exists' => !is_null($notaPayment),
+                'cashflow_exists' => !is_null($cashflow),
+                'notaPayment_id' => $notaPayment ? $notaPayment->id : 'NULL',
+                'cashflow_id' => $cashflow ? $cashflow->id : 'NULL'
+            ]);
+
+            // Rollback saldo rekening MESKIPUN PAYMENT/CASHFLOW TIDAK DITEMUKAN
+            // Karena saldo harus dikembalikan apapun yang terjadi
+            $rekening = Rekening::find($nota->idrek);
+            
+            if (!$rekening) {
+                \Log::error('Rekening tidak ditemukan untuk rollback', [
+                    'idrek' => $nota->idrek
+                ]);
+                throw new \Exception("Rekening dengan ID {$nota->idrek} tidak ditemukan untuk rollback");
+            }
+
+            $saldoSebelum = $rekening->saldo;
+            
+            // LOGIKA ROLLBACK SALDO - PASTIKAN BENAR
+            if ($nota->cashflow == 'out') {
+                // Transaksi OUT: uang keluar, rollback = uang kembali (saldo bertambah)
+                $rekening->saldo += $nota->total;
+                $logPerubahan = "+{$nota->total}";
+            } else {
+                // Transaksi IN: uang masuk, rollback = uang dikurangi (saldo berkurang)
+                $rekening->saldo -= $nota->total;
+                $logPerubahan = "-{$nota->total}";
+            }
+            
+            $rekening->save();
+
+            \Log::info('ROLLBACK SALDO REKENING', [
+                'rekening_id' => $rekening->idrek,
+                'rekening_info' => $rekening->norek . ' - ' . $rekening->namarek,
+                'cashflow_type' => $nota->cashflow,
+                'total_nota' => $nota->total,
+                'saldo_sebelum_rollback' => $saldoSebelum,
+                'saldo_setelah_rollback' => $rekening->saldo,
+                'perubahan' => $logPerubahan,
+                'expected_saldo' => $saldoSebelum + ($nota->cashflow == 'out' ? $nota->total : -$nota->total)
+            ]);
+
+            // Hapus payment dan cashflow jika ada
+            $deletedPayments = 0;
+            $deletedCashflows = 0;
+
+            if ($notaPayment) {
+                $deletedPayments = NotaPayment::where('idnota', $nota->id)->delete();
+                \Log::info('NotaPayment dihapus', [
+                    'deleted_count' => $deletedPayments,
+                    'nota_id' => $nota->id
+                ]);
+            }
+
+            if ($cashflow) {
+                $deletedCashflows = Cashflow::where('idnota', $nota->id)->delete();
+                \Log::info('Cashflow dihapus', [
+                    'deleted_count' => $deletedCashflows,
+                    'nota_id' => $nota->id
+                ]);
+            }
+
+            \Log::info('=== FINISH Rollback Cash Payment - SUCCESS ===', [
+                'nota_id' => $nota->id,
+                'saldo_berhasil_dikembalikan' => true,
+                'payments_dihapus' => $deletedPayments,
+                'cashflows_dihapus' => $deletedCashflows
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            \Log::error('=== Rollback cash payment ERROR ===', [
+                'message' => $e->getMessage(),
+                'nota_id' => $nota->id,
+                'nota_no' => $nota->nota_no,
+                'cashflow' => $nota->cashflow,
+                'total' => $nota->total,
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
@@ -317,16 +429,9 @@ class ProjectController extends Controller
     {
         try {
             $nota = Nota::with([
-                'vendor', // PASTIKAN VENDOR DIMUAT
+                'vendor',
                 'transactions.kodeTransaksi'
             ])->findOrFail($id);
-
-            // Debug data
-            \Log::info('Edit Nota Data:', [
-                'nota_id' => $nota->id,
-                'vendor_id' => $nota->vendor_id,
-                'vendor_data' => $nota->vendor
-            ]);
 
             $data = [
                 'nota' => $nota,
@@ -352,7 +457,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Update transaksi
+     * Update transaksi dengan aturan perubahan payment method
      */
     public function update(Request $request, $id, $type)
     {
@@ -372,13 +477,26 @@ class ProjectController extends Controller
                 'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             ]);
 
-            // Cari nota yang akan diupdate
-            $nota = Nota::findOrFail($id);
+            // Cari nota yang akan diupdate - PASTIKAN DATA TERKAIT DILOAD
+            $nota = Nota::with(['payments', 'cashflows'])->findOrFail($id);
+            
+            \Log::info('Data nota sebelum update:', [
+                'nota_id' => $nota->id,
+                'old_payment_method' => $nota->paymen_method,
+                'old_status' => $nota->status,
+                'old_total' => $nota->total,
+                'payments_count' => $nota->payments->count(),
+                'cashflows_count' => $nota->cashflows->count()
+            ]);
+
+            // Simpan data lama untuk pengecekan perubahan
+            $oldPaymentMethod = $nota->paymen_method;
+            $oldTotal = $nota->total;
+            $oldRekening = $nota->idrek;
 
             // Handle upload bukti nota baru
             $buktiNotaPath = $nota->bukti_nota;
             if ($request->hasFile('bukti_nota')) {
-                // Hapus file lama jika ada
                 if ($buktiNotaPath && Storage::disk('public')->exists($buktiNotaPath)) {
                     Storage::disk('public')->delete($buktiNotaPath);
                 }
@@ -389,22 +507,41 @@ class ProjectController extends Controller
             }
 
             // Hitung total transaksi baru
-            $total = 0;
+            $newTotal = 0;
             foreach ($request->transactions as $transaction) {
-                $total += ($transaction['nominal'] * $transaction['jml']);
+                $newTotal += ($transaction['nominal'] * $transaction['jml']);
+            }
+
+            \Log::info('Perubahan yang terdeteksi:', [
+                'old_payment_method' => $oldPaymentMethod,
+                'new_payment_method' => $request->paymen_method,
+                'old_total' => $oldTotal,
+                'new_total' => $newTotal,
+                'old_rekening' => $oldRekening,
+                'new_rekening' => $request->idrek
+            ]);
+
+            // ATURAN 2: Jika perubahan dari CASH ke TEMPO, rollback pembayaran
+            if ($oldPaymentMethod == 'cash' && $request->paymen_method == 'tempo') {
+                \Log::info('Trigger rollback: CASH → TEMPO');
+                $rollbackResult = $this->rollbackCashPayment($nota);
+                \Log::info('Hasil rollback:', ['success' => $rollbackResult]);
             }
 
             // Update data nota
-            $nota->update([
+            $updateData = [
                 'nota_no' => $request->nota_no,
                 'tanggal' => $request->tanggal,
                 'vendor_id' => $request->vendor_id,
                 'idrek' => $request->idrek,
                 'paymen_method' => $request->paymen_method,
                 'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
-                'total' => $total,
+                'total' => $newTotal,
+                'status' => $request->paymen_method == 'cash' ? 'paid' : 'open',
                 'bukti_nota' => $buktiNotaPath,
-            ]);
+            ];
+
+            $nota->update($updateData);
 
             // Hapus detail transaksi lama
             NotaTransaction::where('idnota', $nota->id)->delete();
@@ -421,10 +558,21 @@ class ProjectController extends Controller
                 ]);
             }
 
-            // Jika status berubah dari tempo ke cash, buat pembayaran
-            if ($nota->paymen_method == 'tempo' && $request->paymen_method == 'cash') {
-                $nota->update(['status' => 'paid']);
-                $this->processCashPayment($nota, $request->idrek, $total, $request->tanggal);
+            // ATURAN 1: Jika perubahan dari TEMPO ke CASH, buat pembayaran baru
+            if ($oldPaymentMethod == 'tempo' && $request->paymen_method == 'cash') {
+                \Log::info('Trigger new payment: TEMPO → CASH');
+                $this->processCashPayment($nota, $request->idrek, $newTotal, $request->tanggal);
+            }
+
+            // Jika tetap cash tapi ada perubahan total atau rekening, update pembayaran
+            if ($oldPaymentMethod == 'cash' && $request->paymen_method == 'cash') {
+                $paymentChanged = ($oldTotal != $newTotal) || ($oldRekening != $request->idrek);
+                
+                if ($paymentChanged) {
+                    \Log::info('Trigger payment update: CASH tetap CASH dengan perubahan');
+                    $this->rollbackCashPayment($nota);
+                    $this->processCashPayment($nota, $request->idrek, $newTotal, $request->tanggal);
+                }
             }
 
             DB::commit();
@@ -439,7 +587,8 @@ class ProjectController extends Controller
             DB::rollBack();
             \Log::error('Update transaction error:', [
                 'error' => $e->getMessage(),
-                'nota_id' => $id
+                'nota_id' => $id,
+                'trace' => $e->getTraceAsString()
             ]);
             
             return response()->json([
@@ -450,13 +599,23 @@ class ProjectController extends Controller
     }
 
     /**
-     * Hapus transaksi
+     * Hapus transaksi dengan rollback lengkap (ATURAN 3)
      */
     public function destroy($id)
     {
         DB::beginTransaction();
         try {
             $nota = Nota::with(['payments', 'cashflows'])->findOrFail($id);
+
+            \Log::info('START Delete Transaction', [
+                'nota_id' => $nota->id,
+                'payment_method' => $nota->paymen_method,
+                'status' => $nota->status,
+                'cashflow' => $nota->cashflow,
+                'total' => $nota->total,
+                'payments_count' => $nota->payments->count(),
+                'cashflows_count' => $nota->cashflows->count()
+            ]);
 
             // Cek role user
             $user = auth()->user();
@@ -467,18 +626,35 @@ class ProjectController extends Controller
                 ], 403);
             }
 
+            // ATURAN 3: Rollback pembayaran jika transaksi cash dan status paid
+            if ($nota->paymen_method == 'cash' && $nota->status == 'paid') {
+                \Log::info('Trigger rollback untuk delete transaction');
+                $rollbackResult = $this->rollbackCashPayment($nota);
+                \Log::info('Hasil rollback saat delete:', ['success' => $rollbackResult]);
+            } else {
+                \Log::info('Tidak perlu rollback - payment method: ' . $nota->paymen_method . ', status: ' . $nota->status);
+            }
+
             // Hapus file bukti nota jika ada
             if ($nota->bukti_nota) {
                 Storage::disk('public')->delete($nota->bukti_nota);
+                \Log::info('Bukti nota dihapus', ['path' => $nota->bukti_nota]);
             }
 
             // Hapus data terkait
-            NotaTransaction::where('idnota', $nota->id)->delete();
-            NotaPayment::where('idnota', $nota->id)->delete();
-            Cashflow::where('idnota', $nota->id)->delete();
+            $transactionsDeleted = NotaTransaction::where('idnota', $nota->id)->delete();
+            $paymentsDeleted = NotaPayment::where('idnota', $nota->id)->delete();
+            $cashflowsDeleted = Cashflow::where('idnota', $nota->id)->delete();
+
+            \Log::info('Data terkait dihapus:', [
+                'transactions' => $transactionsDeleted,
+                'payments' => $paymentsDeleted,
+                'cashflows' => $cashflowsDeleted
+            ]);
 
             // Hapus nota
             $nota->delete();
+            \Log::info('Nota dihapus', ['nota_id' => $id]);
 
             DB::commit();
 
@@ -489,6 +665,12 @@ class ProjectController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Delete transaction error:', [
+                'error' => $e->getMessage(),
+                'nota_id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
@@ -507,13 +689,20 @@ class ProjectController extends Controller
                 'status' => 'required|in:paid,partial,cancel'
             ]);
 
-            $nota = Nota::findOrFail($id);
-            $nota->update(['status' => $request->status]);
+            $nota = Nota::with(['payments'])->findOrFail($id);
+            $oldStatus = $nota->status;
 
-            // Jika status menjadi paid dan payment method cash, buat pembayaran
-            if ($request->status == 'paid' && $nota->paymen_method == 'cash') {
+            // Jika status berubah menjadi paid dan payment method cash, buat pembayaran
+            if ($request->status == 'paid' && $nota->paymen_method == 'cash' && $oldStatus != 'paid') {
                 $this->processCashPayment($nota, $nota->idrek, $nota->total, $nota->tanggal);
             }
+
+            // Jika status berubah dari paid ke status lain dan payment method cash, rollback
+            if ($oldStatus == 'paid' && $request->status != 'paid' && $nota->paymen_method == 'cash') {
+                $this->rollbackCashPayment($nota);
+            }
+
+            $nota->update(['status' => $request->status]);
 
             DB::commit();
 
@@ -524,6 +713,11 @@ class ProjectController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Update status error:', [
+                'error' => $e->getMessage(),
+                'nota_id' => $id
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()

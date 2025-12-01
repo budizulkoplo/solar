@@ -16,6 +16,7 @@ class Nota extends Model
         'idproject',
         'idcompany',
         'idretail',
+        'idrek',
         'vendor_id',
         'tanggal',
         'cashflow',
