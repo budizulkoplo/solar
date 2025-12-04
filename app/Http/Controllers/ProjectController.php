@@ -109,7 +109,7 @@ class ProjectController extends Controller
             $request->validate([
                 'nota_no' => 'required|string|max:50',
                 'tanggal' => 'required|date',
-                'vendor_id' => 'required|exists:vendors,id',
+
                 'idrek' => 'required|exists:rekening,idrek',
                 'paymen_method' => 'required|in:cash,tempo',
                 'transactions' => 'required|array|min:1',
@@ -161,6 +161,7 @@ class ProjectController extends Controller
             // Data untuk nota header
             $notaData = [
                 'nota_no' => $request->nota_no,
+                'namatransaksi' => $request->namatransaksi,
                 'idproject' => $project->id,
                 'idcompany' => $idcompany,
                 'idretail' => $idretail,

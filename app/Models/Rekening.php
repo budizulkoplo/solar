@@ -29,4 +29,22 @@ class Rekening extends Model
     {
         return $this->belongsTo(Project::class, 'idproject');
     }
+
+    public function scopeForProject($query, $projectId)
+    {
+        $project = \App\Models\Project::find($projectId);
+
+        if (!$project) {
+            return $query->whereRaw('1 = 0'); // project tidak ditemukan, kosong
+        }
+
+        return $query->where(function($q) use ($project) {
+                $q->whereNull('idproject')
+                ->where('idcompany', $project->idcompany);
+            })
+            ->orWhere(function($q) use ($project) {
+                $q->where('idproject', $project->id);
+            });
+    }
+
 }

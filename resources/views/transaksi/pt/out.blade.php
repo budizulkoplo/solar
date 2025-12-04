@@ -23,7 +23,7 @@
                             <tr>
                                 <th>No</th>
                                 <th>Nota No</th>
-                                <th>PT/Company</th>
+                                <th>Nama Trans</th>
                                 <th>Tanggal</th>
                                 <th>Total</th>
                                 <th>Payment Method</th>
@@ -65,6 +65,14 @@
                                 </div>
                             </div>
 
+                            <div class="col-md-4">
+                                <label class="form-label">Nama Transaksi *</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm" name="namatransaksi" id="namatransaksi" required>
+                                    
+                                </div>
+                            </div>
+
                             {{-- PT/Company --}}
                             <div class="col-md-4">
                                 <label class="form-label">PT/Company</label>
@@ -89,7 +97,7 @@
                             {{-- Vendor --}}
                             <div class="col-md-4 mt-2">
                                 <label class="form-label">Vendor *</label>
-                                <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;" required>
+                                <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;">
                                     <option value="">-- Pilih Vendor --</option>
                                     @foreach(\App\Models\Vendor::whereNull('deleted_at')->get() as $v)
                                         <option value="{{ $v->id }}">{{ $v->namavendor }}</option>
@@ -121,7 +129,7 @@
                             <div class="col-12 mt-2">
                                 <label class="form-label">Bukti Nota (Optional)</label>
                                 <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
-                                       accept=".jpg,.jpeg,.png,.pdf">
+                                       accept=".jpg,.jpeg,.png,.pdf" required>
                                 <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
                                 <div id="buktiPreview" class="mt-2" style="display:none;">
                                     <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
@@ -279,7 +287,7 @@
                 columns: [
                     { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                     { data: 'nota_no', name: 'nota_no' },
-                    { data: 'company_name', name: 'company.nama_perusahaan' },
+                    { data: 'namatransaksi', name: 'namatransaksi' },
                     { data: 'tanggal', name: 'tanggal' },
                     { data: 'total', name: 'total' },
                     { data: 'paymen_method', name: 'paymen_method' },

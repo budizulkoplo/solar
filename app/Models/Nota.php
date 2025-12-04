@@ -13,6 +13,7 @@ class Nota extends Model
     protected $table = 'notas';
     protected $fillable = [
         'nota_no',
+        'namatransaksi',
         'idproject',
         'idcompany',
         'idretail',

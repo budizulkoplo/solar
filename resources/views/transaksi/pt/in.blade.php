@@ -23,7 +23,7 @@
                             <tr>
                                 <th>No</th>
                                 <th>Nota No</th>
-                                <th>PT/Company</th>
+                                <th>Nama Trans.</th>
                                 <th>Tanggal</th>
                                 <th>Total</th>
                                 <th>Payment Method</th>
@@ -65,6 +65,14 @@
                                 </div>
                             </div>
 
+                            <div class="col-md-4">
+                                <label class="form-label">Nama Transaksi *</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm" name="namatransaksi" id="namatransaksi" required>
+                                    
+                                </div>
+                            </div>
+
                             {{-- PT/Company --}}
                             <div class="col-md-4">
                                 <label class="form-label">PT/Company</label>
@@ -84,17 +92,6 @@
                             <div class="col-md-4 mt-2">
                                 <label class="form-label">Tanggal *</label>
                                 <input type="date" class="form-control form-control-sm" name="tanggal" id="tanggalNota" required>
-                            </div>
-
-                            {{-- Vendor --}}
-                            <div class="col-md-4 mt-2">
-                                <label class="form-label">Vendor *</label>
-                                <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;" required>
-                                    <option value="">-- Pilih Vendor --</option>
-                                    @foreach(\App\Models\Vendor::whereNull('deleted_at')->get() as $v)
-                                        <option value="{{ $v->id }}">{{ $v->namavendor }}</option>
-                                    @endforeach
-                                </select>
                             </div>
 
                             {{-- Rekening (Hanya rekening milik PT/Company) --}}
@@ -212,10 +209,7 @@
                                     <th>PT/Company</th>
                                     <td id="viewCompany">-</td>
                                 </tr>
-                                <tr>
-                                    <th>Vendor</th>
-                                    <td id="viewVendor">-</td>
-                                </tr>
+
                             </table>
                         </div>
                         <div class="col-md-6">
@@ -279,7 +273,7 @@
                 columns: [
                     { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                     { data: 'nota_no', name: 'nota_no' },
-                    { data: 'company_name', name: 'company.nama_perusahaan' },
+                    { data: 'namatransaksi', name: 'namatransaksi' },
                     { data: 'tanggal', name: 'tanggal' },
                     { data: 'total', name: 'total' },
                     { data: 'paymen_method', name: 'paymen_method' },

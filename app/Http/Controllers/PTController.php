@@ -118,7 +118,6 @@ class PTController extends Controller
             $request->validate([
                 'nota_no' => 'required|string|max:50',
                 'tanggal' => 'required|date',
-                'vendor_id' => 'required|exists:vendors,id',
                 'idrek' => 'required|exists:rekening,idrek',
                 'paymen_method' => 'required|in:cash,tempo',
                 'transactions' => 'required|array|min:1',
@@ -172,9 +171,10 @@ class PTController extends Controller
             // Data untuk nota header - idproject NULL karena transaksi PT
             $notaData = [
                 'nota_no' => $request->nota_no,
-                'idproject' => null, // Transaksi PT, tidak terkait project
+                'namatransaksi' => $request->namatransaksi,
+                'idproject' => null, 
                 'idcompany' => $companyId,
-                'idretail' => $idretail, // Bisa diisi jika ada retail
+                'idretail' => $idretail, 
                 'vendor_id' => $request->vendor_id,
                 'idrek' => $request->idrek,
                 'tanggal' => $request->tanggal,
