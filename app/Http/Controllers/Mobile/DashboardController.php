@@ -159,17 +159,43 @@ class DashboardController extends Controller
             if ($response->successful()) {
                 $tickets = collect($response->json());
 
-                // Filter tiket sesuai user login (ganti assigned_to jadi user_id)
+                // Filter tiket sesuai user login
                 $userTickets = $tickets->filter(fn($t) => ($t['user_id'] ?? null) == $user->id)
+                    ->unique('uuid') // HINDARI DUPLIKASI BERDASARKAN UUID
                     ->values()
-                    ->map(function($t) {
+                    ->map(function($t) use ($tickets) {
+                        // Ambil semua komentar untuk tiket ini (berdasarkan UUID) dengan filter UNIQUE
+                        $comments = $tickets->filter(fn($comment) => 
+                            ($comment['uuid'] ?? null) === ($t['uuid'] ?? null) && 
+                            isset($comment['comment_id']) && 
+                            $comment['comment_id'] !== null
+                        )
+                        ->unique('comment_id') // TAMBAHKAN UNIQUE BERDASARKAN COMMENT_ID
+                        ->map(function($comment) {
+                            return [
+                                'id' => $comment['comment_id'] ?? null,
+                                'text' => $comment['comment'] ?? '',
+                                'user_id' => $comment['comment_user'] ?? null,
+                                'created_at' => $comment['comment_created_at'] ?? null,
+                                'user_name' => ($comment['comment_user_name'] ?? 'Unknown'),
+                                'formatted_time' => $comment['comment_created_at'] ? 
+                                    \Carbon\Carbon::parse($comment['comment_created_at'])->diffForHumans() : null
+                            ];
+                        })
+                        ->sortByDesc('created_at')
+                        ->values()
+                        ->toArray();
+
                         return [
-                            'ticket_status' => $t['ticket_status'] ?? '-',
+                            'uuid' => $t['uuid'] ?? '-',
                             'ticket_name' => $t['ticket_name'] ?? '-',
+                            'ticket_status' => $t['ticket_status'] ?? '-',
                             'status_created_at' => $t['status_created_at'] ?? '-',
                             'description' => $t['description'] ?? '-',
                             'start_date' => $t['start_date'] ?? '-',
                             'due_date' => $t['due_date'] ?? '-',
+                            'comments' => $comments,
+                            'comment_count' => count($comments),
                         ];
                     });
 

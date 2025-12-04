@@ -67,7 +67,7 @@
                                 </span>
                             @endif
                             <ion-icon name="{{ $data['icon'] }}" class="text-{{ $data['color'] }} stat-icon"></ion-icon>
-                            <br>
+                            
                             <span class="stat-label">{{ $data['label'] }}</span>
                         </div>
                     </div>
@@ -94,16 +94,35 @@
                                 'done' => 'success',
                                 default => 'dark'
                             };
+                            
+                            // Hitung total komentar untuk tiket dengan status ini
+                            $ticketsForStatus = $userTickets->where('ticket_status', $status);
+                            $totalComments = $ticketsForStatus->sum('comment_count');
                         @endphp
                         <div class="col-3 mb-2">
                             <div class="card stat-card" data-type="ticket" data-status="{{ $status }}">
-                                <div class="card-body position-relative">
-                                    <span class="badge bg-{{ $color }} position-absolute count-badge">
-                                        {{ $count }}
-                                    </span>
-                                    <ion-icon name="clipboard-outline" class="text-{{ $color }} stat-icon"></ion-icon>
-                                    <br>
-                                    <span class="stat-label">{{ $status }}</span>
+                                <div class="card-body position-relative p-2">
+                                    <!-- Jumlah Tiket di pojok KIRI ATAS -->
+                                    @if($count > 0)
+                                        <span class="badge bg-{{ $color }} position-absolute count-badge" 
+                                              style="top: -5px; left: -5px; font-size: 0.5rem; padding: 2px 4px;">
+                                            {{ $count }}
+                                        </span>
+                                    @endif
+                                    
+                                    <!-- Jumlah Komentar di pojok KANAN ATAS -->
+                                    @if($totalComments > 0)
+                                        <span class="badge bg-danger position-absolute comment-badge" 
+                                              style="top: -5px; right: -5px; font-size: 0.5rem; padding: 2px 4px;">
+                                            {{ $totalComments }}
+                                            <ion-icon name="chatbubble" style="font-size: 0.5rem;"></ion-icon>
+                                        </span>
+                                    @endif
+                                    
+                                    <!-- Icon dan Label -->
+                                    <ion-icon name="clipboard-outline" class="text-{{ $color }} stat-icon" style="font-size: 1.5rem;"></ion-icon>
+                                 
+                                    <span class="stat-label" style="font-size: 0.65rem;">{{ $status }}</span>
                                 </div>
                             </div>
                         </div>
@@ -297,7 +316,7 @@
 </div>
 
 <style>
-/* General Styles */
+/* ===== GENERAL STYLES ===== */
 .performance-card {
     background: #fff;
     border-radius: 12px;
@@ -316,42 +335,95 @@
     padding-bottom: 0;
 }
 
-/* Stat Cards */
+/* ===== STAT CARDS ===== */
 .stat-card {
     border: 1px solid #e9ecef;
     border-radius: 10px;
-    transition: transform 0.2s ease;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    height: 100%;
 }
 
 .stat-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
 }
 
 .stat-card .card-body {
-    padding: 12px 8px !important;
-    line-height: 0.8rem;
+    padding: 8px !important;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 50px;
 }
 
+/* Badge positioning - FIXED */
 .count-badge {
-    top: 2px;
-    right: 5px;
-    font-size: 0.55rem;
-    z-index: 999;
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    font-size: 0.5rem;
+    padding: 2px 4px;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 10;
+    border: 1px solid #fff;
+}
+
+.comment-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 0.5rem;
+    padding: 2px 4px;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(220,53,69,0.3);
+    z-index: 10;
+    background: linear-gradient(135deg, #dc3545, #ff6b6b) !important;
+    border: 1px solid #fff;
+}
+
+.comment-badge ion-icon {
+    margin-left: 1px;
+    font-size: 0.5rem;
+}
+
+/* ICON CENTERED */
+.stat-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 4px;
+    height: 40px;
 }
 
 .stat-icon {
-    font-size: 1.4rem;
-    margin-bottom: 4px;
+    font-size: 1.8rem;
+    text-align: center;
 }
 
 .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 500;
     color: #495057;
+    text-align: center;
+    margin-top: 2px;
+    width: 100%;
 }
 
-/* Tabs */
+/* ===== TABS ===== */
 .nav-tabs {
     border-bottom: 2px solid #e9ecef;
     margin-bottom: 16px;
@@ -392,30 +464,30 @@
     font-size: 0.95rem;
     font-weight: 600;
     text-align: center;
-    margin-bottom: 12px; /* Dikurangi dari 16px */
+    margin-bottom: 12px;
     color: #2c3e50;
     padding-bottom: 0;
     border-bottom: none;
 }
 
-/* Presence Cards - DIKURANGI JARAKNYA */
+/* ===== PRESENCE CARDS ===== */
 .stylish-presence .presence-card {
     background: #fff;
-    border-radius: 8px; /* Dikurangi dari 10px */
-    padding: 10px 12px; /* Dikurangi dari 16px */
-    margin-bottom: 8px; /* Dikurangi dari 12px */
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* Shadow lebih kecil */
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     border: 1px solid #e9ecef;
-    border-left: 3px solid #007bff; /* Border lebih tipis */
+    border-left: 3px solid #007bff;
 }
 
 .presence-header {
     display: flex;
     align-items: center;
-    gap: 6px; /* Dikurangi dari 8px */
+    gap: 6px;
     font-weight: 600;
-    font-size: 0.8rem; /* Lebih kecil */
-    margin-bottom: 8px; /* Dikurangi dari 12px */
+    font-size: 0.8rem;
+    margin-bottom: 8px;
     color: #2c3e50;
 }
 
@@ -423,29 +495,29 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px; /* Dikurangi dari 16px */
-    padding: 4px 0; /* Dikurangi dari 8px 0 */
+    gap: 8px;
+    padding: 4px 0;
 }
 
 .presence-item {
     display: flex;
     align-items: center;
-    gap: 6px; /* Dikurangi dari 8px */
+    gap: 6px;
     flex: 1;
 }
 
 .presence-icon-container {
     background: #f8f9fa;
-    border-radius: 6px; /* Lebih kecil */
-    padding: 4px; /* Dikurangi dari 6px */
+    border-radius: 6px;
+    padding: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 28px; /* Ukuran tetap */
+    min-width: 28px;
 }
 
 .presence-icon-container ion-icon {
-    font-size: 0.9rem; /* Lebih kecil */
+    font-size: 0.9rem;
 }
 
 .presence-info {
@@ -454,14 +526,14 @@
 
 .presence-label {
     display: block;
-    font-size: 0.65rem; /* Lebih kecil */
+    font-size: 0.65rem;
     color: #6c757d;
     font-weight: 500;
-    margin-bottom: 1px; /* Tambahkan sedikit spacing */
+    margin-bottom: 1px;
 }
 
 .presence-time {
-    font-size: 0.8rem; /* Lebih kecil */
+    font-size: 0.8rem;
     margin: 0;
     font-weight: 600;
     line-height: 1.2;
@@ -469,20 +541,20 @@
 
 .presence-divider {
     width: 1px;
-    height: 24px; /* Dikurangi dari 30px */
+    height: 24px;
     background: #e9ecef;
-    margin: 0 6px; /* Dikurangi dari 8px */
+    margin: 0 6px;
 }
 
-/* Leaderboard Cards - Juga disesuaikan */
+/* ===== LEADERBOARD CARDS ===== */
 .leaderboard-presence .leaderboard-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 12px; /* Dikurangi dari 12px 16px */
+    padding: 10px 12px;
     background: #fff;
     border-radius: 8px;
-    margin-bottom: 8px; /* Dikurangi dari 10px */
+    margin-bottom: 8px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     border: 1px solid #e9ecef;
     border-left: 3px solid #28a745;
@@ -491,7 +563,7 @@
 .leaderboard-left {
     display: flex;
     align-items: center;
-    gap: 10px; /* Dikurangi dari 12px */
+    gap: 10px;
     flex: 1;
 }
 
@@ -499,15 +571,15 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 3px; /* Dikurangi dari 4px */
+    gap: 3px;
 }
 
 .avatar img {
-    width: 36px; /* Dikurangi dari 40px */
+    width: 36px;
     height: 36px;
     border-radius: 50%;
     object-fit: cover;
-    border: 1px solid #e9ecef; /* Border lebih tipis */
+    border: 1px solid #e9ecef;
 }
 
 .profil img {
@@ -519,24 +591,24 @@
 }
 
 .user-name {
-    font-size: 0.85rem; /* Lebih kecil */
+    font-size: 0.85rem;
     color: #2c3e50;
     margin: 0;
     line-height: 1.2;
 }
 
 .user-position {
-    font-size: 0.7rem; /* Lebih kecil */
+    font-size: 0.7rem;
     color: #6c757d;
     line-height: 1.2;
 }
 
 .time-badge {
-    font-size: 0.65rem; /* Lebih kecil */
+    font-size: 0.65rem;
     font-weight: 500;
-    padding: 3px 6px; /* Dikurangi dari 4px 8px */
+    padding: 3px 6px;
     border-radius: 4px;
-    min-width: 55px; /* Lebih kecil */
+    min-width: 55px;
     text-align: center;
 }
 
@@ -564,51 +636,26 @@
     border: 1px solid #dee2e6;
 }
 
-/* Empty States */
+/* ===== EMPTY STATES ===== */
 .empty-state {
     text-align: center;
-    padding: 30px 20px; /* Dikurangi dari 40px 20px */
+    padding: 30px 20px;
     color: #6c757d;
 }
 
 .empty-state ion-icon {
-    font-size: 2.5rem; /* Lebih kecil */
+    font-size: 2.5rem;
     color: #ced4da;
-    margin-bottom: 8px; /* Dikurangi */
+    margin-bottom: 8px;
 }
 
 .empty-state p {
-    font-size: 0.85rem; /* Lebih kecil */
+    font-size: 0.85rem;
     margin: 0;
     color: #6c757d;
 }
 
-/* Menghilangkan semua garis HR yang tidak diperlukan */
-.listview.image-listview::before,
-.listview.image-listview::after,
-.presence-card::before,
-.presence-card::after,
-.leaderboard-item::before,
-.leaderboard-item::after {
-    display: none !important;
-}
-
-/* Memastikan tidak ada border tambahan */
-.stylish-presence,
-.leaderboard-presence {
-    border: none !important;
-}
-
-.performance-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border: 1px solid #e9ecef;
-}
-
-/* Ticket Description Styles */
+/* ===== TICKET & COMMENT STYLES ===== */
 .ticket-description {
     line-height: 1.5;
 }
@@ -625,34 +672,155 @@
     border: 1px solid #e9ecef;
 }
 
-.ticket-description img {
+.ticket-description img,
+.comment-text-bg img {
     max-width: 100%;
     height: auto;
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: block;
+    margin: 8px 0;
 }
 
-.ticket-description .attachment__caption {
-    font-size: 0.75rem;
-    color: #6c757d;
-    margin-top: 0.5rem;
+.comment-background {
+    background-color: #fff8e1 !important;
+    border-left: 3px solid #ffc107 !important;
+    border-radius: 8px !important;
+    margin-bottom: 10px !important;
+}
+
+.comment-text-bg {
+    background-color: #fffde7 !important;
+    font-style: italic !important;
+    line-height: 1.5 !important;
+    color: #5d4037 !important;
+    border-radius: 6px !important;
+    border: 1px solid #ffecb3 !important;
+}
+
+.comment-author {
+    color: #e65100 !important;
+    font-size: 0.9rem !important;
+}
+
+.comment-time {
+    color: #8d6e63 !important;
+    font-size: 0.75rem !important;
+}
+
+.comments-section {
+    background: linear-gradient(to bottom, #f9f9f9, #fff);
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.empty-comments {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    border: 2px dashed #bdbdbd;
     text-align: center;
+    padding: 20px;
+    color: #6c757d;
 }
 
-.ticket-description .attachment__name {
-    font-weight: 500;
+/* ===== CLEANUP ===== */
+.listview.image-listview::before,
+.listview.image-listview::after,
+.presence-card::before,
+.presence-card::after,
+.leaderboard-item::before,
+.leaderboard-item::after {
+    display: none !important;
 }
 
-.ticket-description .attachment__size {
-    color: #868e96;
+.stylish-presence,
+.leaderboard-presence {
+    border: none !important;
 }
 
-/* Responsive images */
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 576px) {
+    .performance-card {
+        padding: 12px;
+    }
+    
+    .section-title {
+        font-size: 1rem;
+    }
+    
+    .stat-card .card-body {
+        padding: 6px !important;
+        min-height: 80px;
+    }
+    
+    .count-badge,
+    .comment-badge {
+        font-size: 0.45rem !important;
+        padding: 1px 3px !important;
+        min-width: 16px;
+        height: 16px;
+        top: -6px;
+    }
+    
+    .count-badge {
+        left: -6px;
+    }
+    
+    .comment-badge {
+        right: -6px;
+    }
+    
+    .stat-icon {
+        font-size: 1.6rem !important;
+    }
+    
+    .stat-icon-container {
+        height: 35px;
+    }
+    
+    .stat-label {
+        font-size: 0.6rem !important;
+    }
+    
+    .presence-card {
+        padding: 8px 10px;
+    }
+    
+    .leaderboard-item {
+        padding: 8px 10px;
+    }
+    
+    .avatar img {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .comment-background {
+        padding: 12px !important;
+    }
+    
+    .comment-text-bg {
+        font-size: 0.9rem !important;
+    }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.comment-badge {
+    animation: pulse 2s infinite;
+}
+
+/* ===== UTILITY CLASSES ===== */
 .img-fluid {
     max-width: 100%;
     height: auto;
 }
-
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -769,45 +937,197 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     function showTicketModal(status) {
-        const filtered = allTickets.filter(t => 
-            t.ticket_status && t.ticket_status.toLowerCase() === status.toLowerCase()
-        );
+    // Filter tiket berdasarkan status
+    const filtered = allTickets.filter(t => 
+        t.ticket_status && t.ticket_status.toLowerCase() === status.toLowerCase()
+    );
 
-        ticketList.innerHTML = '';
+    ticketList.innerHTML = '';
 
-        if (!filtered.length) {
-            ticketList.innerHTML = `<div class="text-center p-3 text-muted">
-                Tidak ada tiket dengan status <b>${status}</b>.
-            </div>`;
-        } else {
-            filtered.forEach(ticket => {
-                const listItem = document.createElement('div');
-                listItem.className = 'list-group-item list-group-item-action border-bottom';
-                
-                const processedDescription = decodeHtmlEntities(ticket.description || '');
-                
-                listItem.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0 text-dark">${ticket.ticket_name || '-'}</h6>
-                        <span class="badge px-3 bg-${getStatusColor(ticket.ticket_status)}">
-                            ${ticket.ticket_status}
-                        </span>
+    if (!filtered.length) {
+        ticketList.innerHTML = `<div class="text-center p-3 text-muted">
+            Tidak ada tiket dengan status <b>${status}</b>.
+        </div>`;
+    } else {
+        filtered.forEach(ticket => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item border-bottom p-3';
+            
+            const processedDescription = decodeHtmlEntities(ticket.description || '');
+            const hasComments = ticket.comments && ticket.comments.length > 0;
+            
+            listItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 text-dark fw-bold">${ticket.ticket_name || '-'}</h6>
+                        <small class="text-muted d-block">
+                            <ion-icon name="time-outline" class="align-middle me-1"></ion-icon>
+                            ${formatDate(ticket.status_created_at)}
+                        </small>
                     </div>
-                    <small class="text-muted d-block mb-2">${ticket.status_created_at || '-'}</small>
-                    <div class="ticket-description mb-2">
-                        ${processedDescription}
+                    <span class="badge px-3 py-2 bg-${getStatusColor(ticket.ticket_status)} ms-2">
+                        ${ticket.ticket_status}
+                    </span>
+                </div>
+                
+                <div class="ticket-description mb-3 p-3 bg-light rounded">
+                    <h6 class="text-muted mb-2">
+                        <ion-icon name="document-text-outline" class="me-1"></ion-icon>
+                        Deskripsi
+                    </h6>
+                    ${processedDescription}
+                </div>
+                
+                <div class="ticket-meta d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <small class="text-muted">
+                            <ion-icon name="calendar-outline" class="me-1"></ion-icon>
+                            Mulai: <span class="text-success fw-semibold">${formatSimpleDate(ticket.start_date)}</span>
+                        </small>
+                        <small class="text-muted ms-3">
+                            <ion-icon name="flag-outline" class="me-1"></ion-icon>
+                            Deadline: <span class="text-danger fw-semibold">${formatSimpleDate(ticket.due_date)}</span>
+                        </small>
                     </div>
-                    <small class="text-muted d-block">
-                        Mulai: <span class="text-success fw-semibold">${ticket.start_date || '-'}</span> |
-                        Deadline: <span class="text-danger fw-semibold">${ticket.due_date || '-'}</span>
-                    </small>
-                `;
-                ticketList.appendChild(listItem);
-            });
-        }
-
-        showModal(ticketModalEl);
+                    
+                    ${hasComments ? `
+                        <small class="text-primary">
+                            <ion-icon name="chatbubble-ellipses-outline" class="me-1"></ion-icon>
+                            ${ticket.comments.length} komentar
+                        </small>
+                    ` : ''}
+                </div>
+                
+                ${hasComments ? `
+                    <div class="comments-section mt-3 pt-3 border-top">
+                        <h6 class="text-muted mb-3">
+                            <ion-icon name="chatbubble-outline" class="me-1"></ion-icon>
+                            Komentar (${ticket.comments.length})
+                        </h6>
+                        ${renderComments(ticket.comments)}
+                    </div>
+                ` : ''}
+            `;
+            ticketList.appendChild(listItem);
+        });
     }
+
+    document.getElementById('ticketModalLabel').textContent = `Tiket - ${status}`;
+    showModal(ticketModalEl);
+}
+
+// Fungsi untuk render komentar dengan styling khusus
+function renderComments(comments) {
+    if (!comments || comments.length === 0) {
+        return '<div class="empty-comments text-center p-4 text-muted">Tidak ada komentar</div>';
+    }
+    
+    // Filter komentar unik berdasarkan ID
+    const uniqueComments = comments.filter((comment, index, self) =>
+        index === self.findIndex((c) => (
+            c.id === comment.id && c.id !== null && c.id !== undefined
+        ))
+    );
+    
+    // Sort comments by date (newest first)
+    const sortedComments = uniqueComments.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+        const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+        return dateB - dateA;
+    });
+    
+    return sortedComments.map((comment, idx) => {
+        // Process teks komentar
+        let processedText = '';
+        if (comment.text && comment.text.trim() !== '') {
+            processedText = decodeHtmlEntities(comment.text);
+        } else {
+            processedText = '<span class="text-muted fst-italic">[Tidak ada teks]</span>';
+        }
+        
+        return `
+            <div class="comment-item mb-3 p-3 rounded comment-background">
+                <div class="comment-meta d-flex justify-content-between align-items-center mb-2">
+                    <span class="comment-user d-flex align-items-center">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                             style="width: 28px; height: 28px; margin-right: 8px; font-size: 0.8rem;">
+                            <ion-icon name="person" style="font-size: 0.9rem;"></ion-icon>
+                        </div>
+                        <div>
+                            <strong class="comment-author">${comment.user_name || 'Anonymous'}</strong>
+                            <div class="comment-time text-muted" style="font-size: 0.7rem;">
+                                ${formatCommentTime(comment.created_at)}
+                            </div>
+                        </div>
+                    </span>
+                </div>
+                <div class="comment-text mt-2 p-2 rounded comment-text-bg">
+                    ${processedText}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Fungsi format waktu komentar
+function formatCommentTime(timeString) {
+    if (!timeString) return '';
+    
+    try {
+        const date = new Date(timeString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'Baru saja';
+        if (diffMins < 60) return `${diffMins} menit lalu`;
+        if (diffHours < 24) return `${diffHours} jam lalu`;
+        if (diffDays < 7) return `${diffDays} hari lalu`;
+        
+        return date.toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return timeString;
+    }
+}
+
+// Fungsi format tanggal lengkap
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+// Fungsi format tanggal singkat
+function formatSimpleDate(dateString) {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
 
     function showModal(modalEl) {
         modalEl.style.display = 'block';
