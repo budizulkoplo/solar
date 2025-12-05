@@ -127,7 +127,7 @@
 
                             {{-- Bukti Nota --}}
                             <div class="col-12 mt-2">
-                                <label class="form-label">Bukti Nota (Optional)</label>
+                                <label class="form-label">Bukti Nota</label>
                                 <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
                                        accept=".jpg,.jpeg,.png,.pdf" required>
                                 <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
@@ -511,6 +511,7 @@
             $('#btnTambahNota').click(function() {
                 resetForm();
                 $('#modalNota').modal('show');
+                $('#buktiNota').prop('required', true);
             });
 
             // View nota PT
@@ -568,7 +569,7 @@
             // Edit nota PT
             $(document).on('click', '.edit-btn', function() {
                 let notaId = $(this).data('id');
-                
+                $('#buktiNota').prop('required', false);
                 $.get("/transaksi/pt/" + notaId + "/edit", function(res) {
                     if (res.success) {
                         let nota = res.data.nota;
@@ -577,6 +578,7 @@
                         // Isi form dengan data existing
                         $('#idNota').val(nota.id);
                         $('#notaNo').val(nota.nota_no);
+                        $('#namatransaksi').val(nota.namatransaksi);
                         $('#paymenMethod').val(nota.paymen_method).trigger('change');
                         $('#tanggalNota').val(nota.tanggal);
                         $('#vendorId').val(nota.vendor_id).trigger('change');

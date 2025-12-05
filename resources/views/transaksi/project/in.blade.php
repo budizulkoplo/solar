@@ -591,6 +591,7 @@
                         // Isi form dengan data existing - TIDAK RESET FORM
                         $('#idNota').val(nota.id);
                         $('#notaNo').val(nota.nota_no);
+                        $('#namatransaksi').val(nota.namatransaksi);
                         $('#paymenMethod').val(nota.paymen_method).trigger('change');
                         $('#tanggalNota').val(nota.tanggal);
                         

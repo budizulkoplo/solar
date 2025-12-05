@@ -433,7 +433,7 @@ class PTController extends Controller
             $request->validate([
                 'nota_no' => 'required|string|max:50',
                 'tanggal' => 'required|date',
-                'vendor_id' => 'required|exists:vendors,id',
+
                 'idrek' => 'required|exists:rekening,idrek',
                 'paymen_method' => 'required|in:cash,tempo',
                 'transactions' => 'required|array|min:1',
@@ -487,6 +487,7 @@ class PTController extends Controller
             // Update data nota
             $updateData = [
                 'nota_no' => $request->nota_no,
+                'namatransaksi' => $request->namatransaksi,
                 'tanggal' => $request->tanggal,
                 'vendor_id' => $request->vendor_id,
                 'idrek' => $request->idrek,

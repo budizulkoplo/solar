@@ -210,7 +210,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::put('/{id}', [KodetransaksiController::class,'update'])->name('kodetransaksi.update')->where('id', '[0-9]+');
         Route::delete('/{id}', [KodetransaksiController::class,'destroy'])->name('kodetransaksi.destroy')->where('id', '[0-9]+');
 
-        Route::patch('/{id}/update-coa', [KodetransaksiController::class,'updateCoa'])->name('kodetransaksi.updateCoa');
+        Route::patch('/{id}/update-field', [KodetransaksiController::class,'updateField'])->name('kodetransaksi.updateField');
     });
 
     Route::prefix('transaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {

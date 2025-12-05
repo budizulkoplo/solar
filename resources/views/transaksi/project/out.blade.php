@@ -125,9 +125,9 @@
 
                             {{-- Bukti Nota --}}
                             <div class="col-12 mt-2">
-                                <label class="form-label">Bukti Nota (Optional)</label>
+                                <label class="form-label">Bukti Nota</label>
                                 <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
-                                       accept=".jpg,.jpeg,.png,.pdf" required>
+                                       accept=".jpg,.jpeg,.png,.pdf" @if(!isset($nota)) required @endif>
                                 <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
                                 <div id="buktiPreview" class="mt-2" style="display:none;">
                                     <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
@@ -440,6 +440,7 @@
                 isEditMode = false;
                 resetForm();
                 $('#modalNota').modal('show');
+                $('#buktiNota').prop('required', true);
             });
 
             // Modal shown event - set focus ke field pertama hanya untuk create
@@ -587,7 +588,7 @@
                 
                 // Set mode edit
                 isEditMode = true;
-                
+                $('#buktiNota').prop('required', false);
                 // Tampilkan loading
                 $btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
 
@@ -603,6 +604,7 @@
                         // Isi form dengan data existing - TIDAK RESET FORM
                         $('#idNota').val(nota.id);
                         $('#notaNo').val(nota.nota_no);
+                        $('#namatransaksi').val(nota.namatransaksi);
                         $('#paymenMethod').val(nota.paymen_method).trigger('change');
                         $('#tanggalNota').val(nota.tanggal);
                         

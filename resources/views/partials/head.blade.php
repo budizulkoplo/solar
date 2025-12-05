@@ -13,7 +13,6 @@
 
 <title>{{ $setting->nama_perusahaan ?? '-' }} - {{ !empty($pagetitle) ? $pagetitle : config('app.name', 'Laravel') }}</title>
 
-<link rel="icon" type="image/x-icon" href="{{ asset('arisa.ico') }}">
 <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
 <link rel="stylesheet" href="{{ asset('css/overlayscrollbars.min.css') }}">
 <link rel="stylesheet" href="{{ asset('plugins/bootstrap-icons-1.13.1/bootstrap-icons.min.css') }}">
