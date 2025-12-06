@@ -169,7 +169,11 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('laporan/monitoring-presensi', [LaporanController::class, 'monitoringPresensi'])->name('hris.laporan.monitoring_presensi');
         Route::get('laporan/monitoring-presensi/data', [LaporanController::class, 'monitoringPresensiData'])->name('hris.laporan.monitoring_presensi.data');
         Route::post('laporan/monitoring-presensi/export', [LaporanController::class, 'exportMonitoringPresensi'])->name('hris.laporan.monitoring_presensi.export');
-
+        // Laporan Cashflow
+        Route::get('laporan/cashflow-project', [LaporanController::class, 'cashflowProject'])->name('transaksi.laporan.cashflow_project');
+        Route::get('laporan/cashflow-project/data', [LaporanController::class, 'cashflowProjectData'])->name('transaksi.laporan.cashflow_project.data');
+        Route::get('laporan/cashflow-pt', [LaporanController::class, 'cashflowPT'])->name('transaksi.laporan.cashflow_pt');
+        Route::get('laporan/cashflow-pt/data', [LaporanController::class, 'cashflowPTData'])->name('transaksi.laporan.cashflow_pt.data');
 
         // === Payroll (Tabel Gaji) ===
         Route::get('payroll', [PayrollController::class, 'index'])->name('hris.payroll.index');
@@ -316,14 +320,6 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('/list', [MenuController::class, 'index'])->name('menu.list');
         Route::get('/data/{role}', [MenuController::class, 'datamenu'])->name('menu.data');
         Route::put('/update', [MenuController::class, 'update'])->name('menu.update');
-    });
-
-    // Laporan
-    Route::prefix('laporan')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
-        Route::get('/transaksi-armada', [LaporanController::class, 'transaksiArmada'])->name('laporan.transaksi_armada');
-        Route::get('/transaksi-armada/data', [LaporanController::class, 'transaksiArmadaData'])->name('laporan.transaksi_armada.data');
-        Route::get('/project', [LaporanController::class, 'laporanProject'])->name('laporan.project');
-        Route::get('/vendor', [LaporanController::class, 'laporanVendor'])->name('laporan.vendor');
     });
 
     // Static file (private doc/img)
