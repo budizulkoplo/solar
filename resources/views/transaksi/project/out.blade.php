@@ -23,11 +23,13 @@
                             <tr>
                                 <th>No</th>
                                 <th>Nota No</th>
-                                <th>Nama Trans.</th>
+                                <th>Label</th>
                                 <th>Tanggal</th>
                                 <th>Total</th>
                                 <th>Payment Method</th>
                                 <th>Status</th>
+                                <th>User</th>
+                                <th>Update</th>
                                 <th>Bukti</th>
                                 <th>Aksi</th>
                             </tr>
@@ -65,7 +67,7 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Nama Transaksi *</label>
+                                <label class="form-label">Label *</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control form-control-sm" name="namatransaksi" id="namatransaksi" required>
                                     
@@ -112,9 +114,7 @@
                                         <option value="{{ $rek->idrek }}">{{ $rek->norek }} - {{ $rek->namarek }}</option>
                                     @endforeach
                                 </select>
-                                <small id="saldoRekening" class="text-success fw-bold mt-1 d-block">
-                                    <i class="bi bi-cash-coin"></i> Saldo: Rp 0
-                                </small>
+                                
                             </div>
 
                             {{-- Tanggal Tempo --}}
@@ -141,10 +141,10 @@
                         <table class="table table-sm table-bordered" id="tblDetail">
                             <thead>
                                 <tr>
-                                    <th>Kode Transaksi *</th>
+                                    <th>Akun *</th>
                                     <th>Deskripsi *</th>
                                     <th>Qty</th>
-                                    <th>Nominal</th>
+                                    <th>Kredit</th>
                                     <th>Total</th>
                                     <th>
                                         <button type="button" class="btn btn-sm btn-success" id="addRow">+</button>
@@ -165,14 +165,16 @@
                                     </td>
                                     <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                                     <td><input type="number" class="form-control form-control-sm jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
-                                    <td><input type="number" step="0.01" class="form-control form-control-sm nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                                    <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[0][Kredit]" value="0" min="0"></td>
                                     <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[0][total]" readonly></td>
                                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                 </tr>
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="4" class="text-end"><strong>Grand Total:</strong></td>
+                                    <td colspan="2"><small id="saldoRekening" class="text-success fw-bold mt-1 d-block">
+                                    <i class="bi bi-cash-coin"></i> Saldo: Rp 0
+                                </small></td><td colspan="2" class="text-end"><strong> Grand Total:</strong></td>
                                     <td><input type="number" step="0.01" class="form-control form-control-sm" id="grandTotal" readonly></td>
                                     <td></td>
                                 </tr>
@@ -253,7 +255,7 @@
                                 <th>Kode Transaksi</th>
                                 <th>Deskripsi</th>
                                 <th>Qty</th>
-                                <th>Nominal</th>
+                                <th>Kredit</th>
                                 <th>Total</th>
                             </tr>
                         </thead>
@@ -290,6 +292,14 @@
                     { data: 'total', name: 'total' },
                     { data: 'paymen_method', name: 'paymen_method' },
                     { data: 'status', name: 'status' },
+                    { data: 'namauser', name: 'namauser' },
+                    {
+                        data: 'updated_at',
+                        className: 'text-start',
+                        render: function(data) {
+                            return moment(data).format('YYYY-MM-DD HH:mm:ss');
+                        }
+                    },
                     { 
                         data: 'bukti_nota', 
                         name: 'bukti_nota',
@@ -356,7 +366,7 @@
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                         <td><input type="number" class="form-control form-control-sm jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
-                        <td><input type="number" step="0.01" class="form-control form-control-sm nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                        <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[0][Kredit]" value="0" min="0"></td>
                         <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[0][total]" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
@@ -475,11 +485,11 @@
             });
 
             // Hitung total per row
-            $(document).on('input', '.jml, .nominal', function() {
+            $(document).on('input', '.jml, .Kredit', function() {
                 let row = $(this).closest('tr');
                 let jml = parseFloat(row.find('.jml').val()) || 0;
-                let nominal = parseFloat(row.find('.nominal').val()) || 0;
-                let total = jml * nominal;
+                let Kredit = parseFloat(row.find('.Kredit').val()) || 0;
+                let total = jml * Kredit;
                 row.find('.total').val(total.toFixed(2));
                 
                 calculateGrandTotal();
@@ -510,7 +520,7 @@
                     </td>
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
                     <td><input type="number" class="form-control form-control-sm jml" name="transactions[${rowIndex}][jml]" value="1" min="1" step="0.01"></td>
-                    <td><input type="number" step="0.01" class="form-control form-control-sm nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
+                    <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[${rowIndex}][Kredit]" value="0" min="0"></td>
                     <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[${rowIndex}][total]" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
@@ -556,7 +566,7 @@
                                         <td>${transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-'}</td>
                                         <td>${transaction.description}</td>
                                         <td>${transaction.jml}</td>
-                                        <td>Rp ${new Intl.NumberFormat('id-ID').format(transaction.nominal)}</td>
+                                        <td>Rp ${new Intl.NumberFormat('id-ID').format(transaction.Kredit)}</td>
                                         <td>Rp ${new Intl.NumberFormat('id-ID').format(transaction.total)}</td>
                                     </tr>
                                 `;
@@ -659,7 +669,7 @@
                                         </td>
                                         <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
                                         <td><input type="number" class="form-control form-control-sm jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" step="0.01"></td>
-                                        <td><input type="number" step="0.01" class="form-control form-control-sm nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0"></td>
+                                        <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[${newRowIndex}][Kredit]" value="${transaction.Kredit || 0}" min="0"></td>
                                         <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
                                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                     </tr>
