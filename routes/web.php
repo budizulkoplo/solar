@@ -238,6 +238,9 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
             // ambil saldo rekening
             Route::get('rekening/{id}/saldo', [ProjectController::class,'saldoRekening'])->name('transaksi.project.rekening.saldo');
+            
+            // get update logs
+            Route::get('{id}/logs', [ProjectController::class,'getUpdateLogs'])->name('transaksi.project.logs');
         });
 
         // === TRANSAKSI PT (INDUK) ===

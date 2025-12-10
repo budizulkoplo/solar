@@ -21,17 +21,15 @@
                     <table id="tbNotas" class="table table-sm table-striped w-100" style="font-size: small;">
                         <thead>
                             <tr>
-                                <th>No</th>
+                                <th class="text-center">No</th>
                                 <th>Nota No</th>
-                                <th>Label</th>
-                                <th>Tanggal</th>
-                                <th>Total</th>
-                                <th>Payment Method</th>
-                                <th>Status</th>
-                                <th>User</th>
-                                <th>Update</th>
-                                <th>Bukti</th>
-                                <th>Aksi</th>
+                                <th>Nama Trans.</th>
+                                <th class="text-center">Tanggal</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Payment</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">User</th>
+                                <th class="text-center">Aksi</th>
                             </tr>
                         </thead>
                     </table>
@@ -44,154 +42,216 @@
     <div class="modal fade" id="modalNota" tabindex="-1">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <form id="frmNota" enctype="multipart/form-data">
-                    @csrf
-                    <input type="hidden" name="id" id="idNota">
-                    <input type="hidden" name="idproject" value="{{ session('active_project_id') }}">
+                <div class="row g-0">
+                    <!-- Kolom Kiri: Form (80%) -->
+                    <div class="col-md-8">
+                        <form id="frmNota" enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="id" id="idNota">
+                            <input type="hidden" name="idproject" value="{{ session('active_project_id') }}">
+                            <input type="hidden" name="old_rekening" id="oldRekening">
+                            <input type="hidden" name="old_grand_total" id="oldGrandTotal">
 
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalNotaTitle">Form Nota Keluar</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalNotaTitle">Form Nota Keluar</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
 
-                    <div class="modal-body">
-                        <div class="row g-2">
-                            {{-- No Invoice --}}
-                            <div class="col-md-4">
-                                <label class="form-label">No Invoice *</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control form-control-sm" name="nota_no" id="notaNo" required>
-                                    <div class="input-group-text">
-                                        <input type="checkbox" id="chkManualNo"> Manual
+                            <div class="modal-body">
+                                <div class="row g-2">
+                                    {{-- No Invoice --}}
+                                    <div class="col-md-4">
+                                        <label class="form-label">No Invoice *</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control form-control-sm" name="nota_no" id="notaNo" required>
+                                            <div class="input-group-text">
+                                                <input type="checkbox" id="chkManualNo"> Manual
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Label *</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control form-control-sm" name="namatransaksi" id="namatransaksi" required>
-                                    
-                                </div>
-                            </div>
-                            {{-- Project --}}
-                            <div class="col-md-4">
-                                <label class="form-label">Project</label>
-                                <input type="text" class="form-control form-control-sm" value="{{ session('active_project_name') }}" disabled>
-                            </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Nama Transaksi *</label>
+                                        <input type="text" class="form-control form-control-sm" name="namatransaksi" id="namatransaksi" required>
+                                    </div>
+                                    {{-- Project --}}
+                                    <div class="col-md-4">
+                                        <label class="form-label">Project</label>
+                                        <input type="text" class="form-control form-control-sm" value="{{ session('active_project_name') }}" disabled>
+                                    </div>
 
-                            {{-- Payment Method --}}
-                            <div class="col-md-4">
-                                <label class="form-label">Payment Method *</label>
-                                <select class="form-select form-select-sm" name="paymen_method" id="paymenMethod" required>
-                                    <option value="cash">Cash</option>
-                                    <option value="tempo">Tempo</option>
-                                </select>
-                            </div>
+                                    {{-- Payment Method --}}
+                                    <div class="col-md-4">
+                                        <label class="form-label">Payment Method *</label>
+                                        <select class="form-select form-select-sm" name="paymen_method" id="paymenMethod" required>
+                                            <option value="cash">Cash</option>
+                                            <option value="tempo">Tempo</option>
+                                        </select>
+                                    </div>
 
-                            {{-- Tanggal --}}
-                            <div class="col-md-4 mt-2">
-                                <label class="form-label">Tanggal *</label>
-                                <input type="date" class="form-control form-control-sm" name="tanggal" id="tanggalNota" required>
-                            </div>
+                                    {{-- Tanggal --}}
+                                    <div class="col-md-4">
+                                        <label class="form-label">Tanggal *</label>
+                                        <input type="date" class="form-control form-control-sm" name="tanggal" id="tanggalNota" required>
+                                    </div>
 
-                            {{-- Vendor --}}
-                            <div class="col-md-4 mt-2">
-                                <label class="form-label">Vendor *</label>
-                                <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;">
-                                    <option value="">-- Pilih Vendor --</option>
-                                    @foreach(\App\Models\Vendor::whereNull('deleted_at')->get() as $v)
-                                        <option value="{{ $v->id }}">{{ $v->namavendor }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
+                                    {{-- Vendor --}}
+                                    <div class="col-md-4">
+                                        <label class="form-label">Vendor</label>
+                                        <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;">
+                                            <option value="">-- Pilih Vendor --</option>
+                                            @foreach(\App\Models\Vendor::whereNull('deleted_at')->get() as $v)
+                                                <option value="{{ $v->id }}">{{ $v->namavendor }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
 
-                            {{-- Rekening --}}
-                            <div class="col-md-4 mt-2">
-                                <label class="form-label">Rekening *</label>
-                                <select class="form-select form-select-sm select2" name="idrek" id="idRekening" style="width:100%;" required>
-                                    <option value="">-- Pilih Rekening --</option>
-                                    @foreach(\App\Models\Rekening::forProject(session('active_project_id'))->get() as $rek)
-                                        <option value="{{ $rek->idrek }}">{{ $rek->norek }} - {{ $rek->namarek }}</option>
-                                    @endforeach
-                                </select>
-                                
-                            </div>
-
-                            {{-- Tanggal Tempo --}}
-                            <div class="col-md-4 mt-2" id="tglTempoContainer" style="display:none;">
-                                <label class="form-label">Tanggal Tempo *</label>
-                                <input type="date" class="form-control form-control-sm" name="tgl_tempo" id="tglTempo">
-                            </div>
-
-                            {{-- Bukti Nota --}}
-                            <div class="col-12 mt-2">
-                                <label class="form-label">Bukti Nota</label>
-                                <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
-                                       accept=".jpg,.jpeg,.png,.pdf" @if(!isset($nota)) required @endif>
-                                <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
-                                <div id="buktiPreview" class="mt-2" style="display:none;">
-                                    <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <hr>
-
-                        <h6>Detail Transaksi</h6>
-                        <table class="table table-sm table-bordered" id="tblDetail">
-                            <thead>
-                                <tr>
-                                    <th>Akun *</th>
-                                    <th>Deskripsi *</th>
-                                    <th>Qty</th>
-                                    <th>Kredit</th>
-                                    <th>Total</th>
-                                    <th>
-                                        <button type="button" class="btn btn-sm btn-success" id="addRow">+</button>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[0][idkodetransaksi]" style="width:100%;" required>
-                                            <option value="">-- Pilih Kode Transaksi --</option>
-                                            @foreach(\App\Models\KodeTransaksi::all() as $kt)
-                                                <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
-                                                    {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
+                                    {{-- Rekening --}}
+                                    <div class="col-md-6">
+                                        <label class="form-label">Rekening *</label>
+                                        <select class="form-select form-select-sm select2" name="idrek" id="idRekening" style="width:100%;" required>
+                                            <option value="">-- Pilih Rekening --</option>
+                                            @foreach(\App\Models\Rekening::forProject(session('active_project_id'))->get() as $rek)
+                                                <option value="{{ $rek->idrek }}" data-saldo="{{ $rek->saldo }}">
+                                                    {{ $rek->norek }} - {{ $rek->namarek }}
                                                 </option>
                                             @endforeach
                                         </select>
-                                    </td>
-                                    <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                                    <td><input type="number" class="form-control form-control-sm jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
-                                    <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[0][Kredit]" value="0" min="0"></td>
-                                    <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[0][total]" readonly></td>
-                                    <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                                </tr>
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="2"><small id="saldoRekening" class="text-success fw-bold mt-1 d-block">
-                                    <i class="bi bi-cash-coin"></i> Saldo: Rp 0
-                                </small></td><td colspan="2" class="text-end"><strong> Grand Total:</strong></td>
-                                    <td><input type="number" step="0.01" class="form-control form-control-sm" id="grandTotal" readonly></td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                    </div>
 
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary" id="btnSubmit">
-                            <span class="submit-text">Simpan</span>
-                            <span class="loading-text" style="display:none;">
-                                <i class="bi bi-hourglass-split"></i> Menyimpan...
-                            </span>
-                        </button>
+                                    {{-- Tanggal Tempo --}}
+                                    <div class="col-md-6" id="tglTempoContainer" style="display:none;">
+                                        <label class="form-label">Tanggal Tempo *</label>
+                                        <input type="date" class="form-control form-control-sm" name="tgl_tempo" id="tglTempo">
+                                    </div>
+
+                                    {{-- Bukti Nota --}}
+                                    <div class="col-12">
+                                        <label class="form-label">Bukti Nota <span class="text-danger" id="buktiRequired">*</span></label>
+                                        <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
+                                               accept=".jpg,.jpeg,.png,.pdf">
+                                        <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
+                                        <div id="buktiPreview" class="mt-2" style="display:none;">
+                                            <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <h6>Detail Transaksi</h6>
+                                    </div>
+                                    <div class="col-md-6 text-end">
+                                        <div class="text-primary" id="saldoInfo">
+                                            <i class="bi bi-wallet2"></i> 
+                                            Saldo tersedia: <span id="availableBalance">Rp 0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <table class="table table-sm table-bordered" id="tblDetail">
+                                    <thead>
+                                        <tr>
+                                            <th>Kode Transaksi *</th>
+                                            <th>Deskripsi *</th>
+                                            <th width="80">Qty</th>
+                                            <th width="120">Nominal</th>
+                                            <th width="120">Total</th>
+                                            <th width="40">
+                                                <button type="button" class="btn btn-sm btn-success" id="addRow">+</button>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[0][idkodetransaksi]" style="width:100%;" required>
+                                                    <option value="">-- Pilih Kode Transaksi --</option>
+                                                    @foreach(\App\Models\KodeTransaksi::all() as $kt)
+                                                        <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
+                                                            {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
+                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
+                                            <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" readonly></td>
+                                            <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="subtotal" value="0" readonly></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2">
+                                                <select class="form-select form-select-sm" name="ppn_type" id="ppnType">
+                                                    <option value="">-- Pilih PPN --</option>
+                                                    <option value="3001">PPN 11%</option>
+                                                    <option value="include">PPN Include</option>
+                                                </select>
+                                            </td>
+                                            <td class="text-end"><strong>PPN:</strong></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="ppnAmount" value="0" readonly></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <select class="form-select form-select-sm" name="diskon_type" id="diskonType">
+                                                    <option value="">-- Pilih Diskon --</option>
+                                                    <option value="persen">Diskon %</option>
+                                                    <option value="nominal">Diskon Nominal</option>
+                                                </select>
+                                            </td>
+                                            <td><input type="number" step="0.01" class="form-control form-control-sm mt-1" id="diskonValue" placeholder="Nilai" style="display:none;"></td>
+                                            <td class="text-end"><strong>Diskon:</strong></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="diskonAmount" value="0" readonly></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="0" readonly></td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                                
+                                <!-- Warning jika saldo tidak cukup -->
+                                <div id="saldoWarning" class="alert alert-warning mt-2 p-2" style="display:none;">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                                    <strong>Peringatan:</strong> Grand Total melebihi saldo rekening!
+                                </div>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary" id="btnSubmit">
+                                    <span class="submit-text">Simpan</span>
+                                    <span class="loading-text" style="display:none;">
+                                        <i class="bi bi-hourglass-split"></i> Menyimpan...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                </form>
+                    
+                    <!-- Kolom Kanan: Log Update (20%) -->
+                    <div class="col-md-4 border-start">
+                        <div class="modal-header border-bottom">
+                            <h6 class="modal-title m-0"><i class="bi bi-clock-history"></i> Riwayat Update</h6>
+                        </div>
+                        <div class="modal-body p-2" style="height: calc(100vh - 150px); overflow-y: auto;">
+                            <div id="updateLogContainer">
+                                <p class="text-muted small">Tidak ada riwayat perubahan</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -200,77 +260,128 @@
     <div class="modal fade" id="modalViewNota" tabindex="-1">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Detail Nota</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <table class="table table-sm">
-                                <tr>
-                                    <th width="40%">No Nota</th>
-                                    <td id="viewNotaNo">-</td>
-                                </tr>
-                                <tr>
-                                    <th>Tanggal</th>
-                                    <td id="viewTanggal">-</td>
-                                </tr>
-                                <tr>
-                                    <th>Project</th>
-                                    <td id="viewProject">-</td>
-                                </tr>
-                                <tr>
-                                    <th>Vendor</th>
-                                    <td id="viewVendor">-</td>
-                                </tr>
-                            </table>
+                <div class="row g-0">
+                    <!-- Kolom Kiri: Data Nota (80%) -->
+                    <div class="col-md-8">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Detail Nota</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="col-md-6">
-                            <table class="table table-sm">
-                                <tr>
-                                    <th width="40%">Payment Method</th>
-                                    <td id="viewPaymentMethod">-</td>
-                                </tr>
-                                <tr>
-                                    <th>Tanggal Tempo</th>
-                                    <td id="viewTglTempo">-</td>
-                                </tr>
-                                <tr>
-                                    <th>Total</th>
-                                    <td id="viewTotal">-</td>
-                                </tr>
-                                <tr>
-                                    <th>Status</th>
-                                    <td id="viewStatus">-</td>
-                                </tr>
+
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th width="40%">No Nota</th>
+                                            <td id="viewNotaNo">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <td id="viewTanggal">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Nama Transaksi</th>
+                                            <td id="viewNamaTransaksi">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Project</th>
+                                            <td id="viewProject">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Vendor</th>
+                                            <td id="viewVendor">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>User</th>
+                                            <td id="viewUser">-</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th width="40%">Payment Method</th>
+                                            <td id="viewPaymentMethod">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tanggal Tempo</th>
+                                            <td id="viewTglTempo">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Rekening</th>
+                                            <td id="viewRekening">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Total</th>
+                                            <td id="viewTotal">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Status</th>
+                                            <td id="viewStatus">-</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <h6>Detail Transaksi</h6>
+                            <table class="table table-sm table-bordered" id="tblViewDetail">
+                                <thead>
+                                    <tr>
+                                        <th>Kode Transaksi</th>
+                                        <th>Deskripsi</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-end">Nominal</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Data akan diisi oleh JavaScript -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                                        <td colspan="2" class="text-end" id="viewSubtotal">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-end"><strong>PPN:</strong></td>
+                                        <td colspan="2" class="text-end" id="viewPpn">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-end"><strong>Diskon:</strong></td>
+                                        <td colspan="2" class="text-end" id="viewDiskon">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                        <td colspan="2" class="text-end fw-bold" id="viewGrandTotal">-</td>
+                                    </tr>
+                                </tfoot>
                             </table>
+
+                            <div id="viewBuktiNota" class="mt-3" style="display:none;">
+                                <h6>Bukti Nota</h6>
+                                <div id="buktiContainer">
+                                    <!-- Preview bukti akan ditampilkan di sini -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                         </div>
                     </div>
-
-                    <h6>Detail Transaksi</h6>
-                    <table class="table table-sm table-bordered" id="tblViewDetail">
-                        <thead>
-                            <tr>
-                                <th>Kode Transaksi</th>
-                                <th>Deskripsi</th>
-                                <th>Qty</th>
-                                <th>Kredit</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Data akan diisi oleh JavaScript -->
-                        </tbody>
-                    </table>
-
-                    <div id="viewBuktiNota" class="mt-3" style="display:none;">
-                        <h6>Bukti Nota</h6>
-                        <img id="viewBuktiImage" src="#" alt="Bukti Nota" class="img-thumbnail" style="max-height: 300px;">
+                    
+                    <!-- Kolom Kanan: Log Update (20%) -->
+                    <div class="col-md-4 border-start">
+                        <div class="modal-header border-bottom">
+                            <h6 class="modal-title m-0"><i class="bi bi-clock-history"></i> Riwayat Perubahan</h6>
+                        </div>
+                        <div class="modal-body p-2" style="height: calc(100vh - 150px); overflow-y: auto;">
+                            <div id="viewLogContainer">
+                                <p class="text-muted small">Tidak ada riwayat perubahan</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                 </div>
             </div>
         </div>
@@ -279,44 +390,80 @@
     <x-slot name="jscustom">
         <script>
         $(document).ready(function() {
-            // DataTable
+            // DataTable dengan perbaikan
             let tbNotas = $('#tbNotas').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: "{{ route('transaksi.project.getdata', 'out') }}",
                 columns: [
-                    { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+                    { 
+                        data: 'DT_RowIndex', 
+                        name: 'DT_RowIndex', 
+                        orderable: false, 
+                        searchable: false,
+                        className: 'text-center'
+                    },
                     { data: 'nota_no', name: 'nota_no' },
                     { data: 'namatransaksi', name: 'namatransaksi' },
-                    { data: 'tanggal', name: 'tanggal' },
-                    { data: 'total', name: 'total' },
-                    { data: 'paymen_method', name: 'paymen_method' },
-                    { data: 'status', name: 'status' },
-                    { data: 'namauser', name: 'namauser' },
-                    {
-                        data: 'updated_at',
-                        className: 'text-start',
-                        render: function(data) {
-                            return moment(data).format('YYYY-MM-DD HH:mm:ss');
-                        }
-                    },
                     { 
-                        data: 'bukti_nota', 
-                        name: 'bukti_nota',
-                        orderable: false,
-                        searchable: false,
+                        data: 'tanggal', 
+                        name: 'tanggal',
+                        className: 'text-center',
                         render: function(data) {
                             if (data) {
-                                return '<a href="/storage/' + data + '" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i> Lihat</a>';
+                                return new Date(data).toLocaleDateString('id-ID');
                             }
                             return '-';
                         }
                     },
                     { 
+                        data: 'total', 
+                        name: 'total',
+                        className: 'text-end',
+                        render: function(data) {
+                            if (data) {
+                                return 'Rp ' + new Intl.NumberFormat('id-ID').format(data);
+                            }
+                            return 'Rp 0';
+                        }
+                    },
+                    { 
+                        data: 'paymen_method', 
+                        name: 'paymen_method',
+                        className: 'text-center',
+                        render: function(data) {
+                            if (data === 'cash') return 'Cash';
+                            if (data === 'tempo') return 'Tempo';
+                            return data;
+                        }
+                    },
+                    { 
+                        data: 'status', 
+                        name: 'status',
+                        className: 'text-center'
+                    },
+                    { 
+                        data: 'namauser', 
+                        name: 'namauser',
+                        className: 'text-center'
+                    },
+                    { 
                         data: 'action', 
                         orderable: false, 
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     }
+                ],
+                columnDefs: [
+                    { width: "5%", targets: 0 }, // No
+                    { width: "12%", targets: 1 }, // Nota No
+                    { width: "18%", targets: 2 }, // Nama Trans
+                    { width: "8%", targets: 3 }, // Tanggal
+                    { width: "12%", targets: 4 }, // Total
+                    { width: "8%", targets: 5 }, // Payment Method
+                    { width: "8%", targets: 6 }, // Status
+                    { width: "10%", targets: 7 }, // User
+                    { width: "10%", targets: 8 }  // Aksi
                 ]
             });
 
@@ -341,15 +488,37 @@
                 }
             }
 
+            // Format angka ke Rupiah
+            function formatRupiah(angka) {
+                if (!angka || isNaN(angka)) return 'Rp 0';
+                return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                }).format(angka);
+            }
+
+            // Format input value
+            function formatInputValue(value) {
+                if (!value || isNaN(value)) return '0';
+                return parseFloat(value).toFixed(2);
+            }
+
             // Reset form ke kondisi default
             function resetForm() {
                 $('#frmNota')[0].reset();
                 $('#idNota').val('');
+                $('#oldRekening').val('');
+                $('#oldGrandTotal').val('');
                 $('#buktiPreview').hide();
                 $('#tglTempoContainer').hide();
                 $('#tglTempo').prop('required', false);
                 $('.select2').val(null).trigger('change');
                 $('#modalNotaTitle').text('Form Nota Keluar');
+                $('#saldoWarning').hide();
+                
+                // Wajib bukti nota untuk form baru
+                $('#buktiNota').prop('required', true);
+                $('#buktiRequired').show();
                 
                 // Reset detail transaksi ke 1 row
                 $('#tblDetail tbody').html(`
@@ -365,13 +534,32 @@
                             </select>
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                        <td><input type="number" class="form-control form-control-sm jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
-                        <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[0][Kredit]" value="0" min="0"></td>
-                        <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[0][total]" readonly></td>
+                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
+                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
                 `);
-                $('#grandTotal').val('0.00');
+                
+                // Reset perhitungan
+                $('#subtotal').val('0');
+                $('#ppnAmount').val('0');
+                $('#diskonAmount').val('0');
+                $('#grandTotal').val('0');
+                updateDisplayValues();
+                
+                // Reset PPN dan Diskon
+                $('#ppnType').val('');
+                $('#diskonType').val('');
+                $('#diskonValue').hide().val('');
+                
+                // Reset saldo
+                currentSaldo = 0;
+                oldRekening = null;
+                oldGrandTotal = 0;
+                
+                // Update tampilan saldo
+                updateSaldoDisplay();
                 
                 // Set default values
                 setDefaultDate();
@@ -383,6 +571,28 @@
                 // Enable manual input checkbox
                 $('#chkManualNo').prop('checked', false);
                 $('#notaNo').prop('readonly', true);
+                
+                // Reset log
+                $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+            }
+
+            // Update tampilan nilai
+            function updateDisplayValues() {
+                // Format semua nilai input
+                $('.total').each(function() {
+                    let val = parseFloat($(this).val()) || 0;
+                    $(this).val(formatRupiah(val));
+                });
+                
+                let subtotal = parseFloat($('#subtotal').val()) || 0;
+                let ppnAmount = parseFloat($('#ppnAmount').val()) || 0;
+                let diskonAmount = parseFloat($('#diskonAmount').val()) || 0;
+                let grandTotal = parseFloat($('#grandTotal').val()) || 0;
+                
+                $('#subtotal').val(formatRupiah(subtotal));
+                $('#ppnAmount').val(formatRupiah(ppnAmount));
+                $('#diskonAmount').val(formatRupiah(diskonAmount));
+                $('#grandTotal').val(formatRupiah(grandTotal));
             }
 
             // Initialize select2
@@ -442,67 +652,175 @@
                 }
             });
 
-            // PERBAIKAN: Handle modal events dengan mode detection
-            let isEditMode = false;
-
-            // Tombol tambah nota - reset form dan buka modal
-            $('#btnTambahNota').click(function() {
-                isEditMode = false;
-                resetForm();
-                $('#modalNota').modal('show');
-                $('#buktiNota').prop('required', true);
-            });
-
-            // Modal shown event - set focus ke field pertama hanya untuk create
-            $('#modalNota').on('shown.bs.modal', function() {
-                if (!isEditMode) {
-                    $('#notaNo').focus();
-                }
-            });
-
-            // Modal hidden event - reset state
-            $('#modalNota').on('hidden.bs.modal', function() {
-                isEditMode = false;
-                // Tidak reset form di sini, biarkan reset hanya saat create
-            });
-
-            // Ambil saldo rekening
+            // Ambil saldo rekening saat rekening dipilih
+            let currentSaldo = 0;
+            let oldRekening = null;
+            let oldGrandTotal = 0;
+            
             $('#idRekening').change(function() {
                 let id = $(this).val();
+                let selectedOption = $(this).find('option:selected');
+                
                 if (id) {
+                    // Simpan old rekening untuk rollback
+                    if (!oldRekening && $('#idNota').val()) {
+                        oldRekening = $('#oldRekening').val() || id;
+                        $('#oldRekening').val(oldRekening);
+                    }
+                    
+                    // Simpan old grand total
+                    let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
+                    if (grandTotal > 0) {
+                        oldGrandTotal = grandTotal;
+                        $('#oldGrandTotal').val(oldGrandTotal);
+                    }
+                    
+                    // Ambil saldo dari data attribute
+                    currentSaldo = selectedOption.data('saldo') || 0;
+                    
+                    // Update tampilan saldo
+                    updateSaldoDisplay();
+                    
+                    // Cek apakah saldo cukup untuk transaksi saat ini
+                    checkSaldoCukup();
+                    
+                    // Ambil dari API untuk realtime update
                     let url = "{{ route('transaksi.project.rekening.saldo', ['id' => ':id']) }}";
                     url = url.replace(':id', id);
                     
                     $.get(url, function(res) {
-                        $('#saldoRekening').html('<i class="bi bi-cash-coin"></i> Saldo: Rp ' + new Intl.NumberFormat('id-ID').format(res.saldo));
+                        currentSaldo = res.saldo || 0;
+                        updateSaldoDisplay();
+                        checkSaldoCukup();
                     }).fail(function(xhr) {
                         console.error('Error mengambil saldo:', xhr);
-                        $('#saldoRekening').html('<i class="bi bi-cash-coin"></i> Saldo: Error');
                     });
                 } else {
-                    $('#saldoRekening').html('<i class="bi bi-cash-coin"></i> Saldo: Rp 0');
+                    currentSaldo = 0;
+                    updateSaldoDisplay();
+                    $('#saldoWarning').hide();
                 }
             });
 
-            // Hitung total per row
-            $(document).on('input', '.jml, .Kredit', function() {
-                let row = $(this).closest('tr');
-                let jml = parseFloat(row.find('.jml').val()) || 0;
-                let Kredit = parseFloat(row.find('.Kredit').val()) || 0;
-                let total = jml * Kredit;
-                row.find('.total').val(total.toFixed(2));
+            // Update tampilan saldo
+            function updateSaldoDisplay() {
+                $('#availableBalance').text(formatRupiah(currentSaldo));
+            }
+
+            // Cek apakah saldo cukup untuk grand total
+            function checkSaldoCukup() {
+                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
                 
+                if (currentSaldo > 0 && grandTotal > 0) {
+                    if (grandTotal > currentSaldo) {
+                        // Tampilkan warning
+                        $('#saldoWarning').show();
+                        $('#saldoInfo').addClass('text-danger').removeClass('text-primary');
+                    } else {
+                        // Sembunyikan warning
+                        $('#saldoWarning').hide();
+                        $('#saldoInfo').addClass('text-primary').removeClass('text-danger');
+                    }
+                } else {
+                    $('#saldoWarning').hide();
+                    $('#saldoInfo').addClass('text-primary').removeClass('text-danger');
+                }
+            }
+
+            // Hitung total per row
+            $(document).on('input', '.jml, .nominal', function() {
+                calculateRowTotal($(this).closest('tr'));
                 calculateGrandTotal();
             });
 
-            // Hitung grand total
-            function calculateGrandTotal() {
-                let grandTotal = 0;
-                $('.total').each(function() {
-                    grandTotal += parseFloat($(this).val()) || 0;
-                });
-                $('#grandTotal').val(grandTotal.toFixed(2));
+            function calculateRowTotal(row) {
+                let jml = parseFloat(row.find('.jml').val()) || 0;
+                let nominal = parseFloat(row.find('.nominal').val()) || 0;
+                let total = jml * nominal;
+                row.find('.total').val(formatInputValue(total));
             }
+
+            // Hitung grand total dengan PPN dan Diskon
+            function calculateGrandTotal() {
+                let subtotal = 0;
+                
+                // Hitung subtotal dari semua rows
+                $('.total').each(function() {
+                    let val = $(this).val().replace(/[^0-9.-]+/g,"");
+                    subtotal += parseFloat(val) || 0;
+                });
+                
+                $('#subtotal').val(formatInputValue(subtotal));
+                
+                // Hitung PPN
+                let ppnAmount = 0;
+                let ppnType = $('#ppnType').val();
+                
+                if (ppnType === '3001') {
+                    // PPN 11%
+                    ppnAmount = subtotal * 0.11;
+                } else if (ppnType === 'include') {
+                    // PPN sudah include dalam harga
+                    let subtotalExclPpn = subtotal / 1.11;
+                    ppnAmount = subtotal - subtotalExclPpn;
+                    // Update subtotal tanpa PPN
+                    $('#subtotal').val(formatInputValue(subtotalExclPpn));
+                    subtotal = subtotalExclPpn;
+                }
+                
+                $('#ppnAmount').val(formatInputValue(ppnAmount));
+                
+                // Hitung Diskon
+                let diskonAmount = 0;
+                let diskonType = $('#diskonType').val();
+                let diskonValue = parseFloat($('#diskonValue').val()) || 0;
+                
+                if (diskonType === 'persen' && diskonValue > 0) {
+                    diskonAmount = subtotal * (diskonValue / 100);
+                } else if (diskonType === 'nominal' && diskonValue > 0) {
+                    diskonAmount = diskonValue;
+                }
+                
+                $('#diskonAmount').val(formatInputValue(diskonAmount));
+                
+                // Hitung Grand Total
+                let grandTotal = subtotal + ppnAmount - diskonAmount;
+                $('#grandTotal').val(formatInputValue(grandTotal));
+                
+                // Update tampilan
+                updateDisplayValues();
+                
+                // Cek apakah saldo cukup
+                checkSaldoCukup();
+                
+                return grandTotal;
+            }
+
+            // Handle PPN selection
+            $('#ppnType').change(function() {
+                if ($(this).val()) {
+                    calculateGrandTotal();
+                } else {
+                    $('#ppnAmount').val('0.00');
+                    calculateGrandTotal();
+                }
+            });
+
+            // Handle Diskon selection
+            $('#diskonType').change(function() {
+                if ($(this).val()) {
+                    $('#diskonValue').show();
+                } else {
+                    $('#diskonValue').hide().val('');
+                    $('#diskonAmount').val('0.00');
+                    calculateGrandTotal();
+                }
+            });
+
+            // Handle Diskon value input
+            $('#diskonValue').on('input', function() {
+                calculateGrandTotal();
+            });
 
             // Tambah row detail
             let rowIndex = 1;
@@ -519,9 +837,9 @@
                         </select>
                     </td>
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
-                    <td><input type="number" class="form-control form-control-sm jml" name="transactions[${rowIndex}][jml]" value="1" min="1" step="0.01"></td>
-                    <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[${rowIndex}][Kredit]" value="0" min="0"></td>
-                    <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[${rowIndex}][total]" readonly></td>
+                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1" step="0.01"></td>
+                    <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
                 $('#tblDetail tbody').append(html);
@@ -539,6 +857,66 @@
                 }
             });
 
+            // Load update log untuk nota tertentu
+            function loadUpdateLog(notaId) {
+                if (!notaId) {
+                    $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+                    return;
+                }
+                
+                $.get(`/transaksi/project/${notaId}/logs`, function(res) {
+                    if (res.success && res.data.length > 0) {
+                        let logHtml = '';
+                        res.data.forEach(function(log) {
+                            let waktu = new Date(log.created_at).toLocaleString('id-ID');
+                            logHtml += `
+                                <div class="mb-2 pb-2 border-bottom">
+                                    <small class="text-muted">${waktu}</small>
+                                    <p class="mb-0 small">${log.update_log}</p>
+                                </div>
+                            `;
+                        });
+                        $('#updateLogContainer').html(logHtml);
+                    } else {
+                        $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+                    }
+                }).fail(function() {
+                    $('#updateLogContainer').html('<p class="text-muted small">Error loading log</p>');
+                });
+            }
+
+            // Load update log untuk view modal
+            function loadViewUpdateLog(notaId) {
+                if (!notaId) {
+                    $('#viewLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+                    return;
+                }
+                
+                $.get(`/transaksi/project/${notaId}/logs`, function(res) {
+                    if (res.success && res.data.length > 0) {
+                        let logHtml = '';
+                        res.data.forEach(function(log) {
+                            let waktu = new Date(log.created_at).toLocaleString('id-ID');
+                            logHtml += `
+                                <div class="mb-2 pb-2 border-bottom">
+                                    <small class="text-muted">${waktu}</small>
+                                    <p class="mb-0 small">${log.update_log}</p>
+                                </div>
+                            `;
+                        });
+                        $('#viewLogContainer').html(logHtml);
+                    } else {
+                        $('#viewLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+                    }
+                });
+            }
+
+            // Tombol tambah nota - reset form dan buka modal
+            $('#btnTambahNota').click(function() {
+                resetForm();
+                $('#modalNota').modal('show');
+            });
+
             // View nota
             $(document).on('click', '.view-btn', function() {
                 let notaId = $(this).data('id');
@@ -549,13 +927,26 @@
                         
                         // Isi data header
                         $('#viewNotaNo').text(nota.nota_no);
-                        $('#viewTanggal').text(nota.tanggal);
+                        $('#viewTanggal').text(new Date(nota.tanggal).toLocaleDateString('id-ID'));
+                        $('#viewNamaTransaksi').text(nota.namatransaksi);
                         $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
                         $('#viewVendor').text(nota.vendor ? nota.vendor.namavendor : '-');
-                        $('#viewPaymentMethod').text(nota.paymen_method);
-                        $('#viewTglTempo').text(nota.tgl_tempo || '-');
-                        $('#viewTotal').text('Rp ' + new Intl.NumberFormat('id-ID').format(nota.total));
+                        $('#viewUser').text(nota.namauser || '-');
+                        $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
+                        $('#viewTglTempo').text(nota.tgl_tempo ? new Date(nota.tgl_tempo).toLocaleDateString('id-ID') : '-');
+                        $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
+                        $('#viewTotal').text(formatRupiah(nota.total));
                         $('#viewStatus').html(getStatusBadge(nota.status));
+                        
+                        // Hitung subtotal, ppn, diskon
+                        let subtotal = nota.subtotal || nota.total || 0;
+                        let ppn = nota.ppn || 0;
+                        let diskon = nota.diskon || 0;
+                        
+                        $('#viewSubtotal').text(formatRupiah(subtotal));
+                        $('#viewPpn').text(formatRupiah(ppn));
+                        $('#viewDiskon').text(formatRupiah(diskon));
+                        $('#viewGrandTotal').text(formatRupiah(nota.total));
                         
                         // Isi detail transaksi
                         let detailHtml = '';
@@ -565,21 +956,40 @@
                                     <tr>
                                         <td>${transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-'}</td>
                                         <td>${transaction.description}</td>
-                                        <td>${transaction.jml}</td>
-                                        <td>Rp ${new Intl.NumberFormat('id-ID').format(transaction.Kredit)}</td>
-                                        <td>Rp ${new Intl.NumberFormat('id-ID').format(transaction.total)}</td>
+                                        <td class="text-center">${transaction.jml}</td>
+                                        <td class="text-end">${formatRupiah(transaction.nominal)}</td>
+                                        <td class="text-end">${formatRupiah(transaction.total)}</td>
                                     </tr>
                                 `;
                             });
                         }
                         $('#tblViewDetail tbody').html(detailHtml);
                         
+                        // Load update log
+                        loadViewUpdateLog(notaId);
+                        
                         // Tampilkan bukti nota jika ada
+                        $('#buktiContainer').empty();
+                        $('#viewBuktiNota').hide();
                         if (nota.bukti_nota) {
-                            $('#viewBuktiImage').attr('src', '/storage/' + nota.bukti_nota);
+                            let fileUrl = '/storage/' + nota.bukti_nota;
+                            let fileExt = fileUrl.split('.').pop().toLowerCase();
+                            
+                            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                                $('#buktiContainer').html('<img src="' + fileUrl + '" class="img-thumbnail" style="max-height: 200px;">');
+                            } else if (fileExt === 'pdf') {
+                                $('#buktiContainer').html(
+                                    '<div class="ratio ratio-16x9">' +
+                                    '<iframe src="' + fileUrl + '" class="border-0"></iframe>' +
+                                    '</div>'
+                                );
+                            } else {
+                                $('#buktiContainer').html(
+                                    '<a href="' + fileUrl + '" target="_blank" class="btn btn-primary btn-sm">' +
+                                    '<i class="bi bi-download"></i> Download File</a>'
+                                );
+                            }
                             $('#viewBuktiNota').show();
-                        } else {
-                            $('#viewBuktiNota').hide();
                         }
                         
                         $('#modalViewNota').modal('show');
@@ -591,60 +1001,45 @@
                 });
             });
 
-            // Edit nota - VERSI YANG DIPERBAIKI
+            // Edit nota
             $(document).on('click', '.edit-btn', function() {
                 let notaId = $(this).data('id');
-                let $btn = $(this);
                 
-                // Set mode edit
-                isEditMode = true;
-                $('#buktiNota').prop('required', false);
-                // Tampilkan loading
-                $btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
-
                 $.get("/transaksi/project/" + notaId + "/edit", function(res) {
-                    $btn.prop('disabled', false).html('<i class="bi bi-pencil"></i>');
-                    
                     if (res.success) {
                         let nota = res.data.nota;
                         let transactions = res.data.transactions;
                         
-                        console.log('Data untuk edit:', { nota, transactions });
-                        
-                        // Isi form dengan data existing - TIDAK RESET FORM
+                        // Isi form dengan data existing
+                        resetForm();
                         $('#idNota').val(nota.id);
+                        $('#oldRekening').val(nota.idrek);
                         $('#notaNo').val(nota.nota_no);
                         $('#namatransaksi').val(nota.namatransaksi);
                         $('#paymenMethod').val(nota.paymen_method).trigger('change');
                         $('#tanggalNota').val(nota.tanggal);
                         
-                        // Set vendor - handle jika vendor null
                         if (nota.vendor_id) {
                             $('#vendorId').val(nota.vendor_id).trigger('change');
-                        } else {
-                            $('#vendorId').val('').trigger('change');
-                            console.warn('Vendor ID null untuk nota:', nota.id);
                         }
                         
-                        // Set rekening
                         if (nota.idrek) {
+                            oldRekening = nota.idrek;
                             $('#idRekening').val(nota.idrek).trigger('change');
-                        } else {
-                            $('#idRekening').val('').trigger('change');
                         }
                         
-                        // Handle tanggal tempo
                         if (nota.paymen_method === 'tempo' && nota.tgl_tempo) {
                             $('#tglTempoContainer').show();
                             $('#tglTempo').val(nota.tgl_tempo).prop('required', true);
-                        } else {
-                            $('#tglTempoContainer').hide();
-                            $('#tglTempo').prop('required', false);
                         }
                         
                         // Enable manual input untuk edit
                         $('#chkManualNo').prop('checked', true);
                         $('#notaNo').prop('readonly', false);
+                        
+                        // Bukti nota tidak wajib untuk edit
+                        $('#buktiNota').prop('required', false);
+                        $('#buktiRequired').hide();
                         
                         // Isi detail transaksi
                         $('#tblDetail tbody').empty();
@@ -659,7 +1054,6 @@
                                                 <option value="">-- Pilih Kode Transaksi --</option>
                                 `;
                                 
-                                // Tambahkan options untuk kode transaksi
                                 @foreach(\App\Models\KodeTransaksi::all() as $kt)
                                     html += `<option value="{{ $kt->id }}" ${transaction.idkodetransaksi == {{ $kt->id }} ? 'selected' : '' }>{{ $kt->kodetransaksi }} - {{ $kt->transaksi }}</option>`;
                                 @endforeach
@@ -668,9 +1062,9 @@
                                             </select>
                                         </td>
                                         <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
-                                        <td><input type="number" class="form-control form-control-sm jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" step="0.01"></td>
-                                        <td><input type="number" step="0.01" class="form-control form-control-sm Kredit" name="transactions[${newRowIndex}][Kredit]" value="${transaction.Kredit || 0}" min="0"></td>
-                                        <td><input type="number" step="0.01" class="form-control form-control-sm total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
+                                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" step="0.01"></td>
+                                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0"></td>
+                                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
                                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                     </tr>
                                 `;
@@ -680,11 +1074,24 @@
                             });
                         }
                         
+                        // Load PPN dan Diskon jika ada
+                        if (nota.ppn > 0) {
+                            $('#ppnType').val('3001');
+                        }
+                        
+                        if (nota.diskon > 0) {
+                            $('#diskonType').val('nominal');
+                            $('#diskonValue').show().val(nota.diskon);
+                        }
+                        
                         calculateGrandTotal();
                         rowIndex = newRowIndex;
                         
                         // Update modal title
                         $('#modalNotaTitle').text('Edit Nota Keluar');
+                        
+                        // Load update log
+                        loadUpdateLog(notaId);
                         
                         // Tampilkan modal
                         $('#modalNota').modal('show');
@@ -698,8 +1105,6 @@
                         Swal.fire('Error', res.message, 'error');
                     }
                 }).fail(function(xhr) {
-                    $btn.prop('disabled', false).html('<i class="bi bi-pencil"></i>');
-                    console.error('Error edit:', xhr);
                     Swal.fire('Error', 'Gagal memuat data untuk edit: ' + (xhr.responseJSON?.message || 'Terjadi kesalahan'), 'error');
                 });
             });
@@ -745,16 +1150,35 @@
             $('#frmNota').submit(function(e) {
                 e.preventDefault();
                 
+                // Simpan referensi form yang benar
+                const formElement = this;
+                
+                // Cek apakah saldo cukup
+                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
+                if (currentSaldo > 0 && grandTotal > currentSaldo) {
+                    Swal.fire({
+                        title: 'Saldo Tidak Cukup',
+                        text: 'Saldo rekening tidak mencukupi untuk transaksi ini. Lanjutkan?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Lanjutkan',
+                        cancelButtonText: 'Batal'
+                    }).then((result) => {
+                        if (!result.isConfirmed) {
+                            return;
+                        }
+                        processFormSubmission(formElement);
+                    });
+                } else {
+                    processFormSubmission(formElement);
+                }
+            });
+
+            function processFormSubmission(formElement) {
                 // Validasi grand total
-                let grandTotal = parseFloat($('#grandTotal').val()) || 0;
+                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
                 if (grandTotal <= 0) {
                     Swal.fire('Peringatan', 'Total transaksi harus lebih dari 0', 'warning');
-                    return;
-                }
-
-                // Validasi tanggal tempo jika payment method = tempo
-                if ($('#paymenMethod').val() === 'tempo' && !$('#tglTempo').val()) {
-                    Swal.fire('Peringatan', 'Tanggal tempo harus diisi untuk payment method tempo', 'warning');
                     return;
                 }
 
@@ -771,10 +1195,24 @@
                     method = 'POST';
                 }
 
-                // Gunakan FormData untuk handle file upload
-                let formData = new FormData(this);
+                // Gunakan FormData dengan parameter formElement yang benar
+                let formData = new FormData(formElement);
                 if (notaId) {
                     formData.append('_method', 'PUT');
+                }
+
+                // Tambah PPN dan Diskon ke form data (jika ada nilainya)
+                let ppnAmount = parseFloat($('#ppnAmount').val().replace(/[^0-9.-]+/g,"")) || 0;
+                let diskonAmount = parseFloat($('#diskonAmount').val().replace(/[^0-9.-]+/g,"")) || 0;
+                
+                if (ppnAmount > 0) {
+                    formData.append('ppn', ppnAmount.toFixed(2));
+                    formData.append('ppn_kode', '3001');
+                }
+                
+                if (diskonAmount > 0) {
+                    formData.append('diskon', diskonAmount.toFixed(2));
+                    formData.append('diskon_kode', '5001');
                 }
 
                 // Tampilkan loading
@@ -819,7 +1257,7 @@
                         Swal.fire('Error!', errorMsg, 'error');
                     }
                 });
-            });
+            }
 
             // Helper function untuk status badge
             function getStatusBadge(status) {
