@@ -20,12 +20,6 @@ class NotaTransaction extends Model
         'total'
     ];
 
-    protected $casts = [
-        'nominal' => 'decimal:2',
-        'jml' => 'decimal:2',
-        'total' => 'decimal:2'
-    ];
-
     // Relasi ke nota
     public function nota()
     {

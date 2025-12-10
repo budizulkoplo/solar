@@ -44,7 +44,7 @@
             <div class="modal-content">
                 <div class="row g-0">
                     <!-- Kolom Kiri: Form (80%) -->
-                    <div class="col-md-8">
+                    <div class="col-md-9">
                         <form id="frmNota" enctype="multipart/form-data">
                             @csrf
                             <input type="hidden" name="id" id="idNota">
@@ -176,8 +176,8 @@
                                                 </select>
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
-                                            <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
+                                            <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
                                             <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
@@ -192,7 +192,7 @@
                                             <td colspan="2">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text">PPN</span>
-                                                    <input type="number" step="0.01" class="form-control form-control-sm text-end" 
+                                                    <input type="number"  class="form-control form-control-sm text-end" 
                                                            name="ppn" id="ppnAmount" placeholder="Nominal PPN" min="0" value="0">
                                                 </div>
                                             </td>
@@ -210,7 +210,7 @@
                                                 </select>
                                             </td>
                                             <td>
-                                                <input type="number" step="0.01" class="form-control form-control-sm" 
+                                                <input type="number"  class="form-control form-control-sm" 
                                                        id="diskonValue" placeholder="Nilai" style="display:none;">
                                             </td>
                                             <td class="text-end"><strong>Diskon:</strong></td>
@@ -245,7 +245,7 @@
                     </div>
                     
                     <!-- Kolom Kanan: Log Update (20%) -->
-                    <div class="col-md-4 border-start">
+                    <div class="col-md-3 border-start">
                         <div class="modal-header border-bottom">
                             <h6 class="modal-title m-0"><i class="bi bi-clock-history"></i> Riwayat Update</h6>
                         </div>
@@ -265,8 +265,8 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="row g-0">
-                    <!-- Kolom Kiri: Data Nota (80%) -->
-                    <div class="col-md-8">
+                    <!-- Kolom Kiri: Data Nota (90%) -->
+                    <div class="col-md-9">
                         <div class="modal-header">
                             <h5 class="modal-title">Detail Nota</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -376,7 +376,7 @@
                     </div>
                     
                     <!-- Kolom Kanan: Log Update (20%) -->
-                    <div class="col-md-4 border-start">
+                    <div class="col-md-3 border-start">
                         <div class="modal-header border-bottom bg-light">
                             <h6 class="modal-title m-0"><i class="bi bi-clock-history"></i> Riwayat Perubahan</h6>
                         </div>
@@ -392,6 +392,14 @@
     </div>
 
     <x-slot name="jscustom">
+        <style>
+            .readonly-custom {
+            background-color: #f0f4ff !important; /* biru muda */
+            border-color: #6c8ae4 !important;
+            color: #000;
+            cursor: not-allowed;
+        }
+        </style>
         <script>
         $(document).ready(function() {
             // DataTable dengan perbaikan
@@ -433,7 +441,7 @@
                                         maximumFractionDigits: 0
                                     }).format(num);
                                 }
-                                return 'Rp 0';
+                                return data;
                             }
                             return data;
                         }
@@ -560,8 +568,8 @@
                             </select>
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
-                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
+                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
@@ -768,7 +776,7 @@
                     subtotal += val;
                 });
                 
-                $('#subtotal').val(formatRupiah(subtotal));
+                $('#subtotal').val(parseNumber(subtotal));
                 
                 // Setelah subtotal berubah, hitung grand total
                 calculateGrandTotal();
@@ -781,7 +789,7 @@
                 
                 // Hitung PPN
                 let ppnAmount = parseNumber($('#ppnAmount').val());
-                $('#ppnDisplay').val(formatRupiah(ppnAmount));
+                $('#ppnDisplay').val(parseNumber(ppnAmount));
                 
                 // Hitung Diskon
                 let diskonAmount = 0;
@@ -790,21 +798,21 @@
                 
                 if (diskonType === 'persen' && diskonValue > 0) {
                     // Diskon persen: hitung persentase dari (subtotal + ppn)
-                    diskonAmount = (subtotal + ppnAmount) * (diskonValue / 100);
+                    diskonAmount = subtotal * (diskonValue / 100);
                 } else if (diskonType === 'nominal' && diskonValue > 0) {
                     // Diskon nominal: langsung pakai nilai
                     diskonAmount = diskonValue;
                 }
                 
-                $('#diskonDisplay').val(formatRupiah(diskonAmount));
+                $('#diskonDisplay').val(parseNumber(diskonAmount));
                 
                 // Hitung Grand Total = subtotal + ppn - diskon
-                let grandTotal = subtotal + ppnAmount - diskonAmount;
+                let grandTotal = (subtotal-diskonAmount)+ppnAmount;
                 
                 // Pastikan grand total tidak negatif
                 if (grandTotal < 0) grandTotal = 0;
                 
-                $('#grandTotal').val(formatRupiah(grandTotal));
+                $('#grandTotal').val(parseNumber(grandTotal));
                 
                 // Cek saldo
                 checkSaldoCukup();
@@ -831,8 +839,8 @@
                         </select>
                     </td>
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
-                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1" step="0.01"></td>
-                    <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
                     <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" value="0" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
@@ -1064,8 +1072,8 @@
                                             </select>
                                         </td>
                                         <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
-                                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" step="0.01"></td>
-                                        <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0"></td>
+                                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" ></td>
+                                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0"></td>
                                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
                                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                     </tr>

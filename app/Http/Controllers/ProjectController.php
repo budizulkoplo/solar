@@ -774,7 +774,7 @@ class ProjectController extends Controller
                     NotaTransaction::create([
                         'idnota' => $nota->id,
                         'idkodetransaksi' => $kodePpn->id,
-                        'description' => 'PPN 11%',
+                        'description' => 'PPN',
                         'nominal' => $ppn,
                         'jml' => 1,
                         'total' => $ppn,
