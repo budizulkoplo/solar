@@ -121,6 +121,7 @@ class ProjectController extends Controller
                 'diskon' => 'nullable|numeric|min:0',
                 'ppn_kode' => 'nullable|string',
                 'diskon_kode' => 'nullable|string',
+                'subtotal' => 'required|numeric|min:0', // Tambah validasi subtotal dari form
             ]);
 
             // Ambil user yang login
@@ -147,14 +148,8 @@ class ProjectController extends Controller
                 $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
             }
 
-            // Hitung subtotal dari transaksi regular (bukan PPN/diskon)
-            $subtotal = 0;
-            foreach ($request->transactions as $transaction) {
-                $itemTotal = $transaction['nominal'] * $transaction['jml'];
-                $subtotal += $itemTotal;
-            }
-
-            // Hitung total dengan PPN dan Diskon
+            // Gunakan subtotal dari form
+            $subtotal = $request->subtotal ?? 0;
             $ppn = $request->ppn ?? 0;
             $diskon = $request->diskon ?? 0;
             $total = $subtotal + $ppn - $diskon;
@@ -201,12 +196,12 @@ class ProjectController extends Controller
 
             // Simpan PPN sebagai transaksi terpisah jika ada
             if ($ppn > 0) {
-                $kodePpn = KodeTransaksi::where('kodetransaksi', '3001')->first();
+                $kodePpn = KodeTransaksi::where('kodetransaksi', $request->ppn_kode ?? '3001')->first();
                 if ($kodePpn) {
                     NotaTransaction::create([
                         'idnota' => $nota->id,
                         'idkodetransaksi' => $kodePpn->id,
-                        'description' => 'PPN 11%',
+                        'description' => 'PPN',
                         'nominal' => $ppn,
                         'jml' => 1,
                         'total' => $ppn,
@@ -216,7 +211,7 @@ class ProjectController extends Controller
 
             // Simpan Diskon sebagai transaksi terpisah jika ada
             if ($diskon > 0) {
-                $kodeDiskon = KodeTransaksi::where('kodetransaksi', '5001')->first();
+                $kodeDiskon = KodeTransaksi::where('kodetransaksi', $request->diskon_kode ?? '5001')->first();
                 if ($kodeDiskon) {
                     NotaTransaction::create([
                         'idnota' => $nota->id,
@@ -414,10 +409,12 @@ class ProjectController extends Controller
 
             $saldoSebelum = $rekening->saldo;
             
-            // LOGIKA ROLLBACK SALDO
+            // LOGIKA ROLLBACK SALDO: Kembalikan saldo ke kondisi sebelum transaksi
             if ($nota->cashflow == 'out') {
+                // Jika transaksi out, tambahkan kembali ke saldo
                 $rekening->saldo += $nota->total;
             } else {
+                // Jika transaksi in, kurangi dari saldo
                 $rekening->saldo -= $nota->total;
             }
             
@@ -655,7 +652,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Update transaksi dengan logging
+     * Update transaksi dengan logging dan rollback yang benar
      */
     public function update(Request $request, $id, $type)
     {
@@ -679,6 +676,7 @@ class ProjectController extends Controller
                 'diskon_kode' => 'nullable|string',
                 'old_rekening' => 'nullable|exists:rekening,idrek',
                 'old_grand_total' => 'nullable|numeric|min:0',
+                'subtotal' => 'required|numeric|min:0',
             ]);
 
             // Cari nota yang akan diupdate
@@ -691,7 +689,16 @@ class ProjectController extends Controller
             $oldRekening = $request->old_rekening ?? $nota->idrek;
             $oldGrandTotal = $request->old_grand_total ?? $nota->total;
 
-            // Handle upload bukti nota baru (tidak wajib untuk edit)
+            \Log::info('=== UPDATE TRANSACTION START ===', [
+                'nota_id' => $id,
+                'old_total' => $oldTotal,
+                'old_rekening' => $oldRekening,
+                'old_payment_method' => $oldPaymentMethod,
+                'old_status' => $nota->status,
+                'new_rekening_request' => $request->idrek
+            ]);
+
+            // Handle upload bukti nota baru
             $buktiNotaPath = $nota->bukti_nota;
             if ($request->hasFile('bukti_nota')) {
                 if ($buktiNotaPath && Storage::disk('public')->exists($buktiNotaPath)) {
@@ -703,34 +710,35 @@ class ProjectController extends Controller
                 $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
             }
 
-            // Hitung subtotal dari transaksi regular
-            $subtotal = 0;
-            foreach ($request->transactions as $transaction) {
-                $subtotal += ($transaction['nominal'] * $transaction['jml']);
-            }
-
+            // Gunakan subtotal dari form
+            $subtotal = $request->subtotal ?? 0;
             $ppn = $request->ppn ?? 0;
             $diskon = $request->diskon ?? 0;
             $newTotal = $subtotal + $ppn - $diskon;
 
-            // Handle perubahan rekening jika ada
-            if ($oldRekening && $oldRekening != $request->idrek && $oldGrandTotal > 0) {
-                $this->rollbackRekeningChange($oldRekening, $request->idrek, $oldGrandTotal, $nota->id);
-                
-                // Buat log untuk perubahan rekening
-                $oldRek = Rekening::find($oldRekening);
-                $newRek = Rekening::find($request->idrek);
-                
-                if ($oldRek && $newRek) {
-                    $logMessage = "Rekening diubah: {$oldRek->norek} → {$newRek->norek}, " .
-                                  "Saldo dikembalikan ke rekening lama: Rp " . number_format($oldGrandTotal, 0, ',', '.');
-                    $this->createUpdateLog($nota->id, $nota->nota_no, $logMessage);
-                }
-            }
+            \Log::info('New calculation:', [
+                'subtotal' => $subtotal,
+                'ppn' => $ppn,
+                'diskon' => $diskon,
+                'new_total' => $newTotal
+            ]);
 
-            // Jika perubahan dari CASH ke TEMPO, rollback pembayaran
-            if ($oldPaymentMethod == 'cash' && $request->paymen_method == 'tempo') {
+            // 1. ROLLBACK LOGIC - hanya jika transaksi lama adalah CASH dan PAID
+            $paymentRollbackNeeded = false;
+            $rekeningChanged = ($oldRekening != $request->idrek);
+            $totalChanged = ($oldTotal != $newTotal);
+            
+            if ($oldPaymentMethod == 'cash' && $nota->status == 'paid') {
+                \Log::info('Rollback old cash payment', [
+                    'old_total' => $oldTotal,
+                    'old_rekening' => $oldRekening,
+                    'rekening_changed' => $rekeningChanged,
+                    'total_changed' => $totalChanged
+                ]);
+                
+                // Rollback pembayaran lama - ini akan mengembalikan saldo ke rekening lama
                 $this->rollbackCashPayment($nota);
+                $paymentRollbackNeeded = true;
             }
 
             // Update data nota
@@ -752,7 +760,7 @@ class ProjectController extends Controller
 
             $nota->update($updateData);
 
-            // Hapus semua transaksi lama (termasuk PPN/diskon)
+            // Hapus semua transaksi lama
             NotaTransaction::where('idnota', $nota->id)->delete();
 
             // Simpan detail transaksi regular
@@ -767,9 +775,9 @@ class ProjectController extends Controller
                 ]);
             }
 
-            // Simpan PPN sebagai transaksi terpisah jika ada
+            // Simpan PPN jika ada
             if ($ppn > 0) {
-                $kodePpn = KodeTransaksi::where('kodetransaksi', '3001')->first();
+                $kodePpn = KodeTransaksi::where('kodetransaksi', $request->ppn_kode ?? '3001')->first();
                 if ($kodePpn) {
                     NotaTransaction::create([
                         'idnota' => $nota->id,
@@ -782,9 +790,9 @@ class ProjectController extends Controller
                 }
             }
 
-            // Simpan Diskon sebagai transaksi terpisah jika ada
+            // Simpan Diskon jika ada
             if ($diskon > 0) {
-                $kodeDiskon = KodeTransaksi::where('kodetransaksi', '5001')->first();
+                $kodeDiskon = KodeTransaksi::where('kodetransaksi', $request->diskon_kode ?? '5001')->first();
                 if ($kodeDiskon) {
                     NotaTransaction::create([
                         'idnota' => $nota->id,
@@ -809,22 +817,28 @@ class ProjectController extends Controller
                 $this->createUpdateLog($nota->id, $nota->nota_no, $logMessage);
             }
 
-            // Jika perubahan dari TEMPO ke CASH, buat pembayaran baru
-            if ($oldPaymentMethod == 'tempo' && $request->paymen_method == 'cash') {
+            // 2. PROSES PEMBAYARAN BARU jika transaksi baru adalah CASH
+            if ($request->paymen_method == 'cash') {
+                \Log::info('Process new cash payment', [
+                    'new_total' => $newTotal,
+                    'new_rekening' => $request->idrek,
+                    'previous_rollback' => $paymentRollbackNeeded
+                ]);
+                
+                // Proses pembayaran baru - ini akan memotong rekening baru
                 $this->processCashPayment($nota, $request->idrek, $newTotal, $request->tanggal);
             }
 
-            // Jika tetap cash tapi ada perubahan total atau rekening, update pembayaran
-            if ($oldPaymentMethod == 'cash' && $request->paymen_method == 'cash') {
-                $paymentChanged = ($oldTotal != $newTotal) || ($oldRekening != $request->idrek);
-                
-                if ($paymentChanged) {
-                    $this->rollbackCashPayment($nota);
-                    $this->processCashPayment($nota, $request->idrek, $newTotal, $request->tanggal);
-                }
-            }
-
             DB::commit();
+
+            \Log::info('=== UPDATE TRANSACTION SUCCESS ===', [
+                'nota_id' => $id,
+                'old_total' => $oldTotal,
+                'new_total' => $newTotal,
+                'rekening_changed' => $rekeningChanged,
+                'old_rekening' => $oldRekening,
+                'new_rekening' => $request->idrek
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -846,6 +860,7 @@ class ProjectController extends Controller
             ], 500);
         }
     }
+    
 
     /**
      * Hapus transaksi dengan rollback dan logging

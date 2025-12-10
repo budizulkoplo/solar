@@ -40,7 +40,7 @@
 
     <!-- Modal Nota -->
     <div class="modal fade" id="modalNota" tabindex="-1">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-xxl">
             <div class="modal-content">
                 <div class="row g-0">
                     <!-- Kolom Kiri: Form (80%) -->
@@ -53,7 +53,7 @@
                             <input type="hidden" name="old_grand_total" id="oldGrandTotal">
 
                             <div class="modal-header">
-                                <h5 class="modal-title" id="modalNotaTitle">Form Nota Keluar</h5>
+                                <h6 class="modal-title" id="modalNotaTitle">Form Nota Keluar</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
 
@@ -262,13 +262,14 @@
 
     <!-- Modal View Nota -->
     <div class="modal fade" id="modalViewNota" tabindex="-1">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-xxl">
+
             <div class="modal-content">
                 <div class="row g-0">
                     <!-- Kolom Kiri: Data Nota (90%) -->
                     <div class="col-md-9">
                         <div class="modal-header">
-                            <h5 class="modal-title">Detail Nota</h5>
+                            <h6 class="modal-title">Detail Nota</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
 
@@ -393,13 +394,21 @@
 
     <x-slot name="jscustom">
         <style>
-            .readonly-custom {
-            background-color: #f0f4ff !important; /* biru muda */
-            border-color: #6c8ae4 !important;
-            color: #000;
-            cursor: not-allowed;
-        }
+            /* Semua input readonly */
+            input[readonly],
+            textarea[readonly],
+            select[readonly] {
+                background-color: #f0f4ff !important;  /* biru muda */
+                border-color: #6c8ae4 !important;
+                color: #000 !important;
+                cursor: not-allowed;
+            }
+
+            .modal-xxl {
+                max-width: 80% !important;
+            }
         </style>
+
         <script>
         $(document).ready(function() {
             // DataTable dengan perbaikan
@@ -927,86 +936,139 @@
 
             // View nota
             $(document).on('click', '.view-btn', function() {
-                let notaId = $(this).data('id');
-                
-                $.get("/transaksi/project/" + notaId, function(res) {
-                    if (res.success) {
-                        let nota = res.data;
-                        
-                        // Isi data header
-                        $('#viewNotaNo').text(nota.nota_no);
-                        $('#viewTanggal').text(new Date(nota.tanggal).toLocaleDateString('id-ID'));
-                        $('#viewNamaTransaksi').text(nota.namatransaksi);
-                        $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
-                        $('#viewVendor').text(nota.vendor ? nota.vendor.namavendor : '-');
-                        $('#viewUser').text(nota.namauser || '-');
-                        $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
-                        $('#viewTglTempo').text(nota.tgl_tempo ? new Date(nota.tgl_tempo).toLocaleDateString('id-ID') : '-');
-                        $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
-                        $('#viewTotal').text(formatRupiah(nota.total));
-                        $('#viewStatus').html(getStatusBadge(nota.status));
-                        
-                        let subtotal = nota.subtotal || 0;
-                        let ppn = nota.ppn || 0;
-                        let diskon = nota.diskon || 0;
-                        
-                        $('#viewSubtotal').text(formatRupiah(subtotal));
-                        $('#viewPpn').text(formatRupiah(ppn));
-                        $('#viewDiskon').text(formatRupiah(diskon));
-                        $('#viewGrandTotal').text(formatRupiah(nota.total));
-                        
-                        // Isi detail transaksi
-                        let detailHtml = '';
-                        if (nota.transactions && nota.transactions.length > 0) {
-                            nota.transactions.forEach(function(transaction) {
-                                detailHtml += `
-                                    <tr>
-                                        <td>${transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-'}</td>
-                                        <td>${transaction.description}</td>
-                                        <td class="text-center">${transaction.jml}</td>
-                                        <td class="text-end">${formatRupiah(transaction.nominal)}</td>
-                                        <td class="text-end">${formatRupiah(transaction.total)}</td>
-                                    </tr>
-                                `;
-                            });
-                        }
-                        $('#tblViewDetail tbody').html(detailHtml);
-                        
-                        // Load update log
-                        loadViewUpdateLog(notaId);
-                        
-                        // Tampilkan bukti nota jika ada
-                        $('#buktiContainer').empty();
-                        $('#viewBuktiNota').hide();
-                        if (nota.bukti_nota) {
-                            let fileUrl = '/storage/' + nota.bukti_nota;
-                            let fileExt = fileUrl.split('.').pop().toLowerCase();
-                            
-                            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
-                                $('#buktiContainer').html('<img src="' + fileUrl + '" class="img-thumbnail" style="max-height: 200px;">');
-                            } else if (fileExt === 'pdf') {
-                                $('#buktiContainer').html(
-                                    '<div class="ratio ratio-16x9">' +
-                                    '<iframe src="' + fileUrl + '" class="border-0"></iframe>' +
-                                    '</div>'
-                                );
-                            } else {
-                                $('#buktiContainer').html(
-                                    '<a href="' + fileUrl + '" target="_blank" class="btn btn-primary btn-sm">' +
-                                    '<i class="bi bi-download"></i> Download File</a>'
-                                );
-                            }
-                            $('#viewBuktiNota').show();
-                        }
-                        
-                        $('#modalViewNota').modal('show');
-                    } else {
-                        Swal.fire('Error', res.message, 'error');
+            let notaId = $(this).data('id');
+            
+            $.get("/transaksi/project/" + notaId, function(res) {
+                if (res.success) {
+                    let nota = res.data;
+                    
+                    // Isi data header
+                    $('#viewNotaNo').text(nota.nota_no);
+                    $('#viewTanggal').text(new Date(nota.tanggal).toLocaleDateString('id-ID'));
+                    $('#viewNamaTransaksi').text(nota.namatransaksi);
+                    $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
+                    $('#viewVendor').text(nota.vendor ? nota.vendor.namavendor : '-');
+                    $('#viewUser').text(nota.namauser || '-');
+                    $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
+                    $('#viewTglTempo').text(nota.tgl_tempo ? new Date(nota.tgl_tempo).toLocaleDateString('id-ID') : '-');
+                    $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
+                    $('#viewTotal').text(formatRupiah(nota.total));
+                    $('#viewStatus').html(getStatusBadge(nota.status));
+                    
+                    let subtotal = nota.subtotal || 0;
+                    let ppn = nota.ppn || 0;
+                    let diskon = nota.diskon || 0;
+                    
+                    $('#viewSubtotal').text(formatRupiah(subtotal));
+                    $('#viewPpn').text(formatRupiah(ppn));
+                    $('#viewDiskon').text(formatRupiah(diskon));
+                    $('#viewGrandTotal').text(formatRupiah(nota.total));
+                    
+                    // Isi detail transaksi
+                    let detailHtml = '';
+                    if (nota.transactions && nota.transactions.length > 0) {
+                        nota.transactions.forEach(function(transaction) {
+                            detailHtml += `
+                                <tr>
+                                    <td>${transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-'}</td>
+                                    <td>${transaction.description}</td>
+                                    <td class="text-center">${transaction.jml}</td>
+                                    <td class="text-end">${formatRupiah(transaction.nominal)}</td>
+                                    <td class="text-end">${formatRupiah(transaction.total)}</td>
+                                </tr>
+                            `;
+                        });
                     }
-                }).fail(function(xhr) {
-                    Swal.fire('Error', 'Gagal memuat data nota', 'error');
-                });
+                    $('#tblViewDetail tbody').html(detailHtml);
+                    
+                    // Load update log
+                    loadViewUpdateLog(notaId);
+                    
+                    // Tampilkan bukti nota jika ada
+                    $('#buktiContainer').empty();
+                    $('#viewBuktiNota').hide();
+                    if (nota.bukti_nota) {
+                        let fileUrl = '/storage/' + nota.bukti_nota;
+                        let fileExt = fileUrl.split('.').pop().toLowerCase();
+                        
+                        if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                            // Untuk gambar, buat preview yang bisa diklik
+                            $('#buktiContainer').html(`
+                                <div class="text-center">
+                                    <a href="#" class="bukti-preview-link" data-url="${fileUrl}">
+                                        <img src="${fileUrl}" class="img-thumbnail" style="max-height: 200px; cursor: pointer;" 
+                                            alt="Bukti Nota" title="Klik untuk melihat lebih besar">
+                                        <div class="small text-muted mt-1">Klik gambar untuk memperbesar</div>
+                                    </a>
+                                </div>
+                            `);
+                        } else if (fileExt === 'pdf') {
+                            $('#buktiContainer').html(`
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="${fileUrl}" class="border-0"></iframe>
+                                </div>
+                                <div class="mt-2">
+                                    <a href="${fileUrl}" target="_blank" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-download"></i> Buka PDF di Tab Baru
+                                    </a>
+                                </div>
+                            `);
+                        } else {
+                            $('#buktiContainer').html(`
+                                <a href="${fileUrl}" target="_blank" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-download"></i> Download File
+                                </a>
+                            `);
+                        }
+                        $('#viewBuktiNota').show();
+                    }
+                    
+                    $('#modalViewNota').modal('show');
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            }).fail(function(xhr) {
+                Swal.fire('Error', 'Gagal memuat data nota', 'error');
             });
+        });
+
+        // Tambahkan event handler untuk preview gambar yang diklik
+        $(document).on('click', '.bukti-preview-link', function(e) {
+            e.preventDefault();
+            let imageUrl = $(this).data('url');
+            
+            // Buat modal untuk preview gambar besar
+            let modalHtml = `
+                <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Preview Bukti Nota</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <img src="${imageUrl}" class="img-fluid" style="max-height: 70vh;">
+                            </div>
+                            <div class="modal-footer">
+                                <a href="${imageUrl}" target="_blank" class="btn btn-primary">
+                                    <i class="bi bi-download"></i> Download
+                                </a>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Hapus modal sebelumnya jika ada
+            $('#imagePreviewModal').remove();
+            
+            // Tambahkan modal baru ke body
+            $('body').append(modalHtml);
+            
+            // Tampilkan modal
+            $('#imagePreviewModal').modal('show');
+        });
 
             // Edit nota
             $(document).on('click', '.edit-btn', function() {
