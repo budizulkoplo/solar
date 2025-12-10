@@ -178,26 +178,27 @@
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                                             <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
                                             <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
-                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" readonly></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
                                     </tbody>
                                     <tfoot>
                                         <tr>
                                             <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
-                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="subtotal" value="0" readonly></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="subtotal" value="Rp 0" readonly></td>
                                             <td></td>
                                         </tr>
                                         <tr>
                                             <td colspan="2">
-                                                <select class="form-select form-select-sm" name="ppn_type" id="ppnType">
-                                                    <option value="">-- Pilih PPN --</option>
-                                                    <option value="3001">PPN 11%</option>
-                                                    <option value="include">PPN Include</option>
-                                                </select>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">PPN</span>
+                                                    <input type="number" step="0.01" class="form-control form-control-sm text-end" 
+                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" min="0" value="0">
+                                                </div>
                                             </td>
                                             <td class="text-end"><strong>PPN:</strong></td>
-                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="ppnAmount" value="0" readonly></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" 
+                                                                   id="ppnDisplay" value="Rp 0" readonly></td>
                                             <td></td>
                                         </tr>
                                         <tr>
@@ -208,14 +209,17 @@
                                                     <option value="nominal">Diskon Nominal</option>
                                                 </select>
                                             </td>
-                                            <td><input type="number" step="0.01" class="form-control form-control-sm mt-1" id="diskonValue" placeholder="Nilai" style="display:none;"></td>
+                                            <td>
+                                                <input type="number" step="0.01" class="form-control form-control-sm" 
+                                                       id="diskonValue" placeholder="Nilai" style="display:none;">
+                                            </td>
                                             <td class="text-end"><strong>Diskon:</strong></td>
-                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="diskonAmount" value="0" readonly></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="diskonDisplay" value="Rp 0" readonly></td>
                                             <td></td>
                                         </tr>
                                         <tr>
                                             <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
-                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="0" readonly></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="Rp 0" readonly></td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
@@ -373,7 +377,7 @@
                     
                     <!-- Kolom Kanan: Log Update (20%) -->
                     <div class="col-md-4 border-start">
-                        <div class="modal-header border-bottom">
+                        <div class="modal-header border-bottom bg-light">
                             <h6 class="modal-title m-0"><i class="bi bi-clock-history"></i> Riwayat Perubahan</h6>
                         </div>
                         <div class="modal-body p-2" style="height: calc(100vh - 150px); overflow-y: auto;">
@@ -420,11 +424,18 @@
                         data: 'total', 
                         name: 'total',
                         className: 'text-end',
-                        render: function(data) {
-                            if (data) {
-                                return 'Rp ' + new Intl.NumberFormat('id-ID').format(data);
+                        render: function(data, type, row) {
+                            if (type === 'display' || type === 'filter') {
+                                let num = parseFloat(data);
+                                if (!isNaN(num)) {
+                                    return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    }).format(num);
+                                }
+                                return 'Rp 0';
                             }
-                            return 'Rp 0';
+                            return data;
                         }
                     },
                     { 
@@ -455,15 +466,15 @@
                     }
                 ],
                 columnDefs: [
-                    { width: "5%", targets: 0 }, // No
-                    { width: "12%", targets: 1 }, // Nota No
-                    { width: "18%", targets: 2 }, // Nama Trans
-                    { width: "8%", targets: 3 }, // Tanggal
-                    { width: "12%", targets: 4 }, // Total
-                    { width: "8%", targets: 5 }, // Payment Method
-                    { width: "8%", targets: 6 }, // Status
-                    { width: "10%", targets: 7 }, // User
-                    { width: "10%", targets: 8 }  // Aksi
+                    { width: "5%", targets: 0 },
+                    { width: "12%", targets: 1 },
+                    { width: "18%", targets: 2 },
+                    { width: "8%", targets: 3 },
+                    { width: "12%", targets: 4 },
+                    { width: "8%", targets: 5 },
+                    { width: "8%", targets: 6 },
+                    { width: "10%", targets: 7 },
+                    { width: "10%", targets: 8 }
                 ]
             });
 
@@ -490,17 +501,32 @@
 
             // Format angka ke Rupiah
             function formatRupiah(angka) {
-                if (!angka || isNaN(angka)) return 'Rp 0';
+                if (angka === null || angka === undefined || angka === '' || isNaN(angka)) {
+                    return 'Rp 0';
+                }
+                
+                let num = parseFloat(angka);
+                if (isNaN(num)) {
+                    return 'Rp 0';
+                }
+                
                 return 'Rp ' + new Intl.NumberFormat('id-ID', {
                     minimumFractionDigits: 0,
-                    maximumFractionDigits: 2
-                }).format(angka);
+                    maximumFractionDigits: 0
+                }).format(num);
             }
 
-            // Format input value
-            function formatInputValue(value) {
-                if (!value || isNaN(value)) return '0';
-                return parseFloat(value).toFixed(2);
+            // Parse nilai dari format Rupiah atau angka biasa
+            function parseNumber(value) {
+                if (!value && value !== 0) return 0;
+                
+                // Jika sudah format Rupiah, hilangkan simbol
+                if (typeof value === 'string') {
+                    value = value.replace(/[^\d.-]/g, '');
+                }
+                
+                let num = parseFloat(value);
+                return isNaN(num) ? 0 : num;
             }
 
             // Reset form ke kondisi default
@@ -536,20 +562,19 @@
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                         <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" step="0.01"></td>
                         <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
-                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" readonly></td>
+                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
                 `);
                 
                 // Reset perhitungan
-                $('#subtotal').val('0');
+                $('#subtotal').val('Rp 0');
                 $('#ppnAmount').val('0');
-                $('#diskonAmount').val('0');
-                $('#grandTotal').val('0');
-                updateDisplayValues();
+                $('#ppnDisplay').val('Rp 0');
+                $('#diskonDisplay').val('Rp 0');
+                $('#grandTotal').val('Rp 0');
                 
-                // Reset PPN dan Diskon
-                $('#ppnType').val('');
+                // Reset Diskon
                 $('#diskonType').val('');
                 $('#diskonValue').hide().val('');
                 
@@ -574,25 +599,9 @@
                 
                 // Reset log
                 $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
-            }
-
-            // Update tampilan nilai
-            function updateDisplayValues() {
-                // Format semua nilai input
-                $('.total').each(function() {
-                    let val = parseFloat($(this).val()) || 0;
-                    $(this).val(formatRupiah(val));
-                });
                 
-                let subtotal = parseFloat($('#subtotal').val()) || 0;
-                let ppnAmount = parseFloat($('#ppnAmount').val()) || 0;
-                let diskonAmount = parseFloat($('#diskonAmount').val()) || 0;
-                let grandTotal = parseFloat($('#grandTotal').val()) || 0;
-                
-                $('#subtotal').val(formatRupiah(subtotal));
-                $('#ppnAmount').val(formatRupiah(ppnAmount));
-                $('#diskonAmount').val(formatRupiah(diskonAmount));
-                $('#grandTotal').val(formatRupiah(grandTotal));
+                // Hitung ulang setelah reset
+                calculateTotals();
             }
 
             // Initialize select2
@@ -618,7 +627,6 @@
                 if (!$('#chkManualNo').is(':checked')) {
                     setAutoNotaNo();
                 }
-                // Update min date untuk tgl tempo
                 $('#tglTempo').attr('min', $(this).val());
             });
 
@@ -662,29 +670,21 @@
                 let selectedOption = $(this).find('option:selected');
                 
                 if (id) {
-                    // Simpan old rekening untuk rollback
                     if (!oldRekening && $('#idNota').val()) {
                         oldRekening = $('#oldRekening').val() || id;
                         $('#oldRekening').val(oldRekening);
                     }
                     
-                    // Simpan old grand total
-                    let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
+                    let grandTotal = parseNumber($('#grandTotal').val());
                     if (grandTotal > 0) {
                         oldGrandTotal = grandTotal;
                         $('#oldGrandTotal').val(oldGrandTotal);
                     }
                     
-                    // Ambil saldo dari data attribute
                     currentSaldo = selectedOption.data('saldo') || 0;
-                    
-                    // Update tampilan saldo
                     updateSaldoDisplay();
-                    
-                    // Cek apakah saldo cukup untuk transaksi saat ini
                     checkSaldoCukup();
                     
-                    // Ambil dari API untuk realtime update
                     let url = "{{ route('transaksi.project.rekening.saldo', ['id' => ':id']) }}";
                     url = url.replace(':id', id);
                     
@@ -709,15 +709,13 @@
 
             // Cek apakah saldo cukup untuk grand total
             function checkSaldoCukup() {
-                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
+                let grandTotal = parseNumber($('#grandTotal').val());
                 
                 if (currentSaldo > 0 && grandTotal > 0) {
                     if (grandTotal > currentSaldo) {
-                        // Tampilkan warning
                         $('#saldoWarning').show();
                         $('#saldoInfo').addClass('text-danger').removeClass('text-primary');
                     } else {
-                        // Sembunyikan warning
                         $('#saldoWarning').hide();
                         $('#saldoInfo').addClass('text-primary').removeClass('text-danger');
                     }
@@ -729,98 +727,94 @@
 
             // Hitung total per row
             $(document).on('input', '.jml, .nominal', function() {
-                calculateRowTotal($(this).closest('tr'));
-                calculateGrandTotal();
+                let row = $(this).closest('tr');
+                let jml = parseNumber(row.find('.jml').val());
+                let nominal = parseNumber(row.find('.nominal').val());
+                let total = jml * nominal;
+                row.find('.total').val(total);
+                
+                // Update subtotal saja (tidak menghitung grand total)
+                calculateSubtotal();
             });
 
-            function calculateRowTotal(row) {
-                let jml = parseFloat(row.find('.jml').val()) || 0;
-                let nominal = parseFloat(row.find('.nominal').val()) || 0;
-                let total = jml * nominal;
-                row.find('.total').val(formatInputValue(total));
-            }
-
-            // Hitung grand total dengan PPN dan Diskon
-            function calculateGrandTotal() {
-                let subtotal = 0;
-                
-                // Hitung subtotal dari semua rows
-                $('.total').each(function() {
-                    let val = $(this).val().replace(/[^0-9.-]+/g,"");
-                    subtotal += parseFloat(val) || 0;
-                });
-                
-                $('#subtotal').val(formatInputValue(subtotal));
-                
-                // Hitung PPN
-                let ppnAmount = 0;
-                let ppnType = $('#ppnType').val();
-                
-                if (ppnType === '3001') {
-                    // PPN 11%
-                    ppnAmount = subtotal * 0.11;
-                } else if (ppnType === 'include') {
-                    // PPN sudah include dalam harga
-                    let subtotalExclPpn = subtotal / 1.11;
-                    ppnAmount = subtotal - subtotalExclPpn;
-                    // Update subtotal tanpa PPN
-                    $('#subtotal').val(formatInputValue(subtotalExclPpn));
-                    subtotal = subtotalExclPpn;
-                }
-                
-                $('#ppnAmount').val(formatInputValue(ppnAmount));
-                
-                // Hitung Diskon
-                let diskonAmount = 0;
-                let diskonType = $('#diskonType').val();
-                let diskonValue = parseFloat($('#diskonValue').val()) || 0;
-                
-                if (diskonType === 'persen' && diskonValue > 0) {
-                    diskonAmount = subtotal * (diskonValue / 100);
-                } else if (diskonType === 'nominal' && diskonValue > 0) {
-                    diskonAmount = diskonValue;
-                }
-                
-                $('#diskonAmount').val(formatInputValue(diskonAmount));
-                
-                // Hitung Grand Total
-                let grandTotal = subtotal + ppnAmount - diskonAmount;
-                $('#grandTotal').val(formatInputValue(grandTotal));
-                
-                // Update tampilan
-                updateDisplayValues();
-                
-                // Cek apakah saldo cukup
-                checkSaldoCukup();
-                
-                return grandTotal;
-            }
-
-            // Handle PPN selection
-            $('#ppnType').change(function() {
-                if ($(this).val()) {
-                    calculateGrandTotal();
-                } else {
-                    $('#ppnAmount').val('0.00');
-                    calculateGrandTotal();
-                }
+            // Hitung input PPN
+            $(document).on('input', '#ppnAmount', function() {
+                calculateGrandTotal();
             });
 
             // Handle Diskon selection
             $('#diskonType').change(function() {
-                if ($(this).val()) {
+                let val = $(this).val();
+                if (val) {
                     $('#diskonValue').show();
+                    $('#diskonValue').val('');
                 } else {
                     $('#diskonValue').hide().val('');
-                    $('#diskonAmount').val('0.00');
-                    calculateGrandTotal();
+                    $('#diskonDisplay').val('Rp 0');
                 }
+                calculateGrandTotal();
             });
 
             // Handle Diskon value input
-            $('#diskonValue').on('input', function() {
+            $(document).on('input', '#diskonValue', function() {
                 calculateGrandTotal();
             });
+
+            // Fungsi untuk menghitung subtotal saja (tanpa PPN dan diskon)
+            function calculateSubtotal() {
+                let subtotal = 0;
+                $('.total').each(function() {
+                    let val = parseNumber($(this).val());
+                    subtotal += val;
+                });
+                
+                $('#subtotal').val(formatRupiah(subtotal));
+                
+                // Setelah subtotal berubah, hitung grand total
+                calculateGrandTotal();
+            }
+
+            // Fungsi untuk menghitung grand total (termasuk PPN dan diskon)
+            function calculateGrandTotal() {
+                // Ambil subtotal yang sudah dihitung
+                let subtotal = parseNumber($('#subtotal').val());
+                
+                // Hitung PPN
+                let ppnAmount = parseNumber($('#ppnAmount').val());
+                $('#ppnDisplay').val(formatRupiah(ppnAmount));
+                
+                // Hitung Diskon
+                let diskonAmount = 0;
+                let diskonType = $('#diskonType').val();
+                let diskonValue = parseNumber($('#diskonValue').val());
+                
+                if (diskonType === 'persen' && diskonValue > 0) {
+                    // Diskon persen: hitung persentase dari (subtotal + ppn)
+                    diskonAmount = (subtotal + ppnAmount) * (diskonValue / 100);
+                } else if (diskonType === 'nominal' && diskonValue > 0) {
+                    // Diskon nominal: langsung pakai nilai
+                    diskonAmount = diskonValue;
+                }
+                
+                $('#diskonDisplay').val(formatRupiah(diskonAmount));
+                
+                // Hitung Grand Total = subtotal + ppn - diskon
+                let grandTotal = subtotal + ppnAmount - diskonAmount;
+                
+                // Pastikan grand total tidak negatif
+                if (grandTotal < 0) grandTotal = 0;
+                
+                $('#grandTotal').val(formatRupiah(grandTotal));
+                
+                // Cek saldo
+                checkSaldoCukup();
+            }
+
+            // Fungsi utama untuk menghitung semua
+            function calculateTotals() {
+                calculateSubtotal();
+                calculateGrandTotal();
+            }
 
             // Tambah row detail
             let rowIndex = 1;
@@ -839,7 +833,7 @@
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
                     <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1" step="0.01"></td>
                     <td><input type="number" step="0.01" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
-                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" readonly></td>
+                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" value="0" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
                 $('#tblDetail tbody').append(html);
@@ -851,7 +845,7 @@
             $(document).on('click', '.removeRow', function() {
                 if ($('#tblDetail tbody tr').length > 1) {
                     $(this).closest('tr').remove();
-                    calculateGrandTotal();
+                    calculateSubtotal();
                 } else {
                     Swal.fire('Peringatan', 'Minimal harus ada 1 item transaksi', 'warning');
                 }
@@ -867,11 +861,14 @@
                 $.get(`/transaksi/project/${notaId}/logs`, function(res) {
                     if (res.success && res.data.length > 0) {
                         let logHtml = '';
-                        res.data.forEach(function(log) {
+                        res.data.forEach(function(log, index) {
                             let waktu = new Date(log.created_at).toLocaleString('id-ID');
+                            let bgClass = index % 2 === 0 ? 'bg-light' : 'bg-white';
                             logHtml += `
-                                <div class="mb-2 pb-2 border-bottom">
-                                    <small class="text-muted">${waktu}</small>
+                                <div class="mb-2 pb-2 border-bottom ${bgClass} p-2 rounded">
+                                    <small class="text-muted d-block mb-1">
+                                        <i class="bi bi-clock"></i> ${waktu}
+                                    </small>
                                     <p class="mb-0 small">${log.update_log}</p>
                                 </div>
                             `;
@@ -895,11 +892,14 @@
                 $.get(`/transaksi/project/${notaId}/logs`, function(res) {
                     if (res.success && res.data.length > 0) {
                         let logHtml = '';
-                        res.data.forEach(function(log) {
+                        res.data.forEach(function(log, index) {
                             let waktu = new Date(log.created_at).toLocaleString('id-ID');
+                            let bgClass = index % 2 === 0 ? 'bg-light' : 'bg-white';
                             logHtml += `
-                                <div class="mb-2 pb-2 border-bottom">
-                                    <small class="text-muted">${waktu}</small>
+                                <div class="mb-2 pb-2 border-bottom ${bgClass} p-2 rounded">
+                                    <small class="text-muted d-block mb-1">
+                                        <i class="bi bi-clock"></i> ${waktu}
+                                    </small>
                                     <p class="mb-0 small">${log.update_log}</p>
                                 </div>
                             `;
@@ -938,8 +938,7 @@
                         $('#viewTotal').text(formatRupiah(nota.total));
                         $('#viewStatus').html(getStatusBadge(nota.status));
                         
-                        // Hitung subtotal, ppn, diskon
-                        let subtotal = nota.subtotal || nota.total || 0;
+                        let subtotal = nota.subtotal || 0;
                         let ppn = nota.ppn || 0;
                         let diskon = nota.diskon || 0;
                         
@@ -1019,6 +1018,9 @@
                         $('#paymenMethod').val(nota.paymen_method).trigger('change');
                         $('#tanggalNota').val(nota.tanggal);
                         
+                        // Isi PPN
+                        $('#ppnAmount').val(nota.ppn || 0);
+                        
                         if (nota.vendor_id) {
                             $('#vendorId').val(nota.vendor_id).trigger('change');
                         }
@@ -1074,17 +1076,14 @@
                             });
                         }
                         
-                        // Load PPN dan Diskon jika ada
-                        if (nota.ppn > 0) {
-                            $('#ppnType').val('3001');
-                        }
-                        
+                        // Load Diskon jika ada
                         if (nota.diskon > 0) {
+                            // Default ke nominal dulu
                             $('#diskonType').val('nominal');
                             $('#diskonValue').show().val(nota.diskon);
                         }
                         
-                        calculateGrandTotal();
+                        calculateTotals();
                         rowIndex = newRowIndex;
                         
                         // Update modal title
@@ -1146,15 +1145,21 @@
                 });
             });
 
-            // Submit form dengan FormData untuk handle file upload
+            // Submit form
             $('#frmNota').submit(function(e) {
                 e.preventDefault();
-                
-                // Simpan referensi form yang benar
-                const formElement = this;
-                
-                // Cek apakah saldo cukup
-                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
+                processFormSubmission(this);
+            });
+
+            function processFormSubmission(formElement) {
+                // Validasi grand total
+                let grandTotal = parseNumber($('#grandTotal').val());
+                if (grandTotal <= 0) {
+                    Swal.fire('Peringatan', 'Total transaksi harus lebih dari 0', 'warning');
+                    return;
+                }
+
+                // Cek saldo
                 if (currentSaldo > 0 && grandTotal > currentSaldo) {
                     Swal.fire({
                         title: 'Saldo Tidak Cukup',
@@ -1164,46 +1169,31 @@
                         confirmButtonText: 'Ya, Lanjutkan',
                         cancelButtonText: 'Batal'
                     }).then((result) => {
-                        if (!result.isConfirmed) {
-                            return;
+                        if (result.isConfirmed) {
+                            submitFormData(formElement);
                         }
-                        processFormSubmission(formElement);
                     });
                 } else {
-                    processFormSubmission(formElement);
+                    submitFormData(formElement);
                 }
-            });
+            }
 
-            function processFormSubmission(formElement) {
-                // Validasi grand total
-                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^0-9.-]+/g,"")) || 0;
-                if (grandTotal <= 0) {
-                    Swal.fire('Peringatan', 'Total transaksi harus lebih dari 0', 'warning');
-                    return;
-                }
-
+            function submitFormData(formElement) {
                 let notaId = $('#idNota').val();
-                let url, method;
+                let url = notaId ? "/transaksi/project/" + notaId + "/out" : "{{ route('transaksi.project.store', 'out') }}";
                 
-                if (notaId) {
-                    // Edit existing nota
-                    url = "/transaksi/project/" + notaId + "/out";
-                    method = 'PUT';
-                } else {
-                    // Create new nota
-                    url = "{{ route('transaksi.project.store', 'out') }}";
-                    method = 'POST';
-                }
-
-                // Gunakan FormData dengan parameter formElement yang benar
                 let formData = new FormData(formElement);
                 if (notaId) {
                     formData.append('_method', 'PUT');
                 }
 
-                // Tambah PPN dan Diskon ke form data (jika ada nilainya)
-                let ppnAmount = parseFloat($('#ppnAmount').val().replace(/[^0-9.-]+/g,"")) || 0;
-                let diskonAmount = parseFloat($('#diskonAmount').val().replace(/[^0-9.-]+/g,"")) || 0;
+                // Ambil nilai PPN dan Diskon
+                let ppnAmount = parseNumber($('#ppnAmount').val());
+                let diskonAmount = parseNumber($('#diskonDisplay').val());
+                let subtotal = parseNumber($('#subtotal').val());
+                
+                // Tambahkan subtotal ke form data
+                formData.append('subtotal', subtotal.toFixed(2));
                 
                 if (ppnAmount > 0) {
                     formData.append('ppn', ppnAmount.toFixed(2));
@@ -1274,6 +1264,9 @@
             initializeSelect2();
             setDefaultDate();
             setAutoNotaNo();
+            
+            // Hitung awal
+            calculateTotals();
         });
         </script>
     </x-slot>
