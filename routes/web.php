@@ -262,6 +262,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
             // ambil saldo rekening
             Route::get('rekening/{id}/saldo', [PTController::class,'saldoRekening'])->name('transaksi.pt.rekening.saldo');
+            // get update logs
+            Route::get('{id}/logs', [PTController::class,'getUpdateLogs'])->name('transaksi.pt.logs');
         });
 
     });

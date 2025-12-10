@@ -28,6 +28,13 @@ class Nota extends Model
         return $this->belongsTo(Project::class, 'idproject');
     }
 
+    // Relasi ke company_units (PT)
+    public function companyUnit()
+    {
+        return $this->belongsTo(CompanyUnit::class, 'idcompany');
+    }
+
+
     public function vendor()
     {
         return $this->belongsTo(Vendor::class, 'vendor_id');
