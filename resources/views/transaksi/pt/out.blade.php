@@ -94,17 +94,6 @@
                                         <input type="date" class="form-control form-control-sm" name="tanggal" id="tanggalNota" required>
                                     </div>
 
-                                    {{-- Vendor (WAJIB untuk transaksi keluar) --}}
-                                    <div class="col-md-4">
-                                        <label class="form-label">Vendor *</label>
-                                        <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;" required>
-                                            <option value="">-- Pilih Vendor --</option>
-                                            @foreach(\App\Models\Vendor::whereNull('deleted_at')->get() as $v)
-                                                <option value="{{ $v->id }}">{{ $v->namavendor }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-
                                     {{-- Rekening (Hanya rekening milik PT/Company) --}}
                                     <div class="col-md-6">
                                         <label class="form-label">Rekening *</label>

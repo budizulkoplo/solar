@@ -141,7 +141,6 @@ class PTController extends Controller
 
             // Untuk transaksi OUT (keluar), vendor wajib
             if ($type == 'out') {
-                $validationRules['vendor_id'] = 'required|exists:vendors,id';
                 $validationRules['bukti_nota'] = 'required|file|mimes:jpg,jpeg,png,pdf|max:2048';
             } else {
                 // Untuk transaksi IN (masuk), vendor tidak wajib dan bukti nota optional
@@ -646,11 +645,6 @@ class PTController extends Controller
                 'old_grand_total' => 'nullable|numeric|min:0',
                 'subtotal' => 'required|numeric|min:0',
             ];
-
-            // Untuk transaksi OUT (keluar), vendor wajib
-            if ($type == 'out') {
-                $validationRules['vendor_id'] = 'required|exists:vendors,id';
-            }
 
             $request->validate($validationRules);
 
