@@ -173,14 +173,9 @@
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
-                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="subtotal" value="Rp 0" readonly></td>
-                                            <td></td>
-                                        </tr>
-                                        
-                                        <tr>
                                             <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
-                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="Rp 0" readonly></td>
+                                            <td colspan="2"><input type="hidden" class="form-control form-control-sm text-end" id="subtotal" value="Rp 0" readonly>
+                                            <input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="Rp 0" readonly></td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
