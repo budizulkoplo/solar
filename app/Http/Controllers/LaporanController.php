@@ -367,9 +367,6 @@ class LaporanController extends Controller
         return response()->json(['data' => $data]);
     }
 
-
-
-
     // ==========================
     // LAPORAN CASHFLOW PT
     // ==========================
