@@ -17,31 +17,31 @@ class PendingPiutangController extends Controller
      * Halaman daftar pending pembayaran (in - open)
      */
     public function pendingPembayaran()
-    {
-        $rekenings = Rekening::where('idproject', session('active_project_id'))
-            ->orderBy('norek')
-            ->get();
-        
-        return view('transaksi.pending.pembayaran', [
-            'rekenings' => $rekenings,
-            'type' => 'pembayaran'
-        ]);
-    }
+{
+    $rekenings = Rekening::forProject(session('active_project_id'))
+        ->orderBy('norek')
+        ->get();
+    
+    return view('transaksi.pending.pembayaran', [
+        'rekenings' => $rekenings,
+        'type' => 'pembayaran'
+    ]);
+}
 
-    /**
-     * Halaman daftar piutang (out - open)
-     */
-    public function piutang()
-    {
-        $rekenings = Rekening::where('idproject', session('active_project_id'))
-            ->orderBy('norek')
-            ->get();
-        
-        return view('transaksi.pending.piutang', [
-            'rekenings' => $rekenings,
-            'type' => 'piutang'
-        ]);
-    }
+/**
+ * Halaman daftar piutang (out - open)
+ */
+public function piutang()
+{
+    $rekenings = Rekening::forProject(session('active_project_id'))
+        ->orderBy('norek')
+        ->get();
+    
+    return view('transaksi.pending.piutang', [
+        'rekenings' => $rekenings,
+        'type' => 'piutang'
+    ]);
+}
 
     /**
      * Datatable untuk pending pembayaran (transaksi masuk dengan status open)
