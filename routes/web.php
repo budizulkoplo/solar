@@ -36,6 +36,7 @@ use App\Http\Controllers\MasterGajiController;
 use App\Http\Controllers\KodetransaksiController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\PTController;
+use App\Http\Controllers\PendingPiutangController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -270,6 +271,27 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         });
 
     });
+
+    // Routes untuk pending pembayaran dan piutang
+    Route::prefix('pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+
+        Route::get('/pembayaran', [PendingPiutangController::class, 'pendingPembayaran'])->name('pending.pembayaran');
+        Route::get('/piutang', [PendingPiutangController::class, 'piutang'])->name('pending.piutang');
+        
+        // DataTables
+        Route::get('/data/pembayaran', [PendingPiutangController::class, 'getPendingPembayaran'])->name('pending.data.pembayaran');
+        Route::get('/data/piutang', [PendingPiutangController::class, 'getPiutang'])->name('pending.data.piutang');
+        
+        // Common operations
+        Route::get('/show/{id}', [PendingPiutangController::class, 'show'])->name('pending.show');
+        Route::post('/bayar/{id}', [PendingPiutangController::class, 'bayar'])->name('pending.bayar');
+        Route::get('/angsuran/{id}', [PendingPiutangController::class, 'getAngsuranHistory'])->name('pending.angsuran');
+        Route::delete('/angsuran/{id}', [PendingPiutangController::class, 'hapusAngsuran'])->name('pending.hapus-angsuran');
+        
+        // Export
+        Route::get('/export/{type}', [PendingPiutangController::class, 'exportReport'])->name('pending.export');
+    });
+            
 
     Route::get('/rekening/{id}/saldo', [RekeningController::class,'getSaldo']);
 

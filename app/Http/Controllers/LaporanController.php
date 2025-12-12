@@ -504,7 +504,7 @@ class LaporanController extends Controller
             foreach ($nota->transactions as $item) {
                 $formattedData['items'][] = [
                     'kodetransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->kodetransaksi : '-',
-                    'namatransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->namatransaksi : '-',
+                    'namatransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->transaksi : '-',
                     'description' => $item->description,
                     'nominal' => number_format($item->nominal, 0, ',', '.'),
                     'jml' => number_format($item->jml, 0, ',', '.'),
@@ -691,7 +691,7 @@ class LaporanController extends Controller
                 'vendor:id,namavendor',
                 'rekening:idrek,norek,namarek',
                 'transactions' => function($q) {
-                    $q->with('kodeTransaksi:id,kodetransaksi,namatransaksi')
+                    $q->with('kodeTransaksi:id,kodetransaksi,transaksi')
                     ->orderBy('id');
                 },
                 'payments' => function($q) {
@@ -755,7 +755,7 @@ class LaporanController extends Controller
             foreach ($nota->transactions as $item) {
                 $formattedData['items'][] = [
                     'kodetransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->kodetransaksi : '-',
-                    'namatransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->namatransaksi : '-',
+                    'namatransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->transaksi : '-',
                     'description' => $item->description,
                     'nominal' => number_format($item->nominal, 0, ',', '.'),
                     'jml' => number_format($item->jml, 0, ',', '.'),

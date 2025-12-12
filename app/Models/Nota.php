@@ -59,4 +59,9 @@ class Nota extends Model
     {
         return $this->hasMany(Cashflow::class, 'idnota');
     }
+
+    public function angsuran()
+    {
+        return $this->hasMany(Angsuran::class, 'idnota');
+    }
 }
