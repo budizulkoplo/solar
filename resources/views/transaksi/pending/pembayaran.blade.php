@@ -315,12 +315,7 @@
     </div>
 
     <x-slot name="jscustom">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-        <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
-        <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
-        <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        
         
         <script>
             let tablePembayaran;
@@ -336,7 +331,24 @@
                 });
             }
 
+            function parseRupiahToNumber(rupiahString) {
+                if (!rupiahString) return 0;
+                // Remove "Rp", spaces, and dots
+                const cleaned = rupiahString.toString()
+                    .replace('Rp', '')
+                    .replace(/\./g, '')
+                    .replace(/\s/g, '')
+                    .trim();
+                return parseFloat(cleaned) || 0;
+            }
+
             function formatDate(dateString) {
+                if (!dateString) return '-';
+                // Jika format sudah "dd/mm/yyyy", return as is
+                if (dateString.includes('/')) {
+                    return dateString;
+                }
+                // Jika format ISO, format ke dd/mm/yyyy
                 return dateString ? moment(dateString).format('DD/MM/YYYY') : '-';
             }
 
@@ -459,7 +471,8 @@
                     success: function(response) {
                         if (response.success) {
                             const summary = response.summary;
-                            currentSisa = summary.sisa;
+                            // Parse sisa dari string "Rp 100.000" ke angka
+                            currentSisa = parseRupiahToNumber(summary.sisa);
                             
                             $('#nota_id').val(notaId);
                             $('#tanggal_bayar').val(moment().format('YYYY-MM-DD'));
@@ -501,7 +514,6 @@
                         type: 'GET',
                         dataSrc: function(json) {
                             console.log('DEBUG - Full response:', json);
-                            console.log('DEBUG - Data structure:', json.data ? json.data[0] : 'No data');
                             
                             // Reset totals
                             let totalJumlah = 0;
@@ -512,14 +524,19 @@
                                 json.data.forEach(function(row) {
                                     console.log('DEBUG - Row data:', row);
                                     
-                                    // Parse numeric values
-                                    const total = parseFloat(row.total) || 0;
-                                    const terbayar = parseFloat(row.terbayar) || 0;
-                                    const sisa = parseFloat(row.sisa) || 0;
+                                    // Parse numeric values dari string Rupiah
+                                    const total = parseRupiahToNumber(row.total);
+                                    const terbayar = parseRupiahToNumber(row.terbayar);
+                                    const sisa = parseRupiahToNumber(row.sisa);
                                     
                                     totalJumlah += total;
                                     totalTerbayar += terbayar;
                                     totalSisa += sisa;
+                                    
+                                    // Simpan nilai numerik ke row untuk sorting
+                                    row._total_numeric = total;
+                                    row._terbayar_numeric = terbayar;
+                                    row._sisa_numeric = sisa;
                                 });
                             }
                             
@@ -572,7 +589,7 @@
                             name: 'tgl_tempo',
                             className: 'text-center',
                             render: function(data) {
-                                return data ? formatDate(data) : '-';
+                                return formatDate(data);
                             }
                         },
                         { 
@@ -591,47 +608,49 @@
                             data: 'total',
                             name: 'total',
                             className: 'text-end',
+                            type: 'num',
                             render: function(data, type, row) {
-                                // Debug log
-                                console.log('DEBUG - Total column data:', { data: data, row: row });
-                                const value = parseFloat(data) || parseFloat(row.total) || 0;
-                                return formatRupiah(value);
+                                // Data sudah dalam format "Rp 100.000"
+                                if (type === 'display' || type === 'filter') {
+                                    return data || '-';
+                                }
+                                // Untuk sorting, gunakan nilai numerik
+                                return row._total_numeric || parseRupiahToNumber(data) || 0;
                             }
                         },
                         { 
                             data: 'terbayar',
                             name: 'terbayar',
                             className: 'text-end',
+                            type: 'num',
                             render: function(data, type, row) {
-                                console.log('DEBUG - Terbayar column data:', { data: data, row: row });
-                                const value = parseFloat(data) || 0;
-                                return formatRupiah(value);
+                                if (type === 'display' || type === 'filter') {
+                                    return data || '-';
+                                }
+                                return row._terbayar_numeric || parseRupiahToNumber(data) || 0;
                             }
                         },
                         { 
                             data: 'sisa',
                             name: 'sisa',
                             className: 'text-end fw-bold',
+                            type: 'num',
                             render: function(data, type, row) {
-                                console.log('DEBUG - Sisa column data:', { data: data, row: row });
-                                
-                                // Calculate sisa if not directly available
-                                let sisa = parseFloat(data) || 0;
-                                if (sisa === 0 && row.total && row.terbayar) {
-                                    const total = parseFloat(row.total) || 0;
-                                    const terbayar = parseFloat(row.terbayar) || 0;
-                                    sisa = total - terbayar;
+                                if (type === 'display' || type === 'filter') {
+                                    const sisaValue = parseRupiahToNumber(data);
+                                    const formatted = formatRupiah(sisaValue);
+                                    
+                                    // Add color based on value
+                                    if (sisaValue > 0) {
+                                        return `<span class="text-warning">${formatted}</span>`;
+                                    } else if (sisaValue < 0) {
+                                        return `<span class="text-danger">${formatted}</span>`;
+                                    } else {
+                                        return `<span class="text-success">${formatted}</span>`;
+                                    }
                                 }
-                                
-                                const formatted = formatRupiah(sisa);
-                                // Add color based on value
-                                if (sisa > 0) {
-                                    return `<span class="text-warning">${formatted}</span>`;
-                                } else if (sisa < 0) {
-                                    return `<span class="text-danger">${formatted}</span>`;
-                                } else {
-                                    return `<span class="text-success">${formatted}</span>`;
-                                }
+                                // Untuk sorting
+                                return row._sisa_numeric || parseRupiahToNumber(data) || 0;
                             }
                         },
                         { 
@@ -639,7 +658,7 @@
                             name: 'angsuran_count',
                             className: 'text-center',
                             defaultContent: '0',
-                            render: function(data, type, row) {
+                            render: function(data) {
                                 return data || '0';
                             }
                         },
@@ -647,8 +666,8 @@
                             data: 'status',
                             name: 'status',
                             className: 'text-center',
-                            render: function(data, type, row) {
-                                return getStatusBadge(data || row.status || 'open');
+                            render: function(data) {
+                                return getStatusBadge(data || 'open');
                             }
                         },
                         { 
@@ -700,8 +719,7 @@
                                             return $(node).text();
                                         }
                                         if (column === 6 || column === 7 || column === 8) { // Amount columns
-                                            const num = data.replace('Rp ', '').replace(/\./g, '').replace(',', '.');
-                                            return isNaN(num) ? 0 : parseFloat(num);
+                                            return parseRupiahToNumber(data);
                                         }
                                         return data;
                                     }

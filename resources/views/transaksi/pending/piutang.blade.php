@@ -305,8 +305,6 @@
     </div>
 
     <x-slot name="jscustom">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
         
         <script>
             let tablePiutang;
@@ -322,7 +320,24 @@
                 });
             }
 
+            function parseRupiahToNumber(rupiahString) {
+                if (!rupiahString) return 0;
+                // Remove "Rp", spaces, and dots
+                const cleaned = rupiahString.toString()
+                    .replace('Rp', '')
+                    .replace(/\./g, '')
+                    .replace(/\s/g, '')
+                    .trim();
+                return parseFloat(cleaned) || 0;
+            }
+
             function formatDate(dateString) {
+                if (!dateString) return '-';
+                // Jika format sudah "dd/mm/yyyy", return as is
+                if (dateString.includes('/')) {
+                    return dateString;
+                }
+                // Jika format ISO, format ke dd/mm/yyyy
                 return dateString ? moment(dateString).format('DD/MM/YYYY') : '-';
             }
 
@@ -352,7 +367,7 @@
                 return `<span class="badge ${badgeClass} status-badge">${badgeText}</span>`;
             }
 
-            function reloadTable() {
+            function reloadTablePiutang() {
                 if (tablePiutang) {
                     tablePiutang.ajax.reload(null, false);
                 }
@@ -402,7 +417,7 @@
                                             <td class="text-center">
                                                 <button class="btn btn-xs btn-danger hapus-angsuran-btn" 
                                                         data-id="${item.id}"
-                                                        title="Hapus Angsuran">
+                                                        title="Hapus Pembayaran">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </td>
@@ -445,7 +460,8 @@
                     success: function(response) {
                         if (response.success) {
                             const summary = response.summary;
-                            currentSisa = summary.sisa;
+                            // Parse sisa dari string "Rp 100.000" ke angka
+                            currentSisa = parseRupiahToNumber(summary.sisa);
                             
                             $('#nota_id').val(notaId);
                             $('#tanggal_bayar').val(moment().format('YYYY-MM-DD'));
@@ -486,18 +502,30 @@
                         url: "{{ route('pending.data.piutang') }}",
                         type: 'GET',
                         dataSrc: function(json) {
-                            console.log('Data piutang:', json);
+                            console.log('DEBUG - Data piutang:', json);
                             
-                            // Calculate global totals
+                            // Reset totals
                             let totalJumlah = 0;
                             let totalTerbayar = 0;
                             let totalSisa = 0;
                             
-                            if (json.data) {
+                            if (json.data && json.data.length > 0) {
                                 json.data.forEach(function(row) {
-                                    totalJumlah += parseFloat(row.total) || 0;
-                                    totalTerbayar += parseFloat(row.terbayar) || 0;
-                                    totalSisa += parseFloat(row.sisa) || 0;
+                                    console.log('DEBUG - Row data piutang:', row);
+                                    
+                                    // Parse numeric values dari string Rupiah
+                                    const total = parseRupiahToNumber(row.total);
+                                    const terbayar = parseRupiahToNumber(row.terbayar);
+                                    const sisa = parseRupiahToNumber(row.sisa);
+                                    
+                                    totalJumlah += total;
+                                    totalTerbayar += terbayar;
+                                    totalSisa += sisa;
+                                    
+                                    // Simpan nilai numerik ke row untuk sorting
+                                    row._total_numeric = total;
+                                    row._terbayar_numeric = terbayar;
+                                    row._sisa_numeric = sisa;
                                 });
                             }
                             
@@ -508,16 +536,29 @@
                             $('#totalTerbayar').text(formatRupiah(globalTotals.terbayar));
                             $('#totalSisa').text(formatRupiah(globalTotals.sisa));
                             
+                            console.log('DEBUG - Calculated totals piutang:', globalTotals);
+                            
                             return json.data || [];
+                        },
+                        error: function(xhr, error, thrown) {
+                            console.error('DEBUG - AJAX Error piutang:', {
+                                xhr: xhr,
+                                error: error,
+                                thrown: thrown,
+                                responseText: xhr.responseText
+                            });
+                            alert('Error loading data piutang. Please check console for details.');
                         }
                     },
                     columns: [
                         { 
-                            data: 'DT_RowIndex', 
-                            name: 'DT_RowIndex', 
-                            orderable: false, 
+                            data: null,
+                            className: 'text-center',
+                            orderable: false,
                             searchable: false,
-                            className: 'text-center'
+                            render: function(data, type, row, meta) {
+                                return meta.row + meta.settings._iDisplayStart + 1;
+                            }
                         },
                         { 
                             data: 'nota_no',
@@ -547,44 +588,75 @@
                         { 
                             data: 'vendor.namavendor',
                             name: 'vendor.namavendor',
-                            defaultContent: '-'
+                            defaultContent: '-',
+                            render: function(data, type, row) {
+                                return data || (row.vendor && row.vendor.namavendor) || '-';
+                            }
                         },
                         { 
                             data: 'total',
                             name: 'total',
                             className: 'text-end',
-                            render: function(data) {
-                                return formatRupiah(data);
+                            type: 'num',
+                            render: function(data, type, row) {
+                                // Data sudah dalam format "Rp 100.000"
+                                if (type === 'display' || type === 'filter') {
+                                    return data || '-';
+                                }
+                                // Untuk sorting, gunakan nilai numerik
+                                return row._total_numeric || parseRupiahToNumber(data) || 0;
                             }
                         },
                         { 
                             data: 'terbayar',
                             name: 'terbayar',
                             className: 'text-end',
-                            render: function(data) {
-                                return formatRupiah(data);
+                            type: 'num',
+                            render: function(data, type, row) {
+                                if (type === 'display' || type === 'filter') {
+                                    return data || '-';
+                                }
+                                return row._terbayar_numeric || parseRupiahToNumber(data) || 0;
                             }
                         },
                         { 
                             data: 'sisa',
                             name: 'sisa',
                             className: 'text-end fw-bold',
-                            render: function(data) {
-                                return formatRupiah(data);
+                            type: 'num',
+                            render: function(data, type, row) {
+                                if (type === 'display' || type === 'filter') {
+                                    const sisaValue = parseRupiahToNumber(data);
+                                    const formatted = formatRupiah(sisaValue);
+                                    
+                                    // Add color based on value (merah untuk piutang)
+                                    if (sisaValue > 0) {
+                                        return `<span class="text-danger">${formatted}</span>`;
+                                    } else if (sisaValue < 0) {
+                                        return `<span class="text-danger">${formatted}</span>`;
+                                    } else {
+                                        return `<span class="text-success">${formatted}</span>`;
+                                    }
+                                }
+                                // Untuk sorting
+                                return row._sisa_numeric || parseRupiahToNumber(data) || 0;
                             }
                         },
                         { 
                             data: 'angsuran_count',
                             name: 'angsuran_count',
                             className: 'text-center',
-                            defaultContent: '0'
+                            defaultContent: '0',
+                            render: function(data) {
+                                return data || '0';
+                            }
                         },
                         { 
                             data: 'status',
                             name: 'status',
                             className: 'text-center',
                             render: function(data) {
-                                return getStatusBadge(data);
+                                return getStatusBadge(data || 'open');
                             }
                         },
                         { 
@@ -594,15 +666,21 @@
                             orderable: false,
                             searchable: false,
                             render: function(data, type, row) {
+                                const notaId = data || row.id;
+                                if (!notaId) {
+                                    console.error('DEBUG - No ID found for row piutang:', row);
+                                    return '<span class="text-danger">Error</span>';
+                                }
+                                
                                 return `
                                     <div class="btn-group btn-group-sm" role="group">
                                         <button class="btn btn-info btn-action" 
-                                                onclick="showDetailPiutang(${data})"
+                                                onclick="showDetailPiutang(${notaId})"
                                                 title="Lihat Detail">
                                             <i class="bi bi-eye"></i>
                                         </button>
                                         <button class="btn btn-success btn-action" 
-                                                onclick="openBayarModalPiutang(${data})"
+                                                onclick="openBayarModalPiutang(${notaId})"
                                                 title="Bayar Piutang">
                                             <i class="bi bi-cash"></i>
                                         </button>
@@ -612,6 +690,72 @@
                         }
                     ],
                     order: [[3, 'asc']], // Sort by jatuh tempo
+                    dom: 
+                        "<'row mb-2 no-print'<'col-md-6 d-flex align-items-center'B><'col-md-6 d-flex justify-content-end'f>>" +
+                        "<'row mb-2 no-print'<'col-md-6'l><'col-md-6 text-end'i>>" +
+                        "<'row'<'col-12'tr>>" +
+                        "<'row mt-2 no-print'<'col-md-6'i><'col-md-6 d-flex justify-content-end'p>>",
+                    buttons: [
+                        {
+                            extend: 'excelHtml5',
+                            text: '<i class="bi bi-file-earmark-excel"></i> Excel',
+                            className: 'btn btn-success btn-sm',
+                            exportOptions: { 
+                                columns: ':visible',
+                                format: {
+                                    body: function(data, row, column, node) {
+                                        if (column === 10) { // Status column
+                                            return $(node).text();
+                                        }
+                                        if (column === 6 || column === 7 || column === 8) { // Amount columns
+                                            return parseRupiahToNumber(data);
+                                        }
+                                        return data;
+                                    }
+                                }
+                            },
+                            title: 'Daftar Piutang',
+                            messageTop: 'Tanggal Export: ' + moment().format('DD/MM/YYYY HH:mm'),
+                            filename: function() {
+                                return 'Piutang_' + moment().format('YYYYMMDD_HHmmss');
+                            }
+                        },
+                        {
+                            extend: 'print',
+                            text: '<i class="bi bi-printer"></i> Print',
+                            className: 'btn btn-primary btn-sm',
+                            title: '',
+                            messageTop: function() {
+                                return `<div class="print-header">
+                                            <h4 style="text-align: center; margin-bottom: 10px;">Daftar Piutang</h4>
+                                            <p style="text-align: center; margin-bottom: 15px;">
+                                                Tanggal Cetak: ${moment().format('DD/MM/YYYY HH:mm')}
+                                            </p>
+                                        </div>`;
+                            },
+                            exportOptions: { 
+                                columns: ':visible',
+                                stripHtml: false
+                            },
+                            customize: function(win) {
+                                $(win.document.body).find('table').addClass('compact').css('font-size', '10pt');
+                                $(win.document.body).css('font-size', '10pt');
+                                
+                                const totals = `
+                                    <div style="margin-top: 20px; font-weight: bold; border-top: 2px solid #000; padding-top: 10px;">
+                                        <div style="float: right; text-align: right;">
+                                            <div>Total Piutang: ${formatRupiah(globalTotals.total)}</div>
+                                            <div>Total Terbayar: ${formatRupiah(globalTotals.terbayar)}</div>
+                                            <div>Total Sisa: ${formatRupiah(globalTotals.sisa)}</div>
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                `;
+                                
+                                $(win.document.body).append(totals);
+                            }
+                        }
+                    ],
                     language: {
                         emptyTable: "Tidak ada data piutang",
                         info: "Menampilkan _START_ sampai _END_ dari _TOTAL_ data",
@@ -630,6 +774,8 @@
                         }
                     },
                     initComplete: function() {
+                        console.log('DEBUG - DataTable piutang initialized successfully');
+                        
                         // Apply filter on header inputs
                         this.api().columns().every(function() {
                             const column = this;
@@ -643,6 +789,9 @@
                                 });
                             }
                         });
+                    },
+                    drawCallback: function() {
+                        console.log('DEBUG - DataTable piutang draw complete, rows:', this.api().rows().count());
                     }
                 });
 
