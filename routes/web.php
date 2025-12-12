@@ -175,6 +175,9 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('laporan/cashflow-pt', [LaporanController::class, 'cashflowPT'])->name('transaksi.laporan.cashflow_pt');
         Route::get('laporan/cashflow-pt/data', [LaporanController::class, 'cashflowPTData'])->name('transaksi.laporan.cashflow_pt.data');
 
+        Route::get('laporan/cashflow-project/view-nota', [LaporanController::class, 'viewNotaDetail'])->name('transaksi.laporan.cashflow_project.view_nota');
+        Route::get('laporan/cashflow-pt/view-nota', [LaporanController::class, 'viewNotaDetailPT'])->name('transaksi.laporan.cashflow_pt.view_nota');
+
         // === Payroll (Tabel Gaji) ===
         Route::get('payroll', [PayrollController::class, 'index'])->name('hris.payroll.index');
         Route::get('payroll/data', [PayrollController::class, 'getData'])->name('hris.payroll.data');

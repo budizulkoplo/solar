@@ -10,7 +10,13 @@ use App\Models\KelompokJam;
 use App\Models\PengajuanIzin;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http; 
+use App\Models\Nota;
+use App\Models\NotaTransaction;
+use App\Models\NotaPayment;
+use App\Models\Cashflow;
+use App\Models\TransUpdateLog;
 
 class LaporanController extends Controller
 {
@@ -321,50 +327,227 @@ class LaporanController extends Controller
     // ==========================
     public function cashflowProject()
     {
-        $bulan = now()->format('m');
-        $tahun = now()->format('Y');
-        return view('transaksi.laporan.cashflow_project', compact('bulan', 'tahun'));
+        $startDate = now()->format('Y-m-01');
+        $endDate = now()->format('Y-m-t');
+        return view('transaksi.laporan.cashflow_project', compact('startDate', 'endDate'));
     }
-
 
     public function cashflowProjectData(Request $request)
     {
-        $bulan = $request->input('bulan', now()->format('m'));
-        $tahun = $request->input('tahun', now()->format('Y'));
-        $startDate = Carbon::create($tahun, $bulan, 1)->startOfMonth();
-        $endDate = Carbon::create($tahun, $bulan, 1)->endOfMonth();
-
-        $query = DB::table('notas as n')
+        $startDate = $request->input('start_date', now()->format('Y-m-01'));
+        $endDate = $request->input('end_date', now()->format('Y-m-t'));
+        
+        // Validasi tanggal
+        if (empty($startDate) || empty($endDate)) {
+            return response()->json([
+                'data' => [], 
+                'total' => [
+                    'pemasukan' => 0,
+                    'pengeluaran' => 0,
+                    'saldo_akhir' => 0
+                ]
+            ]);
+        }
+        
+        // Query data transaksi Project (idproject tidak null)
+        $data = DB::table('notas as n')
             ->select(
+                'n.id',
                 'np.id as id_payment',
                 'n.nota_no',
                 'n.tanggal',
                 DB::raw('"Transaksi" as kategori'),
                 'n.namatransaksi',
-                DB::raw('"-" as nama_item'),
-                DB::raw('0 as harga_item'),
+                'np.jumlah as jumlah_transaksi',
                 DB::raw('CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END as pemasukan'),
                 DB::raw('CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END as pengeluaran'),
-                DB::raw('COALESCE(cf.saldo_akhir, 0) as saldo'),
+                DB::raw('COALESCE(cf.saldo_akhir, 0) as saldo'), // Ambil langsung dari cashflows
                 'v.namavendor',
-                'r.namarek as rekening'
+                'r.namarek as rekening',
+                'p.namaproject',
+                'n.idproject'
             )
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
             ->leftJoin('rekening as r', 'np.idrek', '=', 'r.idrek')
-            ->leftJoin('cashflows as cf', function($join) {
-                $join->on('n.id', '=', 'cf.idnota')
-                    ->where('cf.cashflow', '=', DB::raw('n.cashflow'));
-            })
+            ->leftJoin('projects as p', 'n.idproject', '=', 'p.id')
+            ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota') 
+            ->where('n.status', 'paid')
+            ->where('n.idproject', session('active_project_id'))
+            ->whereNotNull('n.idproject') // Hanya yang punya project
+            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->orderBy('n.tanggal', 'asc')
+            ->orderBy('n.id', 'asc')
+            ->get();
+
+        // TIDAK PERLU hitung saldo running karena sudah diambil langsung dari cashflows
+        
+        // Hitung total pemasukan dan pengeluaran
+        $totals = DB::table('notas as n')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END), 0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END), 0) as total_pengeluaran
+            ')
+            ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->where('n.status', 'paid')
             ->whereNotNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate])
-            ->orderBy('n.tanggal', 'asc')
-            ->orderBy('n.id', 'asc');
+            ->first();
 
-        $data = $query->get();
+        // Ambil saldo akhir dari cashflows terakhir yang sesuai filter
+        $lastCashflow = DB::table('cashflows as cf')
+            ->join('notas as n', 'cf.idnota', '=', 'n.id')
+            ->where('n.status', 'paid')
+            ->whereNotNull('n.idproject')
+            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->orderBy('cf.tanggal', 'desc')
+            ->orderBy('cf.id', 'desc')
+            ->select('cf.saldo_akhir')
+            ->first();
 
-        return response()->json(['data' => $data]);
+        $saldoAkhir = $lastCashflow ? $lastCashflow->saldo_akhir : 0;
+
+        // Debug: cek apakah data memiliki saldo dari cashflows
+        if ($data->count() > 0) {
+            $firstItem = $data->first();
+            Log::info('Data pertama Project:', [
+                'id' => $firstItem->id,
+                'nota_no' => $firstItem->nota_no,
+                'pemasukan' => $firstItem->pemasukan,
+                'pengeluaran' => $firstItem->pengeluaran,
+                'saldo_dari_cashflows' => $firstItem->saldo
+            ]);
+        }
+
+        Log::info('Cashflow Project Data', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'total_records' => $data->count(),
+            'total_pemasukan' => $totals->total_pemasukan ?? 0,
+            'total_pengeluaran' => $totals->total_pengeluaran ?? 0,
+            'saldo_akhir' => $saldoAkhir
+        ]);
+
+        return response()->json([
+            'data' => $data,
+            'total' => [
+                'pemasukan' => $totals->total_pemasukan ?? 0,
+                'pengeluaran' => $totals->total_pengeluaran ?? 0,
+                'saldo_akhir' => $saldoAkhir
+            ]
+        ]);
+    }
+
+    public function viewNotaDetail(Request $request)
+    {
+        try {
+            $id = $request->id;
+            
+            if (!$id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ID nota tidak valid'
+                ], 400);
+            }
+
+            $nota = Nota::with([
+                'project:id,namaproject',
+                'vendor:id,namavendor',
+                'rekening:idrek,norek,namarek',
+                'transactions' => function($q) {
+                    $q->with('kodeTransaksi:id,kodetransaksi,transaksi')
+                    ->orderBy('id');
+                },
+                'payments' => function($q) {
+                    $q->with('rekening:idrek,norek,namarek')
+                    ->orderBy('tanggal');
+                },
+                'updateLogs' => function($q) {
+                    $q->orderBy('created_at', 'desc');
+                }
+            ])->find($id); // Gunakan find() bukan findOrFail()
+
+            if (!$nota) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nota dengan ID ' . $id . ' tidak ditemukan'
+                ], 404);
+            }
+
+            // Format data untuk response
+            $formattedData = [
+                'nota' => [
+                    'id' => $nota->id,
+                    'nota_no' => $nota->nota_no,
+                    'tanggal' => date('d/m/Y', strtotime($nota->tanggal)),
+                    'namatransaksi' => $nota->namatransaksi,
+                    'status' => $nota->status,
+                    'paymen_method' => $nota->paymen_method == 'cash' ? 'Cash' : 'Tempo',
+                    'tgl_tempo' => $nota->tgl_tempo ? date('d/m/Y', strtotime($nota->tgl_tempo)) : '-',
+                    'subtotal' => number_format($nota->subtotal, 0, ',', '.'),
+                    'ppn' => number_format($nota->ppn, 0, ',', '.'),
+                    'diskon' => number_format($nota->diskon, 0, ',', '.'),
+                    'total' => number_format($nota->total, 0, ',', '.'),
+                    'vendor' => $nota->vendor ? $nota->vendor->namavendor : '-',
+                    'rekening' => $nota->rekening ? $nota->rekening->norek . ' - ' . $nota->rekening->namarek : '-',
+                    'project' => $nota->project ? $nota->project->namaproject : '-',
+                    'namauser' => $nota->namauser,
+                    'created_at' => date('d/m/Y H:i', strtotime($nota->created_at)),
+                    'cashflow' => $nota->cashflow == 'in' ? 'Pemasukan' : 'Pengeluaran',
+                ],
+                'items' => [],
+                'payments' => [],
+                'logs' => []
+            ];
+
+            // Format items
+            foreach ($nota->transactions as $item) {
+                $formattedData['items'][] = [
+                    'kodetransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->kodetransaksi : '-',
+                    'namatransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->namatransaksi : '-',
+                    'description' => $item->description,
+                    'nominal' => number_format($item->nominal, 0, ',', '.'),
+                    'jml' => number_format($item->jml, 0, ',', '.'),
+                    'total' => number_format($item->total, 0, ',', '.'),
+                ];
+            }
+
+            // Format payments
+            foreach ($nota->payments as $payment) {
+                $formattedData['payments'][] = [
+                    'tanggal' => date('d/m/Y', strtotime($payment->tanggal)),
+                    'rekening' => $payment->rekening ? $payment->rekening->norek . ' - ' . $payment->rekening->namarek : '-',
+                    'jumlah' => number_format($payment->jumlah, 0, ',', '.'),
+                ];
+            }
+
+            // Format logs
+            foreach ($nota->updateLogs as $log) {
+                $formattedData['logs'][] = [
+                    'tanggal' => date('d/m/Y H:i', strtotime($log->created_at)),
+                    'keterangan' => $log->update_log,
+                ];
+            }
+
+            Log::info('Detail nota berhasil diambil', ['nota_id' => $id]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedData
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error viewing nota detail:', [
+                'error' => $e->getMessage(),
+                'nota_id' => $request->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil detail nota: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // ==========================
@@ -372,49 +555,254 @@ class LaporanController extends Controller
     // ==========================
     public function cashflowPT()
     {
-        $bulan = now()->format('m');
-        $tahun = now()->format('Y');
-        return view('transaksi.laporan.cashflow_pt', compact('bulan', 'tahun'));
+        $startDate = now()->format('Y-m-01');
+        $endDate = now()->format('Y-m-t');
+        return view('transaksi.laporan.cashflow_pt', compact('startDate', 'endDate'));
     }
 
-    
-public function cashflowPTData(Request $request)
-{
-    $bulan = $request->input('bulan', now()->format('m'));
-    $tahun = $request->input('tahun', now()->format('Y'));
-    $startDate = Carbon::create($tahun, $bulan, 1)->startOfMonth();
-    $endDate = Carbon::create($tahun, $bulan, 1)->endOfMonth();
+    public function cashflowPTData(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->format('Y-m-01'));
+        $endDate = $request->input('end_date', now()->format('Y-m-t'));
+        
+        // Validasi tanggal
+        if (empty($startDate) || empty($endDate)) {
+            return response()->json([
+                'data' => [], 
+                'total' => [
+                    'pemasukan' => 0,
+                    'pengeluaran' => 0,
+                    'saldo_akhir' => 0
+                ]
+            ]);
+        }
+        
+        // Query data transaksi PT (idcompany tidak null, idproject null)
+        $data = DB::table('notas as n')
+            ->select(
+                'n.id',
+                'np.id as id_payment',
+                'n.nota_no',
+                'n.tanggal',
+                DB::raw('"Transaksi" as kategori'),
+                'n.namatransaksi',
+                'np.jumlah as jumlah_transaksi',
+                DB::raw('CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END as pemasukan'),
+                DB::raw('CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END as pengeluaran'),
+                DB::raw('COALESCE(cf.saldo_akhir, 0) as saldo'), // Ambil langsung dari cashflows
+                'v.namavendor',
+                'r.namarek as rekening',
+                'cu.company_name as nama_company',
+                'n.idcompany'
+            )
+            ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
+            ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
+            ->leftJoin('rekening as r', 'np.idrek', '=', 'r.idrek')
+            ->leftJoin('company_units as cu', 'n.idcompany', '=', 'cu.id')
+            ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota') // Join langsung berdasarkan idnota
+            ->where('n.status', 'paid')
+            ->whereNotNull('n.idcompany') // Hanya yang punya company (PT)
+            ->whereNull('n.idproject')    // idproject harus null untuk PT
+            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->orderBy('n.tanggal', 'asc')
+            ->orderBy('n.id', 'asc')
+            ->get();
 
-    $query = DB::table('notas as n')
-        ->select(
-            'np.id as id_payment',
-            'n.nota_no',
-            'n.tanggal',
-            DB::raw('"Transaksi" as kategori'),
-            'n.namatransaksi',
-            DB::raw('"-" as nama_item'),
-            DB::raw('0 as harga_item'),
-            DB::raw('CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END as pemasukan'),
-            DB::raw('CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END as pengeluaran'),
-            DB::raw('COALESCE(cf.saldo_akhir, 0) as saldo'),
-            'v.namavendor',
-            'r.namarek as rekening'
-        )
-        ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
-        ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
-        ->leftJoin('rekening as r', 'np.idrek', '=', 'r.idrek')
-        ->leftJoin('cashflows as cf', function($join) {
-            $join->on('n.id', '=', 'cf.idnota')
-                 ->where('cf.cashflow', '=', DB::raw('n.cashflow'));
-        })
-        ->where('n.status', 'paid')
-        ->whereNotNull('n.idcompany')
-        ->whereBetween('n.tanggal', [$startDate, $endDate])
-        ->orderBy('n.tanggal', 'asc')
-        ->orderBy('n.id', 'asc');
+        // TIDAK PERLU hitung saldo running karena sudah diambil langsung dari cashflows
+        
+        // Hitung total pemasukan dan pengeluaran
+        $totals = DB::table('notas as n')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END), 0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END), 0) as total_pengeluaran
+            ')
+            ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
+            ->where('n.status', 'paid')
+            ->whereNotNull('n.idcompany')
+            ->whereNull('n.idproject') // Tambahkan kondisi ini
+            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->first();
 
-    $data = $query->get();
+        // Ambil saldo akhir dari cashflows terakhir yang sesuai filter
+        $lastCashflow = DB::table('cashflows as cf')
+            ->join('notas as n', 'cf.idnota', '=', 'n.id')
+            ->where('n.status', 'paid')
+            ->whereNotNull('n.idcompany')
+            ->whereNull('n.idproject') // Tambahkan kondisi ini
+            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->orderBy('cf.tanggal', 'desc')
+            ->orderBy('cf.id', 'desc')
+            ->select('cf.saldo_akhir')
+            ->first();
 
-    return response()->json(['data' => $data]);
-}
+        $saldoAkhir = $lastCashflow ? $lastCashflow->saldo_akhir : 0;
+
+        // Debug: cek apakah data memiliki saldo dari cashflows
+        if ($data->count() > 0) {
+            $firstItem = $data->first();
+            Log::info('Data pertama PT:', [
+                'id' => $firstItem->id,
+                'nota_no' => $firstItem->nota_no,
+                'pemasukan' => $firstItem->pemasukan,
+                'pengeluaran' => $firstItem->pengeluaran,
+                'saldo_dari_cashflows' => $firstItem->saldo
+            ]);
+        }
+
+        Log::info('Cashflow PT Data', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'total_records' => $data->count(),
+            'total_pemasukan' => $totals->total_pemasukan ?? 0,
+            'total_pengeluaran' => $totals->total_pengeluaran ?? 0,
+            'saldo_akhir' => $saldoAkhir,
+            'filter_conditions' => [
+                'status' => 'paid',
+                'idcompany_not_null' => true,
+                'idproject_null' => true
+            ]
+        ]);
+
+        return response()->json([
+            'data' => $data,
+            'total' => [
+                'pemasukan' => $totals->total_pemasukan ?? 0,
+                'pengeluaran' => $totals->total_pengeluaran ?? 0,
+                'saldo_akhir' => $saldoAkhir
+            ]
+        ]);
+    }
+
+    // Fungsi view detail untuk PT (menggunakan fungsi yang sama dengan project)
+    public function viewNotaDetailPT(Request $request)
+    {
+        try {
+            $id = $request->id;
+            
+            if (!$id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ID nota tidak valid'
+                ], 400);
+            }
+
+            $nota = Nota::with([
+                'companyUnit:id,company_name', // Relasi ke company unit untuk PT
+                'vendor:id,namavendor',
+                'rekening:idrek,norek,namarek',
+                'transactions' => function($q) {
+                    $q->with('kodeTransaksi:id,kodetransaksi,namatransaksi')
+                    ->orderBy('id');
+                },
+                'payments' => function($q) {
+                    $q->with('rekening:idrek,norek,namarek')
+                    ->orderBy('tanggal');
+                },
+                'updateLogs' => function($q) {
+                    $q->orderBy('created_at', 'desc');
+                }
+            ])->find($id);
+
+            if (!$nota) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nota dengan ID ' . $id . ' tidak ditemukan'
+                ], 404);
+            }
+
+            // Tentukan apakah ini nota PT atau Project
+            $isPT = !is_null($nota->idcompany) && is_null($nota->idproject);
+            $isProject = !is_null($nota->idproject);
+
+            Log::info('Detail nota ditemukan', [
+                'nota_id' => $id,
+                'nota_no' => $nota->nota_no,
+                'idcompany' => $nota->idcompany,
+                'idproject' => $nota->idproject,
+                'is_pt' => $isPT,
+                'is_project' => $isProject
+            ]);
+
+            // Format data untuk response
+            $formattedData = [
+                'nota' => [
+                    'id' => $nota->id,
+                    'nota_no' => $nota->nota_no,
+                    'tanggal' => date('d/m/Y', strtotime($nota->tanggal)),
+                    'namatransaksi' => $nota->namatransaksi,
+                    'status' => $nota->status,
+                    'paymen_method' => $nota->paymen_method == 'cash' ? 'Cash' : 'Tempo',
+                    'tgl_tempo' => $nota->tgl_tempo ? date('d/m/Y', strtotime($nota->tgl_tempo)) : '-',
+                    'subtotal' => number_format($nota->subtotal, 0, ',', '.'),
+                    'ppn' => number_format($nota->ppn, 0, ',', '.'),
+                    'diskon' => number_format($nota->diskon, 0, ',', '.'),
+                    'total' => number_format($nota->total, 0, ',', '.'),
+                    'vendor' => $nota->vendor ? $nota->vendor->namavendor : '-',
+                    'rekening' => $nota->rekening ? $nota->rekening->norek . ' - ' . $nota->rekening->namarek : '-',
+                    'company' => $nota->companyUnit ? $nota->companyUnit->company_name : '-',
+                    'project' => $nota->project ? $nota->project->namaproject : '-',
+                    'type' => $isPT ? 'PT' : ($isProject ? 'Project' : 'Unknown'),
+                    'namauser' => $nota->namauser,
+                    'created_at' => date('d/m/Y H:i', strtotime($nota->created_at)),
+                    'cashflow' => $nota->cashflow == 'in' ? 'Pemasukan' : 'Pengeluaran',
+                ],
+                'items' => [],
+                'payments' => [],
+                'logs' => []
+            ];
+
+            // Format items
+            foreach ($nota->transactions as $item) {
+                $formattedData['items'][] = [
+                    'kodetransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->kodetransaksi : '-',
+                    'namatransaksi' => $item->kodeTransaksi ? $item->kodeTransaksi->namatransaksi : '-',
+                    'description' => $item->description,
+                    'nominal' => number_format($item->nominal, 0, ',', '.'),
+                    'jml' => number_format($item->jml, 0, ',', '.'),
+                    'total' => number_format($item->total, 0, ',', '.'),
+                ];
+            }
+
+            // Format payments
+            foreach ($nota->payments as $payment) {
+                $formattedData['payments'][] = [
+                    'tanggal' => date('d/m/Y', strtotime($payment->tanggal)),
+                    'rekening' => $payment->rekening ? $payment->rekening->norek . ' - ' . $payment->rekening->namarek : '-',
+                    'jumlah' => number_format($payment->jumlah, 0, ',', '.'),
+                ];
+            }
+
+            // Format logs
+            foreach ($nota->updateLogs as $log) {
+                $formattedData['logs'][] = [
+                    'tanggal' => date('d/m/Y H:i', strtotime($log->created_at)),
+                    'keterangan' => $log->update_log,
+                ];
+            }
+
+            Log::info('Detail nota berhasil diambil', [
+                'nota_id' => $id,
+                'type' => $isPT ? 'PT' : 'Project',
+                'total_items' => count($formattedData['items']),
+                'total_payments' => count($formattedData['payments'])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedData
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error viewing nota detail:', [
+                'error' => $e->getMessage(),
+                'nota_id' => $request->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil detail nota: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
