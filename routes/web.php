@@ -344,8 +344,13 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('/getdata', [UnitController::class, 'getData'])->name('units.getdata');
         Route::post('/store', [UnitController::class, 'store'])->name('units.store');
         Route::get('/{id}/edit', [UnitController::class, 'edit'])->name('units.edit');
+        Route::put('/{id}', [UnitController::class, 'update'])->name('units.update');
         Route::delete('/{id}', [UnitController::class, 'destroy'])->name('units.destroy');
+        
+        // Unit Details routes
         Route::get('/details', [UnitDetailController::class, 'index'])->name('units.details.index');
+        Route::put('/details/{id}/status', [UnitDetailController::class, 'updateStatus'])->name('units.details.status');
+        Route::get('/details/statistics', [UnitDetailController::class, 'getStatistics'])->name('units.details.statistics');
     });
 
     // Setting

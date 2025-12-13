@@ -10,6 +10,7 @@ class Unit extends Model
     protected $fillable = [
         'idproject',
         'namaunit',
+        'tipe',
         'idjenis',
         'blok',
         'luastanah',

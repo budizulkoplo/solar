@@ -2,15 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class UnitDetail extends Model
 {
-    use HasFactory;
+    protected $fillable = [
+        'idunit',
+        'status'
+    ];
 
-    protected $table = 'unit_details';
-    protected $fillable = ['idunit','status'];
+    protected $casts = [
+        'status' => 'string'
+    ];
 
     public function unit()
     {
