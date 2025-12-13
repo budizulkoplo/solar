@@ -37,6 +37,7 @@ use App\Http\Controllers\KodetransaksiController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\PTController;
 use App\Http\Controllers\PendingPiutangController;
+use App\Http\Controllers\CompanyPendingPiutangController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -291,8 +292,26 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         // Export
         Route::get('/export/{type}', [PendingPiutangController::class, 'exportReport'])->name('pending.export');
     });
-            
 
+    // Routes untuk pending pembayaran dan piutang company
+    Route::prefix('company/pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+        Route::get('/pembayaran', [CompanyPendingPiutangController::class, 'pendingPembayaranCompany'])->name('company.pending.pembayaran');
+        Route::get('/piutang', [CompanyPendingPiutangController::class, 'piutangCompany'])->name('company.pending.piutang');
+        
+        // DataTables
+        Route::get('/data/pembayaran', [CompanyPendingPiutangController::class, 'getPendingPembayaranCompany'])->name('company.pending.data.pembayaran');
+        Route::get('/data/piutang', [CompanyPendingPiutangController::class, 'getPiutangCompany'])->name('company.pending.data.piutang');
+        
+        // Common operations
+        Route::get('/show/{id}', [CompanyPendingPiutangController::class, 'showCompany'])->name('company.pending.show');
+        Route::post('/bayar/{id}', [CompanyPendingPiutangController::class, 'bayarCompany'])->name('company.pending.bayar');
+        Route::get('/angsuran/{id}', [CompanyPendingPiutangController::class, 'getAngsuranHistoryCompany'])->name('company.pending.angsuran');
+        Route::delete('/angsuran/{id}', [CompanyPendingPiutangController::class, 'hapusAngsuranCompany'])->name('company.pending.hapus-angsuran');
+        
+        // Export
+        Route::get('/export/{type}', [CompanyPendingPiutangController::class, 'exportReportCompany'])->name('company.pending.export');
+    });
+                
     Route::get('/rekening/{id}/saldo', [RekeningController::class,'getSaldo']);
 
     // Rekening
