@@ -38,6 +38,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\PTController;
 use App\Http\Controllers\PendingPiutangController;
 use App\Http\Controllers\CompanyPendingPiutangController;
+use App\Http\Controllers\CustomerController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -350,7 +351,22 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         // Unit Details routes
         Route::get('/details', [UnitDetailController::class, 'index'])->name('units.details.index');
         Route::put('/details/{id}/status', [UnitDetailController::class, 'updateStatus'])->name('units.details.status');
+        Route::get('/details/{id}/detail', [UnitDetailController::class, 'getDetail'])
+        ->name('units.details.detail');
+
         Route::get('/details/statistics', [UnitDetailController::class, 'getStatistics'])->name('units.details.statistics');
+    });
+
+    // Customers
+    Route::prefix('customers')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+        Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('/getdata', [CustomerController::class, 'getData'])->name('customers.getdata');
+        Route::post('/store', [CustomerController::class, 'store'])->name('customers.store');
+        Route::get('/{id}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
+        Route::get('/{id}/detail', [CustomerController::class, 'getDetail'])->name('customers.detail');
+        Route::get('/{id}', [CustomerController::class, 'show'])->name('customers.show');
+        Route::put('/{id}', [CustomerController::class, 'update'])->name('customers.update');
+        Route::delete('/{id}', [CustomerController::class, 'destroy'])->name('customers.destroy');
     });
 
     // Setting

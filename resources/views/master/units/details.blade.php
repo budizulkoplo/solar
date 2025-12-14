@@ -81,70 +81,89 @@
         </div>
 
         <!-- Statistics Cards -->
-        <div class="row mb-3" id="statsCards">
+        <div class="row mb-3 align-items-stretch" id="statsCards">
+
+            <!-- Total Unit -->
             <div class="col-md-3 col-sm-6 mb-2">
-                <div class="card border-0 bg-light shadow-sm">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-center">
+                <div class="card border-0 bg-light shadow-sm h-100">
+                    <div class="card-body py-2 d-flex align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
                             <div>
                                 <h6 class="mb-0">Total Unit</h6>
                                 <h4 class="mb-0" id="totalUnits">0</h4>
                             </div>
-                            <div class="bg-primary rounded-circle p-2">
-                                <i class="bi bi-house text-white"></i>
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:42px; height:42px;">
+                                <i class="bi bi-house fs-5"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Tersedia -->
             <div class="col-md-3 col-sm-6 mb-2">
-                <div class="card border-0 bg-success bg-opacity-10 shadow-sm">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-center">
+                <div class="card border-0 bg-success bg-opacity-10 shadow-sm h-100">
+                    <div class="card-body py-2 d-flex align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
                             <div>
                                 <h6 class="mb-0">Tersedia</h6>
                                 <h4 class="mb-0 text-success" id="tersediaCount">0</h4>
-                                <small class="text-muted"><span id="tersediaPercent">0</span>%</small>
+                                <small class="text-muted">
+                                    <span id="tersediaPercent">0</span>%
+                                </small>
                             </div>
-                            <div class="bg-success rounded-circle p-2">
-                                <i class="bi bi-check-circle text-white"></i>
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:42px; height:42px;">
+                                <i class="bi bi-check-circle fs-5"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Booking -->
             <div class="col-md-3 col-sm-6 mb-2">
-                <div class="card border-0 bg-warning bg-opacity-10 shadow-sm">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-center">
+                <div class="card border-0 bg-warning bg-opacity-10 shadow-sm h-100">
+                    <div class="card-body py-2 d-flex align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
                             <div>
                                 <h6 class="mb-0">Booking</h6>
                                 <h4 class="mb-0 text-warning" id="bookingCount">0</h4>
-                                <small class="text-muted"><span id="bookingPercent">0</span>%</small>
+                                <small class="text-muted">
+                                    <span id="bookingPercent">0</span>%
+                                </small>
                             </div>
-                            <div class="bg-warning rounded-circle p-2">
-                                <i class="bi bi-calendar-check text-dark"></i>
+                            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:42px; height:42px;">
+                                <i class="bi bi-calendar-check fs-5"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Terjual -->
             <div class="col-md-3 col-sm-6 mb-2">
-                <div class="card border-0 bg-danger bg-opacity-10 shadow-sm">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-center">
+                <div class="card border-0 bg-danger bg-opacity-10 shadow-sm h-100">
+                    <div class="card-body py-2 d-flex align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
                             <div>
                                 <h6 class="mb-0">Terjual</h6>
                                 <h4 class="mb-0 text-danger" id="terjualCount">0</h4>
-                                <small class="text-muted"><span id="terjualPercent">0</span>%</small>
+                                <small class="text-muted">
+                                    <span id="terjualPercent">0</span>%
+                                </small>
                             </div>
-                            <div class="bg-danger rounded-circle p-2">
-                                <i class="bi bi-cash-coin text-white"></i>
+                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:42px; height:42px;">
+                                <i class="bi bi-cash-coin fs-5"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
         </div>
 
         <!-- Unit Cards Grid -->
@@ -174,11 +193,12 @@
                                                         {{ $project->namaproject }}
                                                     </small>
                                                     <div class="dropdown">
-                                                        <button class="btn btn-sm p-0" type="button" 
+                                                        <button class="btn btn-sm p-0 dropdown-toggle " type="button" 
                                                                 data-bs-toggle="dropdown" aria-expanded="false">
                                                             <i class="bi bi-three-dots-vertical text-white"></i>
                                                         </button>
-                                                        <ul class="dropdown-menu dropdown-menu-end">
+                                                        <ul class="dropdown-menu dropdown-menu-end overflow-auto" style="max-height:300px;">
+
                                                             <li><h6 class="dropdown-header">Ubah Status</h6></li>
                                                             <li>
                                                                 <button class="dropdown-item change-status" 
@@ -281,11 +301,9 @@
                                                             @elseif($detail->status === 'terjual') text-danger
                                                             @else text-secondary @endif
                                                         "></i>
-                                                        {{ $unit->namaunit }} 
+                                                        {{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}
                                                     </h6>
-                                                    @if($unit->tipe)
-                                                        <small class="text-muted">Tipe: {{ $unit->tipe }}</small>
-                                                    @endif
+                                                    <h6>&nbsp;</h6>
                                                 </div>
                                                 
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
@@ -314,7 +332,7 @@
                                                     <!-- Tampilkan alur status jika dalam proses -->
                                                     @if(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast']))
                                                     <div class="mt-1">
-                                                        <small class="text-muted">Alur:</small>
+                                                        <small class="text-muted">Proses:</small>
                                                         <div class="progress" style="height: 5px;">
                                                             @php
                                                                 $statusOrder = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
@@ -329,19 +347,39 @@
                                                         </div>
                                                         <small class="text-muted">
                                                             @if($detail->status === 'booking_unit')
-                                                                Booking → BI Check → Pemberkasan → ACC → Akad → Pencairan → BAST → Terjual
+                                                                Booking →
+                                                                <span class="badge bg-success">Booking</span>
+                                                                → BI Check → Pemberkasan → ACC → Akad → Pencairan → BAST → Terjual
+
                                                             @elseif($detail->status === 'bi_check')
-                                                                Booking → <strong>BI Check</strong> → Pemberkasan → ACC → Akad → Pencairan → BAST → Terjual
+                                                                Booking →
+                                                                <span class="badge bg-success">BI Check</span>
+                                                                → Pemberkasan → ACC → Akad → Pencairan → BAST → Terjual
+
                                                             @elseif($detail->status === 'pemberkasan_bank')
-                                                                Booking → BI Check → <strong>Pemberkasan</strong> → ACC → Akad → Pencairan → BAST → Terjual
+                                                                Booking → BI Check →
+                                                                <span class="badge bg-success">Pemberkasan</span>
+                                                                → ACC → Akad → Pencairan → BAST → Terjual
+
                                                             @elseif($detail->status === 'acc')
-                                                                Booking → BI Check → Pemberkasan → <strong>ACC</strong> → Akad → Pencairan → BAST → Terjual
+                                                                Booking → BI Check → Pemberkasan →
+                                                                <span class="badge bg-success">ACC</span>
+                                                                → Akad → Pencairan → BAST → Terjual
+
                                                             @elseif($detail->status === 'akad')
-                                                                Booking → BI Check → Pemberkasan → ACC → <strong>Akad</strong> → Pencairan → BAST → Terjual
+                                                                Booking → BI Check → Pemberkasan → ACC →
+                                                                <span class="badge bg-success">Akad</span>
+                                                                → Pencairan → BAST → Terjual
+
                                                             @elseif($detail->status === 'pencairan')
-                                                                Booking → BI Check → Pemberkasan → ACC → Akad → <strong>Pencairan</strong> → BAST → Terjual
+                                                                Booking → BI Check → Pemberkasan → ACC → Akad →
+                                                                <span class="badge bg-success">Pencairan</span>
+                                                                → BAST → Terjual
+
                                                             @elseif($detail->status === 'bast')
-                                                                Booking → BI Check → Pemberkasan → ACC → Akad → Pencairan → <strong>BAST</strong> → Terjual
+                                                                Booking → BI Check → Pemberkasan → ACC → Akad → Pencairan →
+                                                                <span class="badge bg-success">BAST</span>
+                                                                → Terjual
                                                             @endif
                                                         </small>
                                                     </div>
@@ -351,7 +389,7 @@
                                                 <!-- No Unit -->
                                                 <div class="text-center my-2">
                                                     <div class="bg-light rounded p-2">
-                                                        <small class="text-muted d-block">No Unit</small>
+                                                        <small class="text-muted d-block">No Rumah</small>
                                                         <strong class="text-primary fs-5">{{ $detail->id }}</strong>
                                                     </div>
                                                 </div>
@@ -389,9 +427,6 @@
                                                         </div>
                                                     @endif
                                                     <div class="d-flex justify-content-between align-items-center mt-1">
-                                                        <small class="text-muted">
-                                                            {{ $detail->created_at->format('d/m/Y') }}
-                                                        </small>
                                                         @if($detail->penjualan_id)
                                                             <span class="badge bg-success">Terjual</span>
                                                         @endif
@@ -659,41 +694,6 @@
     </div>
 
     <x-slot name="jscustom">
-        <style>
-            .unit-card {
-                transition: transform 0.2s;
-            }
-            .unit-card:hover {
-                transform: translateY(-3px);
-            }
-            .hover-shadow:hover {
-                box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important;
-            }
-            .card {
-                border-radius: 10px;
-                overflow: hidden;
-            }
-            .card-header {
-                padding: 0.25rem 0.5rem;
-            }
-            .card-title {
-                font-size: 0.85rem;
-                font-weight: 600;
-            }
-            .card-body {
-                padding: 0.5rem;
-                font-size: 0.8rem;
-            }
-            .card-footer {
-                padding: 0.25rem 0.5rem;
-                font-size: 0.75rem;
-            }
-            .status-badge {
-                font-size: 0.7rem;
-                padding: 0.2rem 0.5rem;
-            }
-        </style>
-        
         <script>
             $(document).ready(function() {
                 // Set tanggal default untuk form
@@ -846,8 +846,10 @@
                 $(document).on('click', '.change-status', function() {
                     const detailId = $(this).data('id');
                     const newStatus = $(this).data('status');
-                    const currentStatus = $(this).closest('.unit-card').data('status');
+                    
+                    // DAPATKAN STATUS TERKINI DARI DATA ATTRIBUTE
                     const card = $(this).closest('.unit-card');
+                    const currentStatus = card.attr('data-status'); // Gunakan attr() bukan data()
                     
                     // Validasi alur status
                     if (!validateStatusFlow(currentStatus, newStatus)) {
@@ -1015,22 +1017,39 @@
                     
                     // Pisahkan data customer dan booking
                     formData.forEach(function(item) {
-                        if (item.name === '_token' || item.name === 'detail_id' || item.name === 'status') {
+                        if (['_token', 'detail_id', 'status'].includes(item.name)) {
                             return;
                         }
-                        
-                        if (item.name.startsWith('nama_') || item.name.startsWith('tempat_') || 
-                            item.name.startsWith('tanggal_') || item.name === 'jenis_kelamin' || 
-                            item.name === 'nik' || item.name === 'no_kk' || item.name.includes('ktp') ||
-                            item.name === 'no_hp' || item.name === 'email' || item.name === 'pekerjaan' ||
-                            item.name === 'penghasilan_bulanan') {
+
+                        // ===== CUSTOMER =====
+                        if (
+                            item.name.startsWith('nama_') ||
+                            item.name.startsWith('tempat_') ||
+                            item.name === 'tanggal_lahir' ||
+                            item.name === 'jenis_kelamin' ||
+                            item.name === 'nik' ||
+                            item.name === 'no_kk' ||
+                            item.name.includes('ktp') ||
+                            item.name === 'no_hp' ||
+                            item.name === 'email' ||
+                            item.name === 'pekerjaan' ||
+                            item.name === 'penghasilan_bulanan'
+                        ) {
                             requestData.customer_data[item.name] = item.value;
-                        } else if (item.name.includes('booking') || item.name === 'dp_awal' || 
-                                   item.name === 'metode_pembayaran_dp' || item.name === 'keterangan') {
+                        }
+
+                        // ===== BOOKING =====
+                        else if (
+                            item.name === 'tanggal_booking' ||
+                            item.name === 'tanggal_jatuh_tempo' ||
+                            item.name === 'dp_awal' ||
+                            item.name === 'metode_pembayaran_dp' ||
+                            item.name === 'keterangan'
+                        ) {
                             requestData.booking_data[item.name] = item.value;
                         }
                     });
-                    
+
                     // Tampilkan loading
                     const submitBtn = $(this).find('button[type="submit"]');
                     const originalText = submitBtn.html();
@@ -1055,8 +1074,11 @@
                                 
                                 // Update card
                                 const card = $('.unit-card[data-detail="' + detailId + '"]');
-                                updateCardStatus(card, newStatus);
+                                
+                                // PERBAIKAN: UPDATE DATA ATTRIBUTE STATUS
                                 card.attr('data-status', newStatus);
+                                
+                                updateCardStatus(card, newStatus);
                                 
                                 // Update customer info in card
                                 if (response.data.customer) {
@@ -1150,8 +1172,11 @@
                                 
                                 // Update card
                                 const card = $('.unit-card[data-detail="' + detailId + '"]');
-                                updateCardStatus(card, 'terjual');
+                                
+                                // PERBAIKAN: UPDATE DATA ATTRIBUTE STATUS
                                 card.attr('data-status', 'terjual');
+                                
+                                updateCardStatus(card, 'terjual');
                                 
                                 // Reload statistics
                                 loadStatistics();
@@ -1195,7 +1220,7 @@
                                         <p><strong>Nama Unit:</strong> ${unit.namaunit}</p>
                                         <p><strong>Tipe:</strong> ${unit.tipe || '-'}</p>
                                         <p><strong>Blok:</strong> ${unit.blok || '-'}</p>
-                                        <p><strong>Jenis:</strong> ${unit.jenisUnit?.jenisunit || '-'}</p>
+                                        
                                         <p><strong>Luas Tanah:</strong> ${unit.luastanah || '-'}</p>
                                         <p><strong>Luas Bangunan:</strong> ${unit.luasbangunan || '-'}</p>
                                         <p><strong>Harga Dasar:</strong> Rp ${unit.hargadasar ? unit.hargadasar.toLocaleString('id-ID') : '-'}</p>
@@ -1288,7 +1313,10 @@
                                 html: html,
                                 showConfirmButton: true,
                                 confirmButtonText: 'Tutup',
-                                width: '800px'
+                                width: '800px',
+                                customClass: {
+                                    htmlContainer: 'text-start'
+                                }
                             });
                         }
                     });
@@ -1323,11 +1351,11 @@
                                     if (response.success) {
                                         showSuccess(response.message);
                                         
+                                        // PERBAIKAN: UPDATE DATA ATTRIBUTE STATUS
+                                        card.attr('data-status', newStatus);
+                                        
                                         // Update card appearance
                                         updateCardStatus(card, newStatus);
-                                        
-                                        // Update card data attribute
-                                        card.attr('data-status', newStatus);
                                         
                                         // Reload statistics
                                         loadStatistics();
@@ -1358,7 +1386,9 @@
                         const card = $(this);
                         const cardProject = card.data('project');
                         const cardUnit = card.data('unit');
-                        const cardStatus = card.data('status');
+                        
+                        // PERBAIKAN: GUNAKAN ATTR() UNTUK MENDAPATKAN STATUS TERKINI
+                        const cardStatus = card.attr('data-status') || card.data('status');
                         
                         // Check filters
                         const projectMatch = !projectId || cardProject == projectId;
