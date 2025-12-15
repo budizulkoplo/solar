@@ -215,8 +215,7 @@ class UnitDetailController extends Controller
 
             'dp_awal' => 'required|numeric|min:0',
             'metode_pembayaran_dp' => 'required|string|max:100',
-            'tanggal_booking' => 'required',
-            'tanggal_jatuh_tempo' => 'required',
+
             'keterangan' => 'nullable|string'
         ])->validate();
 

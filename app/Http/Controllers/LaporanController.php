@@ -17,6 +17,13 @@ use App\Models\NotaTransaction;
 use App\Models\NotaPayment;
 use App\Models\Cashflow;
 use App\Models\TransUpdateLog;
+use App\Models\Booking;
+use App\Models\Penjualan;
+use App\Models\UnitDetail;
+use App\Models\Customer;
+use App\Models\Project;
+use App\Models\Unit;
+use Yajra\DataTables\Facades\DataTables;
 
 class LaporanController extends Controller
 {
@@ -804,5 +811,343 @@ class LaporanController extends Controller
                 'message' => 'Gagal mengambil detail nota: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Display laporan bookings
+     */
+    public function bookings(Request $request)
+    {
+        if ($request->ajax()) {
+            return $this->getDataBookings($request);
+        }
+        
+        $projects = Project::all();
+        $statuses = ['active', 'canceled', 'expired', 'completed'];
+        
+        return view('laporan.bookings', compact('projects', 'statuses'));
+    }
+    
+    /**
+     * Get data for bookings report
+     */
+    private function getDataBookings(Request $request)
+    {
+        $query = Booking::with([
+            'unitDetail.unit.project',
+            'customer',
+            'createdBy'
+        ]);
+        
+        // Apply filters
+        if ($request->filled('start_date')) {
+            $query->whereDate('tanggal_booking', '>=', $request->start_date);
+        }
+        
+        if ($request->filled('end_date')) {
+            $query->whereDate('tanggal_booking', '<=', $request->end_date);
+        }
+        
+        if ($request->filled('project_id')) {
+            $query->whereHas('unitDetail.unit', function($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('status_booking', $request->status);
+        }
+        
+        return DataTables::of($query) // PERBAIKAN: HAPUS \App\Models\
+            ->addIndexColumn()
+            ->addColumn('project_name', function($row) {
+                return $row->unitDetail->unit->project->namaproject ?? '-';
+            })
+            ->addColumn('unit_name', function($row) {
+                return $row->unitDetail->unit->namaunit ?? '-';
+            })
+            ->addColumn('customer_name', function($row) {
+                return $row->customer->nama_lengkap ?? '-';
+            })
+            ->addColumn('customer_nik', function($row) {
+                return $row->customer->nik ?? '-';
+            })
+            ->addColumn('customer_hp', function($row) {
+                return $row->customer->no_hp ?? '-';
+            })
+            ->addColumn('dp_formatted', function($row) {
+                return 'Rp ' . number_format($row->dp_awal, 0, ',', '.');
+            })
+            ->addColumn('tanggal_booking_formatted', function($row) {
+                return $row->tanggal_booking ? date('d/m/Y', strtotime($row->tanggal_booking)) : '-';
+            })
+            ->addColumn('tanggal_jatuh_tempo_formatted', function($row) {
+                return $row->tanggal_jatuh_tempo ? date('d/m/Y', strtotime($row->tanggal_jatuh_tempo)) : '-';
+            })
+            ->addColumn('status_badge', function($row) {
+                $badgeClass = [
+                    'active' => 'bg-success',
+                    'canceled' => 'bg-danger',
+                    'expired' => 'bg-warning',
+                    'completed' => 'bg-info'
+                ][$row->status_booking] ?? 'bg-secondary';
+                
+                return '<span class="badge ' . $badgeClass . '">' . ucfirst($row->status_booking) . '</span>';
+            })
+            ->addColumn('created_by_name', function($row) {
+                return $row->createdBy->name ?? '-';
+            })
+            ->rawColumns(['status_badge'])
+            ->make(true);
+    }
+    
+    /**
+     * Export bookings to PDF
+     */
+    public function exportBookingsPDF(Request $request)
+    {
+        $query = Booking::with([
+            'unitDetail.unit.project',
+            'customer',
+            'createdBy'
+        ]);
+        
+        // Apply filters
+        if ($request->filled('start_date')) {
+            $query->whereDate('tanggal_booking', '>=', $request->start_date);
+        }
+        
+        if ($request->filled('end_date')) {
+            $query->whereDate('tanggal_booking', '<=', $request->end_date);
+        }
+        
+        if ($request->filled('project_id')) {
+            $query->whereHas('unitDetail.unit', function($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('status_booking', $request->status);
+        }
+        
+        $bookings = $query->get();
+        
+        // Calculate totals
+        $totalDp = $bookings->sum('dp_awal');
+        $totalBookings = $bookings->count();
+        
+        $data = [
+            'bookings' => $bookings,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'total_dp' => $totalDp,
+            'total_bookings' => $totalBookings,
+            'filter_project' => $request->project_id ? Project::find($request->project_id)->namaproject ?? 'Semua' : 'Semua',
+            'filter_status' => $request->status ? ucfirst($request->status) : 'Semua'
+        ];
+        
+        $pdf = PDF::loadView('laporan.pdf.bookings', $data);
+        
+        $filename = 'laporan-bookings-' . date('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+    
+    /**
+     * Display laporan penjualan
+     */
+    public function penjualan(Request $request)
+    {
+        if ($request->ajax()) {
+            return $this->getDataPenjualan($request);
+        }
+        
+        $projects = Project::all();
+        
+        return view('laporan.penjualan', compact('projects'));
+    }
+    
+    /**
+     * Get data for penjualan report
+     */
+    private function getDataPenjualan(Request $request)
+    {
+        $query = Penjualan::with([
+            'unitDetail.unit.project',
+            'customer'
+        ]);
+        
+        // Apply filters
+        if ($request->filled('start_date')) {
+            $query->whereDate('tanggal_akad', '>=', $request->start_date);
+        }
+        
+        if ($request->filled('end_date')) {
+            $query->whereDate('tanggal_akad', '<=', $request->end_date);
+        }
+        
+        if ($request->filled('project_id')) {
+            $query->whereHas('unitDetail.unit', function($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+        
+        if ($request->filled('metode_pembayaran')) {
+            $query->where('metode_pembayaran', $request->metode_pembayaran);
+        }
+        
+        return DataTables::of($query) // PERBAIKAN: HAPUS \App\Models\
+            ->addIndexColumn()
+            ->addColumn('project_name', function($row) {
+                return $row->unitDetail->unit->project->namaproject ?? '-';
+            })
+            ->addColumn('unit_name', function($row) {
+                return $row->unitDetail->unit->namaunit ?? '-';
+            })
+            ->addColumn('customer_name', function($row) {
+                return $row->customer->nama_lengkap ?? '-';
+            })
+            ->addColumn('customer_nik', function($row) {
+                return $row->customer->nik ?? '-';
+            })
+            ->addColumn('harga_jual_formatted', function($row) {
+                return 'Rp ' . number_format($row->harga_jual, 0, ',', '.');
+            })
+            ->addColumn('dp_awal_formatted', function($row) {
+                return $row->dp_awal ? 'Rp ' . number_format($row->dp_awal, 0, ',', '.') : '-';
+            })
+            ->addColumn('tanggal_akad_formatted', function($row) {
+                return $row->tanggal_akad ? date('d/m/Y', strtotime($row->tanggal_akad)) : '-';
+            })
+            ->addColumn('metode_badge', function($row) {
+                $badgeClass = [
+                    'cash' => 'bg-success',
+                    'kredit' => 'bg-primary'
+                ][$row->metode_pembayaran] ?? 'bg-secondary';
+                
+                return '<span class="badge ' . $badgeClass . '">' . ucfirst($row->metode_pembayaran) . '</span>';
+            })
+            ->addColumn('kredit_info', function($row) {
+                if ($row->metode_pembayaran === 'kredit') {
+                    return $row->bank_kredit . ' (' . $row->tenor_kredit . ' bulan)';
+                }
+                return '-';
+            })
+            ->rawColumns(['metode_badge'])
+            ->make(true);
+    }
+    
+    /**
+     * Export penjualan to PDF
+     */
+    public function exportPenjualanPDF(Request $request)
+    {
+        $query = Penjualan::with([
+            'unitDetail.unit.project',
+            'customer'
+        ]);
+        
+        // Apply filters
+        if ($request->filled('start_date')) {
+            $query->whereDate('tanggal_akad', '>=', $request->start_date);
+        }
+        
+        if ($request->filled('end_date')) {
+            $query->whereDate('tanggal_akad', '<=', $request->end_date);
+        }
+        
+        if ($request->filled('project_id')) {
+            $query->whereHas('unitDetail.unit', function($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+        
+        if ($request->filled('metode_pembayaran')) {
+            $query->where('metode_pembayaran', $request->metode_pembayaran);
+        }
+        
+        $penjualans = $query->get();
+        
+        // Calculate totals
+        $totalHargaJual = $penjualans->sum('harga_jual');
+        $totalDp = $penjualans->sum('dp_awal');
+        $totalPenjualan = $penjualans->count();
+        
+        $data = [
+            'penjualans' => $penjualans,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'total_harga_jual' => $totalHargaJual,
+            'total_dp' => $totalDp,
+            'total_penjualan' => $totalPenjualan,
+            'filter_project' => $request->project_id ? Project::find($request->project_id)->namaproject ?? 'Semua' : 'Semua',
+            'filter_metode' => $request->metode_pembayaran ? ucfirst($request->metode_pembayaran) : 'Semua'
+        ];
+        
+        $pdf = PDF::loadView('laporan.pdf.penjualan', $data);
+        
+        $filename = 'laporan-penjualan-' . date('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+    
+    /**
+     * Get statistics for dashboard
+     */
+    public function getStatistics(Request $request)
+    {
+        $startDate = $request->start_date ?? date('Y-m-01');
+        $endDate = $request->end_date ?? date('Y-m-t');
+        
+        // Bookings statistics
+        $bookingsQuery = Booking::whereBetween('tanggal_booking', [$startDate, $endDate]);
+        
+        if ($request->filled('project_id')) {
+            $bookingsQuery->whereHas('unitDetail.unit', function($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+        
+        $totalBookings = $bookingsQuery->count();
+        $totalDpBookings = $bookingsQuery->sum('dp_awal');
+        
+        $activeBookings = $bookingsQuery->where('status_booking', 'active')->count();
+        $canceledBookings = $bookingsQuery->where('status_booking', 'canceled')->count();
+        $completedBookings = $bookingsQuery->where('status_booking', 'completed')->count();
+        
+        // Penjualan statistics
+        $penjualanQuery = Penjualan::whereBetween('tanggal_akad', [$startDate, $endDate]);
+        
+        if ($request->filled('project_id')) {
+            $penjualanQuery->whereHas('unitDetail.unit', function($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+        
+        $totalPenjualan = $penjualanQuery->count();
+        $totalHargaJual = $penjualanQuery->sum('harga_jual');
+        $totalDpPenjualan = $penjualanQuery->sum('dp_awal');
+        
+        $cashSales = $penjualanQuery->where('metode_pembayaran', 'cash')->count();
+        $creditSales = $penjualanQuery->where('metode_pembayaran', 'kredit')->count();
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'bookings' => [
+                    'total' => $totalBookings,
+                    'total_dp' => $totalDpBookings,
+                    'active' => $activeBookings,
+                    'canceled' => $canceledBookings,
+                    'completed' => $completedBookings,
+                ],
+                'penjualan' => [
+                    'total' => $totalPenjualan,
+                    'total_harga_jual' => $totalHargaJual,
+                    'total_dp' => $totalDpPenjualan,
+                    'cash' => $cashSales,
+                    'credit' => $creditSales,
+                ]
+            ]
+        ]);
     }
 }
