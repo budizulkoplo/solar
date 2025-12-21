@@ -1,15 +1,37 @@
 <x-app-layout>
-    <x-slot name="pagetitle">Dashboard</x-slot>
+    <x-slot name="pagetitle">Dashboard Project - {{ $projectInfo['nama'] }}</x-slot>
 
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
             {{ __('Dashboard') }}
+            <small class="text-sm text-muted">
+                (Project: {{ $projectInfo['nama'] }} | PT: {{ $projectInfo['company'] }})
+            </small>
         </h2>
     </x-slot>
 
     <div class="app-content">
         <div class="container-fluid my-4">
             <h2 class="mb-4">📊 Ringkasan Dashboard</h2>
+
+            <!-- Info Project -->
+            <div class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="bi bi-building me-2"></i>{{ $projectInfo['nama'] }}
+                        <span class="badge bg-primary ms-2">{{ $projectInfo['module'] }}</span>
+                    </h5>
+                    <small class="text-muted">
+                        <i class="bi bi-bank me-1"></i>{{ $projectInfo['company'] }}
+                    </small>
+                </div>
+                <div>
+                    <small class="text-muted">
+                        <i class="bi bi-calendar me-1"></i>
+                        {{ \Carbon\Carbon::now()->format('d F Y') }}
+                    </small>
+                </div>
+            </div>
 
             <!-- Ringkasan Statistik -->
             <div class="row mb-4">
@@ -123,6 +145,44 @@
                 </div>
             </div>
 
+            <!-- Summary Saldo Rekening -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-wallet2 me-2"></i>Summary Saldo Rekening
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 text-center">
+                                    <div class="border rounded p-3">
+                                        <h2 class="text-primary fw-bold">Rp {{ $saldoRekening['total_saldo'] }}</h2>
+                                        <p class="text-muted mb-1">Total Saldo</p>
+                                        <small class="text-muted">{{ $saldoRekening['jumlah_rekening'] }} rekening</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="border rounded p-3">
+                                        <h2 class="text-success fw-bold">Rp {{ $saldoRekening['summary']['company']['total'] }}</h2>
+                                        <p class="text-muted mb-1">Saldo Rekening PT</p>
+                                        <small class="text-muted">{{ $saldoRekening['summary']['company']['count'] }} rekening PT</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="border rounded p-3">
+                                        <h2 class="text-info fw-bold">Rp {{ $saldoRekening['summary']['project']['total'] }}</h2>
+                                        <p class="text-muted mb-1">Saldo Rekening Project</p>
+                                        <small class="text-muted">{{ $saldoRekening['summary']['project']['count'] }} rekening project</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Grafik dan Saldo -->
             <div class="row mb-4">
                 <!-- Grafik Transaksi Berdasarkan COA -->
@@ -190,46 +250,47 @@
                     <div class="card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">
-                                <i class="bi bi-wallet2 me-2"></i>Saldo Rekening
+                                <i class="bi bi-credit-card me-2"></i>Detail Saldo Rekening
                             </h5>
-                            <span class="badge bg-primary">Total: Rp {{ $saldoRekening['total_saldo'] }}</span>
+                            <span class="badge bg-primary">{{ $saldoRekening['jumlah_rekening'] }} rekening</span>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover table-sm">
-                                    <thead>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 300px;">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="sticky-top bg-light">
                                         <tr>
                                             <th>Rekening</th>
                                             <th class="text-end">Saldo</th>
+                                            <th class="text-center">Type</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach($saldoRekening['rekenings'] as $rekening)
                                         <tr>
                                             <td>
-                                                <div class="fw-semibold">{{ $rekening['nama'] }}</div>
-                                                <small class="text-muted">{{ $rekening['norek'] }} • {{ $rekening['namarek'] }}</small>
+                                                <div class="fw-semibold">{{ Str::limit($rekening['nama'], 20) }}</div>
+                                                <small class="text-muted">{{ $rekening['norek'] }}</small>
                                             </td>
                                             <td class="text-end">
                                                 <span class="fw-bold {{ $rekening['saldo_raw'] >= 0 ? 'text-success' : 'text-danger' }}">
                                                     Rp {{ $rekening['saldo'] }}
                                                 </span>
                                             </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-{{ $rekening['type_badge'] }}-subtle text-{{ $rekening['type_badge'] }}">
+                                                    {{ $rekening['type_label'] }}
+                                                </span>
+                                            </td>
                                         </tr>
                                         @endforeach
                                     </tbody>
-                                    <tfoot>
-                                        <tr class="table-light">
+                                    <tfoot class="sticky-bottom bg-light">
+                                        <tr>
                                             <td class="fw-bold">Total Saldo</td>
                                             <td class="text-end fw-bold {{ $saldoRekening['total_saldo_raw'] >= 0 ? 'text-success' : 'text-danger' }}">
                                                 Rp {{ $saldoRekening['total_saldo'] }}
                                             </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2" class="text-muted small">
-                                                <i class="bi bi-info-circle me-1"></i>
-                                                Jumlah rekening: {{ $saldoRekening['jumlah_rekening'] }}
-                                            </td>
+                                            <td></td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -240,7 +301,7 @@
             </div>
 
             <!-- Cashflow Detail per Rekening -->
-            <div class="row">
+            <div class="row mb-4">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
@@ -255,11 +316,14 @@
                                     @foreach($cashflowDetail as $rekening)
                                     <div class="col-md-6 col-lg-4 mb-4">
                                         <div class="card border h-100">
-                                            <div class="card-header bg-light">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                                 <h6 class="mb-0">
-                                                    {{ $rekening['namarek'] }}
+                                                    {{ Str::limit($rekening['namarek'], 15) }}
                                                     <small class="text-muted">({{ $rekening['norek'] }})</small>
                                                 </h6>
+                                                <span class="badge bg-{{ $rekening['net_cashflow_raw'] >= 0 ? 'success' : 'danger' }}">
+                                                    {{ $rekening['net_cashflow_raw'] >= 0 ? '+' : '' }}Rp {{ $rekening['net_cashflow'] }}
+                                                </span>
                                             </div>
                                             <div class="card-body">
                                                 <div class="row text-center mb-3">
@@ -277,11 +341,22 @@
                                                     </div>
                                                 </div>
                                                 
-                                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                                    <span class="fw-semibold">Net Cashflow:</span>
-                                                    <span class="badge bg-{{ $rekening['net_cashflow_raw'] >= 0 ? 'success' : 'danger' }}">
-                                                        Rp {{ $rekening['net_cashflow'] }}
-                                                    </span>
+                                                <div class="progress mb-3" style="height: 10px;">
+                                                    @php
+                                                        $totalCashflow = $rekening['net_cashflow_raw'] + abs(min(0, $rekening['net_cashflow_raw']));
+                                                        $positivePercent = $totalCashflow > 0 ? ($rekening['total_in'] / $totalCashflow * 100) : 0;
+                                                        $negativePercent = $totalCashflow > 0 ? ($rekening['total_out'] / $totalCashflow * 100) : 0;
+                                                    @endphp
+                                                    <div class="progress-bar bg-success" role="progressbar" 
+                                                         style="width: {{ $positivePercent }}%" 
+                                                         aria-valuenow="{{ $positivePercent }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100"></div>
+                                                    <div class="progress-bar bg-danger" role="progressbar" 
+                                                         style="width: {{ $negativePercent }}%" 
+                                                         aria-valuenow="{{ $negativePercent }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100"></div>
                                                 </div>
                                                 
                                                 <div class="accordion accordion-flush" id="accordion{{ $rekening['idrek'] }}">
@@ -370,6 +445,67 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Quick Actions -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-lightning me-2"></i>Quick Actions
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <a href="{{ route('transaksi.project.in') }}" class="text-decoration-none">
+                                        <div class="card border border-success text-center h-100 hover-shadow">
+                                            <div class="card-body">
+                                                <i class="bi bi-plus-circle-fill text-success fs-1"></i>
+                                                <h6 class="mt-2">Transaksi Masuk</h6>
+                                                <small class="text-muted">Tambah transaksi masuk</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <a href="{{ route('transaksi.project.out') }}" class="text-decoration-none">
+                                        <div class="card border border-danger text-center h-100 hover-shadow">
+                                            <div class="card-body">
+                                                <i class="bi bi-dash-circle-fill text-danger fs-1"></i>
+                                                <h6 class="mt-2">Transaksi Keluar</h6>
+                                                <small class="text-muted">Tambah transaksi keluar</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <a href="#" class="text-decoration-none">
+                                        <div class="card border border-primary text-center h-100 hover-shadow">
+                                            <div class="card-body">
+                                                <i class="bi bi-eye-fill text-primary fs-1"></i>
+                                                <h6 class="mt-2">Lihat Laporan</h6>
+                                                <small class="text-muted">Laporan lengkap</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <a href="{{ route('choose.project') }}" class="text-decoration-none">
+                                        <div class="card border border-warning text-center h-100 hover-shadow">
+                                            <div class="card-body">
+                                                <i class="bi bi-arrow-left-right text-warning fs-1"></i>
+                                                <h6 class="mt-2">Ganti Project</h6>
+                                                <small class="text-muted">Pilih project lain</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -378,6 +514,7 @@
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 // Grafik Transaksi Berdasarkan COA
+                @if(count($grafikTransaksi['labels']) > 0)
                 const coaCtx = document.getElementById('coaChart').getContext('2d');
                 const coaChart = new Chart(coaCtx, {
                     type: 'bar',
@@ -430,6 +567,7 @@
                         }
                     }
                 });
+                @endif
 
                 // Grafik Time Series Cashflow
                 const cashflowCtx = document.getElementById('cashflowChart').getContext('2d');
@@ -573,6 +711,11 @@
                 transform: translateY(-2px);
             }
             
+            .hover-shadow:hover {
+                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+                transform: translateY(-2px);
+            }
+            
             .avatar-sm {
                 width: 48px;
                 height: 48px;
@@ -604,9 +747,27 @@
                 border-width: 5px !important;
             }
             
+            .progress {
+                overflow: visible;
+            }
+            
+            .progress-bar {
+                position: relative;
+                overflow: visible;
+            }
+            
             @media (max-width: 768px) {
                 .card-body canvas {
                     max-height: 250px;
+                }
+                
+                .alert {
+                    flex-direction: column;
+                    text-align: center;
+                }
+                
+                .alert > div {
+                    margin-bottom: 10px;
                 }
             }
         </style>
