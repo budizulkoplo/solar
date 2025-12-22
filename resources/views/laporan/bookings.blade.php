@@ -60,68 +60,82 @@
             </div>
 
             <!-- Statistics Cards -->
-            <div class="row mb-4" id="statsCards">
+            <div class="row mb-3 align-items-stretch" id="statsCards">
+
+                <!-- Total Bookings -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-primary bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-light shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Total Bookings</h6>
                                     <h4 class="mb-0" id="totalBookings">0</h4>
                                 </div>
-                                <div class="bg-primary rounded-circle p-2">
-                                    <i class="bi bi-calendar-check text-white"></i>
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-calendar-check fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Total DP -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-success bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-success bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Total DP</h6>
                                     <h4 class="mb-0 text-success" id="totalDp">Rp 0</h4>
                                 </div>
-                                <div class="bg-success rounded-circle p-2">
-                                    <i class="bi bi-cash-coin text-white"></i>
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-cash-coin fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Active -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-info bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-info bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Active</h6>
                                     <h4 class="mb-0 text-info" id="activeBookings">0</h4>
                                 </div>
-                                <div class="bg-info rounded-circle p-2">
-                                    <i class="bi bi-check-circle text-white"></i>
+                                <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-check-circle fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Canceled -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-danger bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-danger bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Canceled</h6>
                                     <h4 class="mb-0 text-danger" id="canceledBookings">0</h4>
                                 </div>
-                                <div class="bg-danger rounded-circle p-2">
-                                    <i class="bi bi-x-circle text-white"></i>
+                                <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-x-circle fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
             </div>
+
 
             <!-- Data Table -->
             <div class="card card-info card-outline">

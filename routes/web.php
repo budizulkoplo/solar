@@ -77,7 +77,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         ->name('dashboard.pesananHariIniData');
 
     // Profile
-    Route::prefix('profile')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('profile')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         
         Route::get('/', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/', [ProfileController::class, 'update'])->name('profile.update');
@@ -86,7 +86,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Users
-    Route::prefix('users')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('users')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/list', [UsersController::class, 'index'])->name('users.list');
         Route::get('/getdata', [UsersController::class, 'getdata'])->name('users.getdata');
         Route::post('/assignRole', [UsersController::class, 'kasihRole'])->name('users.assignRole');
@@ -102,7 +102,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Pegawai
-    Route::prefix('pegawai')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('pegawai')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/list', [PegawaiController::class, 'index'])->name('pegawai.list');
         Route::get('/getdata', [PegawaiController::class, 'getdata'])->name('pegawai.getdata');
         Route::post('/store', [PegawaiController::class, 'store'])->name('pegawai.store');
@@ -111,7 +111,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{id}', [PegawaiController::class, 'destroy'])->name('pegawai.destroy'); // untuk hapus
     });
 
-    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/unitkerja', [UnitKerjaController::class, 'index'])->name('master.unitkerja');
         Route::get('/unitkerja/data', [UnitKerjaController::class, 'getdata'])->name('master.unitkerja.data');
         Route::get('/unitkerja/{id}', [UnitKerjaController::class, 'show'])->name('master.unitkerja.show');
@@ -121,13 +121,13 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::post('/unitkerja/togglelock', [UnitKerjaController::class, 'toggleLock'])->name('master.unitkerja.togglelock');
     });
 
-    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/plotting-unitkerja', [PlottingUnitKerjaController::class, 'index'])->name('plotting.unitkerja');
         Route::get('/plotting-unitkerja/data', [PlottingUnitKerjaController::class, 'getdata'])->name('plotting.unitkerja.data');
         Route::post('/plotting-unitkerja/update', [PlottingUnitKerjaController::class, 'updateUnit'])->name('plotting.unitkerja.update');
     });
 
-    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('kelompokjam', [KelompokJamController::class, 'index'])->name('master.kelompokjam');
         Route::get('kelompokjam/data', [KelompokJamController::class, 'getdata'])->name('master.kelompokjam.data');
         Route::post('kelompokjam/store', [KelompokJamController::class, 'store'])->name('master.kelompokjam.store');
@@ -135,14 +135,14 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('kelompokjam/{id}', [KelompokJamController::class, 'destroy']);
     });
 
-    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('jadwal', [JadwalController::class, 'index'])->name('master.jadwal');
         Route::get('jadwal/pegawai', [JadwalController::class, 'getPegawai'])->name('master.jadwal.pegawai');
         Route::post('jadwal/update', [JadwalController::class, 'updateShift'])->name('master.jadwal.update');
         Route::post('jadwal/generate', [JadwalController::class, 'generateOtomatis'])->name('master.jadwal.generate');
     });
 
-    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('master')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('gaji', [MasterGajiController::class, 'index'])->name('master.gaji');
         Route::get('gaji/pegawai', [MasterGajiController::class, 'getPegawai'])->name('master.gaji.pegawai');
         Route::get('gaji/riwayat/{nik}', [MasterGajiController::class, 'riwayat'])->name('master.gaji.riwayat');
@@ -151,7 +151,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::put('gaji/{id}', [MasterGajiController::class, 'update'])->name('master.gaji.update');
     });
 
-    Route::prefix('hris')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('hris')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/absensi', [AbsensiController::class, 'index'])->name('hris.absensi');
         Route::get('/absensi/getdata', [AbsensiController::class, 'getAbsensiData'])->name('hris.absensi.getdata');
         Route::get('pengajuan-izin', [PengajuanIzinController::class, 'index'])->name('hris.pengajuanizin');
@@ -189,16 +189,21 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Laporan
-    Route::prefix('laporan')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('laporan')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/bookings', [LaporanController::class, 'bookings'])->name('laporan.bookings');
         Route::get('/penjualan', [LaporanController::class, 'penjualan'])->name('laporan.penjualan');
         Route::get('/export-bookings-pdf', [LaporanController::class, 'exportBookingsPDF'])->name('laporan.export.bookings.pdf');
         Route::get('/export-penjualan-pdf', [LaporanController::class, 'exportPenjualanPDF'])->name('laporan.export.penjualan.pdf');
         Route::get('/statistics', [LaporanController::class, 'getStatistics'])->name('laporan.statistics');
+
+        Route::get('/neraca-saldo', [LaporanController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
+        Route::get('/neraca-saldo/data', [LaporanController::class, 'neracaSaldoData'])->name('laporan.neraca-saldo.data');
+        Route::post('/neraca-saldo/export-excel', [LaporanController::class, 'exportNeracaSaldoExcel'])->name('laporan.neraca-saldo.export-excel');
+        Route::post('/neraca-saldo/print', [LaporanController::class, 'printNeracaSaldo'])->name('laporan.neraca-saldo.print');
     });
 
     // Companies
-    Route::prefix('companies')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('companies')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [CompanyController::class, 'index'])->name('companies.index');
         Route::post('/store', [CompanyController::class, 'store'])->name('companies.store');
         Route::get('/{id}', [CompanyController::class, 'show'])->name('companies.show');
@@ -210,7 +215,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('/projects/{id}/edit', [CompanyController::class, 'editProject'])->name('companies.projects.edit');
     });
 
-    Route::prefix('coas')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('coas')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [CoaController::class, 'index'])->name('coas.index');
         Route::get('/getdata', [CoaController::class, 'getData'])->name('coas.getdata');
         Route::post('/store', [CoaController::class, 'store'])->name('coas.store');
@@ -219,7 +224,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('/{coa}', [CoaController::class, 'destroy'])->name('coas.destroy');
     });
 
-    Route::prefix('kodetransaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('kodetransaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [KodetransaksiController::class,'index'])->name('kodetransaksi.index');
         Route::get('/data', [KodetransaksiController::class,'getData'])->name('kodetransaksi.data');
 
@@ -232,7 +237,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::patch('/{id}/update-field', [KodetransaksiController::class,'updateField'])->name('kodetransaksi.updateField');
     });
 
-    Route::prefix('transaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('transaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
 
         // === TRANSAKSI PROJECT ===
         Route::prefix('project')->group(function() {
@@ -284,7 +289,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Routes untuk pending pembayaran dan piutang
-    Route::prefix('pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
 
         Route::get('/pembayaran', [PendingPiutangController::class, 'pendingPembayaran'])->name('pending.pembayaran');
         Route::get('/piutang', [PendingPiutangController::class, 'piutang'])->name('pending.piutang');
@@ -304,7 +309,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Routes untuk pending pembayaran dan piutang company
-    Route::prefix('company/pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('company/pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/pembayaran', [CompanyPendingPiutangController::class, 'pendingPembayaranCompany'])->name('company.pending.pembayaran');
         Route::get('/piutang', [CompanyPendingPiutangController::class, 'piutangCompany'])->name('company.pending.piutang');
         
@@ -325,14 +330,14 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     Route::get('/rekening/{id}/saldo', [RekeningController::class,'getSaldo']);
 
     // Rekening
-    Route::prefix('rekening')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('rekening')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [RekeningController::class, 'index'])->name('rekening.index');
         Route::post('/store', [RekeningController::class, 'store'])->name('rekening.store');
         Route::get('/{id}/edit', [RekeningController::class, 'edit'])->name('rekening.edit');
         Route::delete('/{id}', [RekeningController::class, 'destroy'])->name('rekening.destroy');
     });
 
-    Route::prefix('vendors')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt','global.app'])->group(function () {
+    Route::prefix('vendors')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing','global.app'])->group(function () {
         Route::get('/', [VendorController::class, 'index'])->name('vendors.index');
         Route::get('/getdata', [VendorController::class, 'getData'])->name('vendors.getdata');
         Route::post('/store', [VendorController::class, 'store'])->name('vendors.store');
@@ -342,14 +347,14 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // User Projects
-    Route::prefix('user-projects')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('user-projects')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [UserProjectController::class, 'index'])->name('user-projects.index');
         Route::post('/toggle', [UserProjectController::class, 'toggle'])->name('user-projects.toggle');
         Route::get('/{userId}', [UserProjectController::class, 'getUserProjects']);
     });
 
     // Units
-    Route::prefix('units')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('units')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [UnitController::class, 'index'])->name('units.index');
         Route::get('/getdata', [UnitController::class, 'getData'])->name('units.getdata');
         Route::post('/store', [UnitController::class, 'store'])->name('units.store');
@@ -367,7 +372,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Customers
-    Route::prefix('customers')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('customers')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
         Route::get('/getdata', [CustomerController::class, 'getData'])->name('customers.getdata');
         Route::post('/store', [CustomerController::class, 'store'])->name('customers.store');
@@ -379,7 +384,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     });
 
     // Setting
-    Route::prefix('setting')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt', 'global.app'])->group(function () {
+    Route::prefix('setting')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [SettingController::class, 'index'])->name('setting.index');
         Route::post('/', [SettingController::class, 'update'])->name('setting.update');
     });

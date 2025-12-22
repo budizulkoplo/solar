@@ -59,67 +59,83 @@
             </div>
 
             <!-- Statistics Cards -->
-            <div class="row mb-4" id="statsCards">
+            <div class="row mb-3 align-items-stretch" id="statsCards">
+
+                <!-- Total Penjualan -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-primary bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-primary bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Total Penjualan</h6>
                                     <h4 class="mb-0" id="totalPenjualan">0</h4>
                                 </div>
-                                <div class="bg-primary rounded-circle p-2">
-                                    <i class="bi bi-cart-check text-white"></i>
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-cart-check fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Total Harga Jual -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-success bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-success bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Total Harga Jual</h6>
                                     <h4 class="mb-0 text-success" id="totalHargaJual">Rp 0</h4>
                                 </div>
-                                <div class="bg-success rounded-circle p-2">
-                                    <i class="bi bi-currency-dollar text-white"></i>
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-currency-dollar fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Total DP -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-info bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-info bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Total DP</h6>
                                     <h4 class="mb-0 text-info" id="totalDp">Rp 0</h4>
                                 </div>
-                                <div class="bg-info rounded-circle p-2">
-                                    <i class="bi bi-cash-coin text-white"></i>
+                                <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-cash-coin fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Cash vs Kredit -->
                 <div class="col-md-3 col-sm-6 mb-2">
-                    <div class="card border-0 bg-warning bg-opacity-10 shadow-sm">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="card border-0 bg-warning bg-opacity-10 shadow-sm h-100">
+                        <div class="card-body py-2 d-flex align-items-center">
+                            <div class="d-flex justify-content-between align-items-center w-100">
                                 <div>
                                     <h6 class="mb-0">Cash vs Kredit</h6>
-                                    <h6 class="mb-0"><span id="cashSales">0</span> / <span id="creditSales">0</span></h6>
+                                    <h6 class="mb-0">
+                                        <span id="cashSales">0</span> /
+                                        <span id="creditSales">0</span>
+                                    </h6>
                                 </div>
-                                <div class="bg-warning rounded-circle p-2">
-                                    <i class="bi bi-pie-chart text-dark"></i>
+                                <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:42px; height:42px;">
+                                    <i class="bi bi-pie-chart fs-5"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
             </div>
 
             <!-- Data Table -->
