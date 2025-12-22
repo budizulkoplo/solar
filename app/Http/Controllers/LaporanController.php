@@ -23,7 +23,9 @@ use App\Models\UnitDetail;
 use App\Models\Customer;
 use App\Models\Project;
 use App\Models\Unit;
+use App\Models\KodeTransaksi;
 use Yajra\DataTables\Facades\DataTables;
+
 
 class LaporanController extends Controller
 {
@@ -1149,5 +1151,580 @@ class LaporanController extends Controller
                 ]
             ]
         ]);
+    }
+
+    public function neracaSaldo()
+    {
+        $startDate = now()->startOfMonth()->format('Y-m-d');
+        $endDate = now()->endOfMonth()->format('Y-m-d');
+        $module = session('active_project_module');
+        
+        return view('transaksi.laporan.neraca_saldo', compact('startDate', 'endDate', 'module'));
+    }
+
+    /**
+     * Get data Neraca Saldo (Trial Balance)
+     */
+    public function neracaSaldoData(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        
+        // Validasi input
+        if (empty($startDate) || empty($endDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tanggal awal dan akhir harus diisi'
+            ], 400);
+        }
+
+        try {
+            if ($module == 'project') {
+                $data = $this->getNeracaSaldoProject($startDate, $endDate);
+            } elseif ($module == 'company') {
+                $data = $this->getNeracaSaldoCompany($startDate, $endDate);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Module tidak dikenali'
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $data['accounts'],
+                'summary' => $data['summary'],
+                'period' => [
+                    'start' => $startDate,
+                    'end' => $endDate,
+                    'module' => $module
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error generating neraca saldo:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get Neraca Saldo untuk Project
+     */
+    private function getNeracaSaldoProject($startDate, $endDate)
+    {
+        $projectId = session('active_project_id');
+        
+        if (!$projectId) {
+            throw new \Exception('Project ID tidak ditemukan');
+        }
+
+        // Ambil semua kode transaksi (COA)
+        $coaList = KodeTransaksi::orderBy('kodetransaksi')->get();
+
+        $accounts = [];
+        $totalDebit = 0;
+        $totalKredit = 0;
+
+        foreach ($coaList as $coa) {
+            // Hitung total debit dan kredit per COA
+            $transactions = NotaTransaction::select([
+                    'nota_transactions.total',
+                    'notas.cashflow',
+                    'kodetransaksi.kodetransaksi',
+                    DB::raw('CASE 
+                        WHEN (kodetransaksi.transaksi = "pendapatan" OR kodetransaksi.kodetransaksi LIKE "4%") 
+                        AND notas.cashflow = "in" THEN "kredit"
+                        WHEN (kodetransaksi.transaksi = "pendapatan" OR kodetransaksi.kodetransaksi LIKE "4%") 
+                        AND notas.cashflow = "out" THEN "debit"
+                        WHEN (kodetransaksi.transaksi = "beban" OR kodetransaksi.kodetransaksi LIKE "5%") 
+                        AND notas.cashflow = "out" THEN "debit"
+                        WHEN (kodetransaksi.transaksi = "beban" OR kodetransaksi.kodetransaksi LIKE "5%") 
+                        AND notas.cashflow = "in" THEN "kredit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        AND notas.cashflow = "in" THEN "debit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        AND notas.cashflow = "out" THEN "kredit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
+                        AND notas.cashflow = "out" THEN "debit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
+                        AND notas.cashflow = "in" THEN "kredit"
+                        ELSE "debit"
+                    END as position')
+                ])
+                ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+                ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+                ->where('notas.idproject', $projectId)
+                ->where('notas.status', 'paid')
+                ->whereBetween('notas.tanggal', [$startDate, $endDate])
+                ->where('nota_transactions.idkodetransaksi', $coa->id)
+                ->get();
+
+            $debit = 0;
+            $kredit = 0;
+
+            foreach ($transactions as $trans) {
+                if ($trans->position == 'debit') {
+                    $debit += $trans->total;
+                } else {
+                    $kredit += $trans->total;
+                }
+            }
+
+            // Hanya tampilkan akun yang memiliki transaksi
+            if ($debit > 0 || $kredit > 0) {
+                $accounts[] = [
+                    'kode' => $coa->kodetransaksi,
+                    'nama_akun' => $coa->transaksi,
+                    'jenis' => $coa->transaksi ?? 'lainnya',
+                    'debit' => number_format($debit, 0, ',', '.'),
+                    'kredit' => number_format($kredit, 0, ',', '.'),
+                    'debit_raw' => $debit,
+                    'kredit_raw' => $kredit
+                ];
+
+                $totalDebit += $debit;
+                $totalKredit += $kredit;
+            }
+        }
+
+        // Tambahkan saldo rekening (Aset)
+        $rekenings = $this->getSaldoRekeningProject($projectId);
+        
+        foreach ($rekenings as $rekening) {
+            if ($rekening['saldo_raw'] != 0) {
+                $position = $rekening['saldo_raw'] > 0 ? 'debit' : 'kredit';
+                $debitAmount = $position == 'debit' ? abs($rekening['saldo_raw']) : 0;
+                $kreditAmount = $position == 'kredit' ? abs($rekening['saldo_raw']) : 0;
+                
+                $accounts[] = [
+                    'kode' => '1' . str_pad($rekening['id'], 3, '0', STR_PAD_LEFT),
+                    'nama_akun' => 'Kas/Bank - ' . $rekening['nama'],
+                    'jenis' => 'aset',
+                    'debit' => number_format($debitAmount, 0, ',', '.'),
+                    'kredit' => number_format($kreditAmount, 0, ',', '.'),
+                    'debit_raw' => $debitAmount,
+                    'kredit_raw' => $kreditAmount,
+                    'is_rekening' => true
+                ];
+
+                $totalDebit += $debitAmount;
+                $totalKredit += $kreditAmount;
+            }
+        }
+
+        // Urutkan berdasarkan kode akun
+        usort($accounts, function($a, $b) {
+            return strcmp($a['kode'], $b['kode']);
+        });
+
+        return [
+            'accounts' => $accounts,
+            'summary' => [
+                'total_debit' => number_format($totalDebit, 0, ',', '.'),
+                'total_kredit' => number_format($totalKredit, 0, ',', '.'),
+                'total_debit_raw' => $totalDebit,
+                'total_kredit_raw' => $totalKredit,
+                'balance' => $totalDebit == $totalKredit,
+                'difference' => number_format(abs($totalDebit - $totalKredit), 0, ',', '.'),
+                'total_accounts' => count($accounts)
+            ]
+        ];
+    }
+
+    /**
+     * Get saldo rekening untuk project
+     */
+    private function getSaldoRekeningProject($projectId)
+    {
+        $companyId = session('active_company_id');
+        
+        $rekenings = DB::table('rekening')
+            ->select([
+                'rekening.idrek as id',
+                'rekening.norek',
+                'rekening.namarek as nama',
+                'rekening.saldo',
+                DB::raw('CASE 
+                    WHEN rekening.idproject IS NOT NULL THEN "project" 
+                    ELSE "company" 
+                END as rekening_type')
+            ])
+            ->where(function($query) use ($projectId, $companyId) {
+                $query->where('rekening.idproject', $projectId)
+                      ->orWhere(function($q) use ($companyId) {
+                          $q->whereNull('rekening.idproject')
+                            ->where('rekening.idcompany', $companyId);
+                      });
+            })
+            ->orderBy('rekening_type', 'desc')
+            ->orderBy('rekening.namarek')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'norek' => $item->norek,
+                    'nama' => $item->nama,
+                    'saldo' => number_format($item->saldo, 0, ',', '.'),
+                    'saldo_raw' => $item->saldo,
+                    'type' => $item->rekening_type
+                ];
+            })
+            ->toArray();
+
+        return $rekenings;
+    }
+
+    /**
+     * Get Neraca Saldo untuk Company (PT)
+     */
+    private function getNeracaSaldoCompany($startDate, $endDate)
+    {
+        $companyId = session('active_company_id');
+        
+        if (!$companyId) {
+            throw new \Exception('Company ID tidak ditemukan');
+        }
+
+        // Ambil semua kode transaksi (COA)
+        $coaList = KodeTransaksi::orderBy('kodetransaksi')->get();
+
+        $accounts = [];
+        $totalDebit = 0;
+        $totalKredit = 0;
+
+        // Ambil semua project dalam company
+        $projects = DB::table('projects')
+            ->where('idcompany', $companyId)
+            ->pluck('id');
+
+        foreach ($coaList as $coa) {
+            // Hitung total debit dan kredit per COA untuk semua project
+            $transactions = NotaTransaction::select([
+                    'nota_transactions.total',
+                    'notas.cashflow',
+                    'kodetransaksi.kodetransaksi',
+                    DB::raw('CASE 
+                        WHEN (kodetransaksi.transaksi = "pendapatan" OR kodetransaksi.kodetransaksi LIKE "4%") 
+                        AND notas.cashflow = "in" THEN "kredit"
+                        WHEN (kodetransaksi.transaksi = "pendapatan" OR kodetransaksi.kodetransaksi LIKE "4%") 
+                        AND notas.cashflow = "out" THEN "debit"
+                        WHEN (kodetransaksi.transaksi = "beban" OR kodetransaksi.kodetransaksi LIKE "5%") 
+                        AND notas.cashflow = "out" THEN "debit"
+                        WHEN (kodetransaksi.transaksi = "beban" OR kodetransaksi.kodetransaksi LIKE "5%") 
+                        AND notas.cashflow = "in" THEN "kredit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        AND notas.cashflow = "in" THEN "debit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        AND notas.cashflow = "out" THEN "kredit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
+                        AND notas.cashflow = "out" THEN "debit"
+                        WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
+                        AND notas.cashflow = "in" THEN "kredit"
+                        ELSE "debit"
+                    END as position')
+                ])
+                ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+                ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+                ->whereIn('notas.idproject', $projects)
+                ->where('notas.status', 'paid')
+                ->whereBetween('notas.tanggal', [$startDate, $endDate])
+                ->where('nota_transactions.idkodetransaksi', $coa->id)
+                ->get();
+
+            $debit = 0;
+            $kredit = 0;
+
+            foreach ($transactions as $trans) {
+                if ($trans->position == 'debit') {
+                    $debit += $trans->total;
+                } else {
+                    $kredit += $trans->total;
+                }
+            }
+
+            // Hanya tampilkan akun yang memiliki transaksi
+            if ($debit > 0 || $kredit > 0) {
+                $accounts[] = [
+                    'kode' => $coa->kodetransaksi,
+                    'nama_akun' => $coa->transaksi,
+                    'jenis' => $coa->transaksi ?? 'lainnya',
+                    'debit' => number_format($debit, 0, ',', '.'),
+                    'kredit' => number_format($kredit, 0, ',', '.'),
+                    'debit_raw' => $debit,
+                    'kredit_raw' => $kredit
+                ];
+
+                $totalDebit += $debit;
+                $totalKredit += $kredit;
+            }
+        }
+
+        // Tambahkan saldo rekening PT (Aset)
+        $rekenings = $this->getSaldoRekeningCompany($companyId);
+        
+        foreach ($rekenings as $rekening) {
+            if ($rekening['saldo_raw'] != 0) {
+                $position = $rekening['saldo_raw'] > 0 ? 'debit' : 'kredit';
+                $debitAmount = $position == 'debit' ? abs($rekening['saldo_raw']) : 0;
+                $kreditAmount = $position == 'kredit' ? abs($rekening['saldo_raw']) : 0;
+                
+                $accounts[] = [
+                    'kode' => '1' . str_pad($rekening['id'], 3, '0', STR_PAD_LEFT),
+                    'nama_akun' => 'Kas/Bank PT - ' . $rekening['nama'],
+                    'jenis' => 'aset',
+                    'debit' => number_format($debitAmount, 0, ',', '.'),
+                    'kredit' => number_format($kreditAmount, 0, ',', '.'),
+                    'debit_raw' => $debitAmount,
+                    'kredit_raw' => $kreditAmount,
+                    'is_rekening' => true
+                ];
+
+                $totalDebit += $debitAmount;
+                $totalKredit += $kreditAmount;
+            }
+        }
+
+        // Urutkan berdasarkan kode akun
+        usort($accounts, function($a, $b) {
+            return strcmp($a['kode'], $b['kode']);
+        });
+
+        return [
+            'accounts' => $accounts,
+            'summary' => [
+                'total_debit' => number_format($totalDebit, 0, ',', '.'),
+                'total_kredit' => number_format($totalKredit, 0, ',', '.'),
+                'total_debit_raw' => $totalDebit,
+                'total_kredit_raw' => $totalKredit,
+                'balance' => $totalDebit == $totalKredit,
+                'difference' => number_format(abs($totalDebit - $totalKredit), 0, ',', '.'),
+                'total_accounts' => count($accounts),
+                'total_projects' => count($projects)
+            ]
+        ];
+    }
+
+    /**
+     * Get saldo rekening untuk company
+     */
+    private function getSaldoRekeningCompany($companyId)
+    {
+        $rekenings = DB::table('rekening')
+            ->select([
+                'rekening.idrek as id',
+                'rekening.norek',
+                'rekening.namarek as nama',
+                'rekening.saldo'
+            ])
+            ->where('rekening.idcompany', $companyId)
+            ->whereNull('rekening.idproject')
+            ->orderBy('rekening.namarek')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'norek' => $item->norek,
+                    'nama' => $item->nama,
+                    'saldo' => number_format($item->saldo, 0, ',', '.'),
+                    'saldo_raw' => $item->saldo
+                ];
+            })
+            ->toArray();
+
+        return $rekenings;
+    }
+
+    /**
+     * Export Neraca Saldo ke Excel
+     */
+    public function exportNeracaSaldoExcel(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        
+        try {
+            if ($module == 'project') {
+                $data = $this->getNeracaSaldoProject($startDate, $endDate);
+                $title = 'Neraca Saldo Project';
+            } elseif ($module == 'company') {
+                $data = $this->getNeracaSaldoCompany($startDate, $endDate);
+                $title = 'Neraca Saldo PT/Company';
+            } else {
+                return response()->back()->with('error', 'Module tidak dikenali');
+            }
+
+            // Generate Excel
+            return $this->generateExcelNeracaSaldo($data, $title, $startDate, $endDate);
+
+        } catch (\Exception $e) {
+            \Log::error('Error exporting neraca saldo:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->back()->with('error', 'Gagal export: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate Excel file for Neraca Saldo
+     */
+    private function generateExcelNeracaSaldo($data, $title, $startDate, $endDate)
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        
+        // Set title and headers
+        $sheet->setCellValue('A1', $title);
+        $sheet->setCellValue('A2', 'Periode: ' . Carbon::parse($startDate)->format('d/m/Y') . ' - ' . Carbon::parse($endDate)->format('d/m/Y'));
+        
+        $sheet->setCellValue('A4', 'Kode Akun');
+        $sheet->setCellValue('B4', 'Nama Akun');
+        $sheet->setCellValue('C4', 'Debit');
+        $sheet->setCellValue('D4', 'Kredit');
+        
+        // Style for headers
+        $headerStyle = [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFE0E0E0']
+            ],
+            'borders' => [
+                'allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]
+            ]
+        ];
+        
+        $sheet->getStyle('A4:D4')->applyFromArray($headerStyle);
+        
+        // Fill data
+        $row = 5;
+        foreach ($data['accounts'] as $account) {
+            $sheet->setCellValue('A' . $row, $account['kode']);
+            $sheet->setCellValue('B' . $row, $account['nama_akun']);
+            $sheet->setCellValue('C' . $row, $account['debit_raw']);
+            $sheet->setCellValue('D' . $row, $account['kredit_raw']);
+            
+            // Format numbers
+            $sheet->getStyle('C' . $row . ':D' . $row)->getNumberFormat()
+                ->setFormatCode('#,##0');
+            
+            $row++;
+        }
+        
+        // Add totals
+        $totalRow = $row + 1;
+        $sheet->setCellValue('B' . $totalRow, 'TOTAL');
+        $sheet->setCellValue('C' . $totalRow, $data['summary']['total_debit_raw']);
+        $sheet->setCellValue('D' . $totalRow, $data['summary']['total_kredit_raw']);
+        
+        $totalStyle = [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFD9EAD3']
+            ],
+            'borders' => [
+                'top' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE],
+                'bottom' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE]
+            ]
+        ];
+        
+        $sheet->getStyle('B' . $totalRow . ':D' . $totalRow)->applyFromArray($totalStyle);
+        $sheet->getStyle('C' . $totalRow . ':D' . $totalRow)->getNumberFormat()
+            ->setFormatCode('#,##0');
+        
+        // Auto size columns
+        foreach (range('A', 'D') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+        
+        // Add balance status
+        $statusRow = $totalRow + 1;
+        $status = $data['summary']['balance'] ? 'SEIMBANG' : 'TIDAK SEIMBANG';
+        $statusColor = $data['summary']['balance'] ? '00FF00' : 'FF0000';
+        
+        $sheet->setCellValue('B' . $statusRow, 'Status:');
+        $sheet->setCellValue('C' . $statusRow, $status);
+        $sheet->mergeCells('C' . $statusRow . ':D' . $statusRow);
+        
+        $statusStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['argb' => 'FF' . $statusColor]
+            ]
+        ];
+        $sheet->getStyle('C' . $statusRow)->applyFromArray($statusStyle);
+        
+        if (!$data['summary']['balance']) {
+            $diffRow = $statusRow + 1;
+            $sheet->setCellValue('B' . $diffRow, 'Selisih:');
+            $sheet->setCellValue('C' . $diffRow, $data['summary']['difference']);
+            $sheet->getStyle('C' . $diffRow)->getNumberFormat()
+                ->setFormatCode('#,##0');
+        }
+        
+        // Save file
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = 'neraca-saldo-' . date('Y-m-d') . '.xlsx';
+        
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        
+        $writer->save('php://output');
+        exit;
+    }
+
+    /**
+     * Print Neraca Saldo
+     */
+    public function printNeracaSaldo(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        
+        try {
+            if ($module == 'project') {
+                $data = $this->getNeracaSaldoProject($startDate, $endDate);
+                $title = 'Neraca Saldo Project';
+            } elseif ($module == 'company') {
+                $data = $this->getNeracaSaldoCompany($startDate, $endDate);
+                $title = 'Neraca Saldo PT/Company';
+            } else {
+                return response()->back()->with('error', 'Module tidak dikenali');
+            }
+
+            $viewData = [
+                'accounts' => $data['accounts'],
+                'summary' => $data['summary'],
+                'title' => $title,
+                'start_date' => Carbon::parse($startDate)->format('d/m/Y'),
+                'end_date' => Carbon::parse($endDate)->format('d/m/Y'),
+                'print_date' => Carbon::now()->format('d/m/Y H:i:s')
+            ];
+
+            $pdf = \PDF::loadView('transaksi.laporan.pdf.neraca_saldo', $viewData);
+            
+            return $pdf->stream('neraca-saldo-' . date('Y-m-d') . '.pdf');
+
+        } catch (\Exception $e) {
+            \Log::error('Error printing neraca saldo:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->back()->with('error', 'Gagal print: ' . $e->getMessage());
+        }
     }
 }
