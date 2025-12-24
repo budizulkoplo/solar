@@ -18,4 +18,34 @@ class Presensi extends Model
         'foto_in',
         'lokasi'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Scope untuk filter berdasarkan user
+     */
+    public function scopeByUser($query, $userId)
+    {
+        return $query->where('user_id', $userId);
+    }
+
+    /**
+     * Scope untuk filter berdasarkan tanggal
+     */
+    public function scopeByDate($query, $date)
+    {
+        return $query->whereDate('tanggal', $date);
+    }
+
+    /**
+     * Scope untuk filter berdasarkan bulan
+     */
+    public function scopeByMonth($query, $year, $month)
+    {
+        return $query->whereYear('tanggal', $year)
+                    ->whereMonth('tanggal', $month);
+    }
 }

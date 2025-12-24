@@ -39,6 +39,8 @@ use App\Http\Controllers\PTController;
 use App\Http\Controllers\PendingPiutangController;
 use App\Http\Controllers\CompanyPendingPiutangController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\PindahBukuController;
+use App\Http\Controllers\PembiayaanController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -284,6 +286,59 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             Route::get('rekening/{id}/saldo', [PTController::class,'saldoRekening'])->name('transaksi.pt.rekening.saldo');
             // get update logs
             Route::get('{id}/logs', [PTController::class,'getUpdateLogs'])->name('transaksi.pt.logs');
+        });
+
+        // === TRANSAKSI PINDAH BUKU ===
+        Route::prefix('pindah-buku')->group(function() {
+            // halaman list
+            Route::get('/',  [PindahBukuController::class,'index'])->name('transaksi.pindahbuku.index');
+
+            // datatables
+            Route::get('getdata', [PindahBukuController::class,'getdata'])->name('transaksi.pindahbuku.getdata');
+
+            // CRUD operations
+            Route::post('store', [PindahBukuController::class,'store'])->name('transaksi.pindahbuku.store');
+            Route::get('{id}', [PindahBukuController::class,'show'])->name('transaksi.pindahbuku.show');
+            Route::get('{id}/edit', [PindahBukuController::class,'edit'])->name('transaksi.pindahbuku.edit');
+            Route::put('{id}', [PindahBukuController::class,'update'])->name('transaksi.pindahbuku.update');
+            Route::delete('{id}', [PindahBukuController::class,'destroy'])->name('transaksi.pindahbuku.destroy');
+
+            // ambil saldo rekening
+            Route::get('rekening/{id}/saldo', [PindahBukuController::class,'saldoRekening'])
+                ->name('transaksi.pindahbuku.rekening.saldo');
+        });
+
+        // === PEMBIAYAAN ===
+        Route::prefix('pembiayaan')->group(function() {
+            Route::get('/', [PembiayaanController::class, 'index'])
+                ->name('transaksi.pembiayaan.index');
+
+            // /pembiayaan/company | /pembiayaan/project
+            Route::get('/{type}', [PembiayaanController::class, 'index'])
+                ->whereIn('type', ['company', 'project'])
+                ->name('transaksi.pembiayaan.type');
+            
+            // datatables
+            Route::get('getdata/{type}', [PembiayaanController::class,'getdata'])->name('transaksi.pembiayaan.getdata');
+
+            // CRUD operations
+            Route::get('create/{type}', [PembiayaanController::class,'create'])->name('transaksi.pembiayaan.create');
+            Route::post('store', [PembiayaanController::class,'store'])->name('transaksi.pembiayaan.store');
+            Route::get('{id}', [PembiayaanController::class,'show'])->name('transaksi.pembiayaan.show');
+            Route::get('{id}/edit', [PembiayaanController::class,'edit'])->name('transaksi.pembiayaan.edit');
+            Route::put('{id}', [PembiayaanController::class,'update'])->name('transaksi.pembiayaan.update');
+            Route::delete('{id}', [PembiayaanController::class,'destroy'])->name('transaksi.pembiayaan.destroy');
+
+            // action operations
+            Route::post('{id}/approve', [PembiayaanController::class,'approve'])->name('transaksi.pembiayaan.approve');
+            Route::post('{id}/reject', [PembiayaanController::class,'reject'])->name('transaksi.pembiayaan.reject');
+            Route::post('{id}/complete', [PembiayaanController::class,'complete'])->name('transaksi.pembiayaan.complete');
+
+            // utilities
+            Route::get('rekening/{id}/saldo', [PembiayaanController::class,'saldoRekening'])
+                ->name('transaksi.pembiayaan.rekening.saldo');
+            Route::get('projects', [PembiayaanController::class,'getProjects'])
+                ->name('transaksi.pembiayaan.projects');
         });
 
     });

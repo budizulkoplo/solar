@@ -754,10 +754,10 @@ class AdminDashboardController extends Controller
      */
     private function dashboardHRIS()
     {
-        $companyId = session('active_company_id');
+        $companyId = session('active_project_module');
         
         if (!$companyId) {
-            return redirect()->route('project.choose')
+            return redirect()->route('choose.project')
                 ->with('error', 'Silakan pilih PT terlebih dahulu.');
         }
         
@@ -1457,10 +1457,10 @@ class AdminDashboardController extends Controller
 
     private function dashboardMarketing()
     {
-        $companyId = session('active_company_id');
+        $companyId = session('active_project_module');
         
         if (!$companyId) {
-            return redirect()->route('project.choose')
+            return redirect()->route('choose.project')
                 ->with('error', 'Silakan pilih PT terlebih dahulu.');
         }
         
