@@ -965,4 +965,24 @@ class PembiayaanController extends Controller
         
         return $changes;
     }
+
+    public function getSetoranHistory($id)
+{
+    try {
+        $pembiayaan = Pembiayaan::with(['setorans' => function($query) {
+            $query->orderBy('tanggal', 'desc')
+                  ->orderBy('created_at', 'desc');
+        }])->findOrFail($id);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $pembiayaan->setorans
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal memuat riwayat setoran'
+        ], 500);
+    }
+}
 }
