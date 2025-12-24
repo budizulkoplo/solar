@@ -319,26 +319,36 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
                 ->name('transaksi.pembiayaan.type');
             
             // datatables
-            Route::get('getdata/{type}', [PembiayaanController::class,'getdata'])->name('transaksi.pembiayaan.getdata');
+            Route::get('getdata/{type}', [PembiayaanController::class,'getdata'])
+                ->name('transaksi.pembiayaan.getdata');
 
             // CRUD operations
-            Route::get('create/{type}', [PembiayaanController::class,'create'])->name('transaksi.pembiayaan.create');
-            Route::post('store', [PembiayaanController::class,'store'])->name('transaksi.pembiayaan.store');
-            Route::get('{id}', [PembiayaanController::class,'show'])->name('transaksi.pembiayaan.show');
-            Route::get('{id}/edit', [PembiayaanController::class,'edit'])->name('transaksi.pembiayaan.edit');
-            Route::put('{id}', [PembiayaanController::class,'update'])->name('transaksi.pembiayaan.update');
-            Route::delete('{id}', [PembiayaanController::class,'destroy'])->name('transaksi.pembiayaan.destroy');
+            Route::get('create/{type}', [PembiayaanController::class,'create'])
+                ->name('transaksi.pembiayaan.create');
+            Route::post('store', [PembiayaanController::class,'store'])
+                ->name('transaksi.pembiayaan.store');
+            Route::get('{id}', [PembiayaanController::class,'show'])
+                ->name('transaksi.pembiayaan.show');
+            Route::get('{id}/edit', [PembiayaanController::class,'edit'])
+                ->name('transaksi.pembiayaan.edit');
+            Route::put('{id}', [PembiayaanController::class,'update'])
+                ->name('transaksi.pembiayaan.update');
+            Route::delete('{id}', [PembiayaanController::class,'destroy'])
+                ->name('transaksi.pembiayaan.destroy');
 
-            // action operations
-            Route::post('{id}/approve', [PembiayaanController::class,'approve'])->name('transaksi.pembiayaan.approve');
-            Route::post('{id}/reject', [PembiayaanController::class,'reject'])->name('transaksi.pembiayaan.reject');
-            Route::post('{id}/complete', [PembiayaanController::class,'complete'])->name('transaksi.pembiayaan.complete');
+            // Setoran operations
+            Route::get('{id}/setoran', [PembiayaanController::class,'getSetoran'])
+                ->name('transaksi.pembiayaan.setoran.get');
+            Route::post('{id}/setoran', [PembiayaanController::class,'storeSetoran'])
+                ->name('transaksi.pembiayaan.setoran.store');
+            Route::delete('{id}/setoran/{setoranId}', [PembiayaanController::class,'deleteSetoran'])
+                ->name('transaksi.pembiayaan.setoran.delete');
 
             // utilities
             Route::get('rekening/{id}/saldo', [PembiayaanController::class,'saldoRekening'])
                 ->name('transaksi.pembiayaan.rekening.saldo');
-            Route::get('projects', [PembiayaanController::class,'getProjects'])
-                ->name('transaksi.pembiayaan.projects');
+            Route::get('get-project-session', [PembiayaanController::class,'getProjectFromSession'])
+                ->name('transaksi.pembiayaan.project.session');
         });
 
     });

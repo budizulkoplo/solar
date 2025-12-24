@@ -1,4 +1,4 @@
-{{-- resources/views/transaksi/pembiayaan/index.blade.php --}}
+
 <x-app-layout>
     <x-slot name="pagetitle">Pembiayaan - {{ ucfirst($type) }} - {{ session('active_company_name') }}</x-slot>
 
@@ -8,21 +8,24 @@
                 <div class="col-md-6">
                     <h3 class="mb-0">
                         Pembiayaan {{ $type === 'company' ? 'Company' : 'Project' }}
+                        @if($type === 'project' && $projectName)
+                            <small class="text-success">- {{ $projectName }}</small>
+                        @endif
                     </h3>
                 </div>
                 <div class="col-md-6">
                     <div class="float-end">
                         <div class="btn-group">
-    <a href="{{ route('transaksi.pembiayaan.type', 'company') }}"
-       class="btn btn-sm btn-outline-primary {{ $type === 'company' ? 'active' : '' }}">
-        <i class="bi bi-building"></i> Company
-    </a>
+                            <a href="{{ route('transaksi.pembiayaan.type', 'company') }}"
+                               class="btn btn-sm btn-outline-primary {{ $type === 'company' ? 'active' : '' }}">
+                                <i class="bi bi-building"></i> Company
+                            </a>
 
-    <a href="{{ route('transaksi.pembiayaan.type', 'project') }}"
-       class="btn btn-sm btn-outline-success {{ $type === 'project' ? 'active' : '' }}">
-        <i class="bi bi-diagram-3"></i> Project
-    </a>
-</div>
+                            <a href="{{ route('transaksi.pembiayaan.type', 'project') }}"
+                               class="btn btn-sm btn-outline-success {{ $type === 'project' ? 'active' : '' }}">
+                                <i class="bi bi-diagram-3"></i> Project
+                            </a>
+                        </div>
 
                         <button class="btn btn-sm btn-primary ms-2" id="btnTambahPembiayaan">
                             <i class="bi bi-plus-circle"></i> Tambah Pembiayaan
@@ -35,34 +38,42 @@
 
     <div class="app-content">
         <div class="container-fluid">
-            <div class="card card-info card-outline mb-4">
-                <div class="card-header pt-1 pb-1">
-                    <div class="card-tools">
-                        <small class="text-muted">
-                            <i class="bi bi-info-circle"></i> 
-                            Pembiayaan akan menambah saldo rekening yang dipilih
-                        </small>
+            @if($type === 'project' && !$projectId)
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    Tidak ada project yang dipilih. Silakan pilih project terlebih dahulu.
+                </div>
+            @else
+                <div class="card card-info card-outline mb-4">
+                    <div class="card-header pt-1 pb-1">
+                        <div class="card-tools">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> 
+                                Pembiayaan langsung menambah saldo rekening (status: Completed)
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table id="tbPembiayaan" class="table table-sm table-striped w-100" style="font-size: small;">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">No</th>
+                                    <th>Kode</th>
+                                    <th>Judul</th>
+                                    <th>{{ $type === 'company' ? 'Company' : 'Project' }}</th>
+                                    <th class="text-center">Tanggal</th>
+                                    <th class="text-end">Nominal</th>
+                                    <th class="text-end">Terbayar</th>
+                                    <th class="text-end">Sisa</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center">User</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                        </table>
                     </div>
                 </div>
-                <div class="card-body">
-                    <table id="tbPembiayaan" class="table table-sm table-striped w-100" style="font-size: small;">
-                        <thead>
-                            <tr>
-                                <th class="text-center">No</th>
-                                <th>Kode</th>
-                                <th>Judul</th>
-                                <th>{{ $type === 'company' ? 'Company' : 'Project' }}</th>
-                                <th class="text-center">Tanggal</th>
-                                <th class="text-end">Nominal</th>
-                                <th class="text-center">Payment</th>
-                                <th class="text-center">Status</th>
-                                <th class="text-center">User</th>
-                                <th class="text-center">Aksi</th>
-                            </tr>
-                        </thead>
-                    </table>
-                </div>
-            </div>
+            @endif
         </div>
     </div>
 
@@ -75,6 +86,10 @@
                     <input type="hidden" name="id" id="idPembiayaan">
                     <input type="hidden" name="jenis" id="jenisPembiayaan" value="{{ $type }}">
                     
+                    @if($type === 'project')
+                        <input type="hidden" name="project_info" id="projectInfo">
+                    @endif
+                    
                     <div class="modal-header">
                         <h6 class="modal-title" id="modalPembiayaanTitle">
                             Form Pembiayaan {{ $type === 'company' ? 'Company' : 'Project' }}
@@ -84,45 +99,23 @@
 
                     <div class="modal-body">
                         <div class="row g-2">
+                            {{-- Info Project untuk type project --}}
+                            @if($type === 'project')
+                                <div class="col-md-12 mb-2">
+                                    <div class="alert alert-success py-1">
+                                        <i class="bi bi-diagram-3"></i> 
+                                        <strong>Project:</strong> 
+                                        <span id="projectNameDisplay">{{ $projectName ?? 'Belum dipilih' }}</span>
+                                    </div>
+                                </div>
+                            @endif
+
                             {{-- Judul --}}
-                            <div class="col-md-12">
+                            <div class="col-md-8">
                                 <label class="form-label">Judul Pembiayaan *</label>
                                 <input type="text" class="form-control form-control-sm" 
                                        name="judul" id="judul" required 
                                        placeholder="Contoh: Penyertaan Modal, Pinjaman Bank, dll">
-                            </div>
-
-                            {{-- Untuk Project: Pilih Project --}}
-                            <div class="col-md-12" id="projectField" style="{{ $type === 'company' ? 'display:none;' : '' }}">
-                                <label class="form-label">Project *</label>
-                                <select class="form-select form-select-sm select2" name="idproject" id="idproject" style="width:100%;">
-                                    <option value="">-- Pilih Project --</option>
-                                </select>
-                            </div>
-
-                            {{-- Rekening --}}
-                            <div class="col-md-8">
-                                <label class="form-label">Rekening Tujuan *</label>
-                                <select class="form-select form-select-sm select2" name="rekening_id" id="rekeningId" style="width:100%;" required>
-                                    <option value="">-- Pilih Rekening --</option>
-                                    @foreach(\App\Models\Rekening::where('idcompany', session('active_company_id'))->get() as $rek)
-                                        <option value="{{ $rek->idrek }}" data-saldo="{{ $rek->saldo }}">
-                                            {{ $rek->norek }} - {{ $rek->namarek }}
-                                            @if($rek->idproject)
-                                                (Project: {{ $rek->project ? $rek->project->nama_project : 'N/A' }})
-                                            @endif
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            {{-- Metode Pembayaran --}}
-                            <div class="col-md-4">
-                                <label class="form-label">Metode Pembayaran *</label>
-                                <select class="form-select form-select-sm" name="metode_pembayaran" id="metodePembayaran" required>
-                                    <option value="cash">Cash</option>
-                                    <option value="transfer">Transfer</option>
-                                </select>
                             </div>
 
                             {{-- Tanggal --}}
@@ -132,10 +125,26 @@
                                        name="tanggal" id="tanggalPembiayaan" required>
                             </div>
 
+                            {{-- Rekening --}}
+                            <div class="col-md-12">
+                                <label class="form-label">Rekening Tujuan *</label>
+                                <select class="form-select form-select-sm select2" name="rekening_id" id="rekeningId" style="width:100%;" required>
+                                    <option value="">-- Pilih Rekening --</option>
+                                    @foreach(\App\Models\Rekening::where('idcompany', session('active_company_id'))->get() as $rek)
+                                        <option value="{{ $rek->idrek }}" data-saldo="{{ $rek->saldo }}">
+                                            {{ $rek->norek }} - {{ $rek->namarek }}
+                                            @if($rek->idproject)
+                                                (Project: {{ $rek->project ? $rek->project->namaproject : 'N/A' }})
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
                             {{-- Nominal --}}
-                            <div class="col-md-8">
+                            <div class="col-md-12">
                                 <label class="form-label">Nominal *</label>
-                                <div class="input-group">
+                                <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
                                     <input type="number" class="form-control form-control-sm text-end" 
                                            name="nominal" id="nominal" min="1" required 
@@ -202,6 +211,14 @@
                                             </small>
                                         </div>
                                     </div>
+                                    <div class="row mt-1">
+                                        <div class="col-12">
+                                            <small class="text-success">
+                                                <i class="bi bi-info-circle"></i> 
+                                                <strong>Note:</strong> Pembiayaan akan langsung menambah saldo rekening
+                                            </small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -210,7 +227,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="submit" class="btn btn-primary" id="btnSubmit">
-                            <span class="submit-text">Simpan</span>
+                            <span class="submit-text">Simpan Pembiayaan</span>
                             <span class="loading-text" style="display:none;">
                                 <i class="bi bi-hourglass-split"></i> Memproses...
                             </span>
@@ -267,10 +284,6 @@
                                     <td id="viewNominal">-</td>
                                 </tr>
                                 <tr>
-                                    <th>Payment</th>
-                                    <td id="viewPayment">-</td>
-                                </tr>
-                                <tr>
                                     <th>Status</th>
                                     <td id="viewStatus">-</td>
                                 </tr>
@@ -281,6 +294,43 @@
                             </table>
                         </div>
                     </div>
+
+                    {{-- Summary Box --}}
+<div class="row g-2 mb-2">
+    <div class="col-md-4">
+        <div class="card border-success shadow-sm">
+            <div class="card-body text-center py-1 px-2">
+                <small class="text-success fw-semibold d-block">
+                    Total Pembiayaan
+                </small>
+                <span class="fw-bold" id="viewTotalNominal">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-primary shadow-sm">
+            <div class="card-body text-center py-1 px-2">
+                <small class="text-primary fw-semibold d-block">
+                    Total Terbayar
+                </small>
+                <span class="fw-bold" id="viewTotalTerbayar">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-warning shadow-sm">
+            <div class="card-body text-center py-1 px-2">
+                <small class="text-warning fw-semibold d-block">
+                    Sisa
+                </small>
+                <span class="fw-bold" id="viewSisa">-</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 
                     <div class="mb-3">
                         <strong>Deskripsi:</strong>
@@ -299,6 +349,27 @@
                         </div>
                     </div>
 
+                    {{-- History Setoran --}}
+                    <h6 class="mt-3">History Setoran</h6>
+                    <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-striped mb-0" id="tblSetoran">
+                            <thead>
+                                <tr>
+                                    <th>Kode Setoran</th>
+                                    <th>Tanggal</th>
+                                    <th class="text-end">Pokok</th>
+                                    <th class="text-end">Administrasi</th>
+                                    <th class="text-end">Margin</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data setoran akan ditampilkan di sini -->
+                            </tbody>
+                        </table>
+                    </div>
+
                     <h6 class="mt-3">Riwayat</h6>
                     <div id="viewLogContainer" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
                         <p class="text-muted small mb-0">Tidak ada riwayat</p>
@@ -312,10 +383,164 @@
         </div>
     </div>
 
+    <!-- Modal Setoran -->
+    <div class="modal fade" id="modalSetoran" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="frmSetoran" enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" id="pembiayaanId">
+                    
+                    <div class="modal-header">
+                        <h6 class="modal-title">Setoran Pembiayaan</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="card border-info">
+                                    <div class="card-body py-2">
+                                        <small class="d-block">Total Pembiayaan</small>
+                                        <h5 class="mb-0" id="setoranTotalNominal">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-warning">
+                                    <div class="card-body py-2">
+                                        <small class="d-block">Sisa</small>
+                                        <h5 class="mb-0" id="setoranSisa">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            {{-- Tanggal --}}
+                            <div class="col-md-4">
+                                <label class="form-label">Tanggal *</label>
+                                <input type="date" class="form-control form-control-sm" 
+                                       name="tanggal" id="tanggalSetoran" required>
+                            </div>
+
+                            {{-- Pokok --}}
+                            <div class="col-md-8">
+                                <label class="form-label">Pokok *</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control form-control-sm text-end" 
+                                           name="pokok" id="pokok" min="1" required 
+                                           placeholder="Jumlah pokok">
+                                </div>
+                                <small class="text-muted" id="sisaInfo"></small>
+                            </div>
+
+                            {{-- Administrasi --}}
+                            <div class="col-md-4">
+                                <label class="form-label">Administrasi</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control form-control-sm text-end" 
+                                           name="administrasi" id="administrasiSetoran" min="0"
+                                           placeholder="0">
+                                </div>
+                            </div>
+
+                            {{-- Margin --}}
+                            <div class="col-md-4">
+                                <label class="form-label">Margin</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control form-control-sm text-end" 
+                                           name="margin" id="margin" min="0"
+                                           placeholder="0">
+                                </div>
+                            </div>
+
+                            {{-- Total --}}
+                            <div class="col-md-4">
+                                <label class="form-label">Total</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="text" class="form-control form-control-sm text-end fw-bold" 
+                                           id="totalSetoran" value="0" readonly>
+                                </div>
+                            </div>
+
+                            {{-- Deskripsi --}}
+                            <div class="col-12">
+                                <label class="form-label">Deskripsi</label>
+                                <textarea class="form-control form-control-sm" name="deskripsi" id="deskripsiSetoran" 
+                                          rows="2" placeholder="Keterangan setoran..."></textarea>
+                            </div>
+
+                            {{-- Bukti --}}
+                            <div class="col-12">
+                                <label class="form-label">Bukti Transfer</label>
+                                <input type="file" class="form-control form-control-sm" 
+                                       name="bukti" id="buktiSetoran" 
+                                       accept=".jpg,.jpeg,.png,.pdf">
+                                <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
+                                <div id="buktiPreview" class="mt-2" style="display:none;">
+                                    <img id="previewBukti" src="#" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
+                                </div>
+                            </div>
+
+                            {{-- Informasi --}}
+                            <div class="col-12 mt-2">
+                                <div class="alert alert-warning p-2">
+                                    <small>
+                                        <i class="bi bi-exclamation-triangle"></i> 
+                                        <strong>Perhatian:</strong> Setoran akan mengurangi saldo rekening
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitSetoran">
+                            <span class="submit-text">Simpan Setoran</span>
+                            <span class="loading-text" style="display:none;">
+                                <i class="bi bi-hourglass-split"></i> Memproses...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <x-slot name="jscustom">
+        <style>
+            .progress-container {
+                height: 10px;
+                background-color: #e9ecef;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+            
+            .progress-bar {
+                height: 100%;
+                border-radius: 5px;
+                transition: width 0.3s ease;
+            }
+            
+            .progress-bar-lunas {
+                background-color: #28a745;
+            }
+            
+            .progress-bar-sisa {
+                background-color: #ffc107;
+            }
+        </style>
+
         <script>
         $(document).ready(function() {
             const currentType = "{{ $type }}";
+            const projectId = "{{ $projectId }}";
             
             // DataTable untuk Pembiayaan
             let tbPembiayaan = $('#tbPembiayaan').DataTable({
@@ -340,15 +565,18 @@
                     { 
                         data: 'nominal', 
                         name: 'nominal',
-                        className: 'text-end',
-                        render: function(data) {
-                            return 'Rp ' + new Intl.NumberFormat('id-ID').format(data);
-                        }
+                        className: 'text-end'
+                        
                     },
                     { 
-                        data: 'metode_pembayaran', 
-                        name: 'metode_pembayaran',
-                        className: 'text-center'
+                        data: 'terbayar', 
+                        name: 'terbayar',
+                        className: 'text-end'
+                    },
+                    { 
+                        data: 'sisa', 
+                        name: 'sisa',
+                        className: 'text-end'
                     },
                     { 
                         data: 'status', 
@@ -366,30 +594,53 @@
                         searchable: false,
                         className: 'text-center'
                     }
-                ]
+                ],
+                order: [[4, 'desc']]
             });
 
             // Set tanggal default ke hari ini
             function setDefaultDate() {
                 let today = new Date().toISOString().split('T')[0];
                 $('#tanggalPembiayaan').val(today);
+                $('#tanggalSetoran').val(today);
             }
 
             // Format angka ke Rupiah
             function formatRupiah(angka) {
-                if (!angka || isNaN(angka)) return 'Rp 0';
-                return 'Rp ' + new Intl.NumberFormat('id-ID').format(angka);
-            }
+    if (angka === null || angka === undefined || isNaN(angka)) return 'Rp 0';
+    
+    let number = parseFloat(angka);
+    if (isNaN(number)) return 'Rp 0';
+    
+    return 'Rp ' + new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(number);
+}
 
             // Parse nilai dari format Rupiah
             function parseNumber(value) {
                 if (!value) return 0;
-                value = value.toString().replace(/[^\d.-]/g, '');
+                
+                // Hapus semua karakter non-digit kecuali titik dan koma
+                value = value.toString().replace(/[^\d,.-]/g, '');
+                
+                // Ganti koma dengan titik untuk decimal separator
+                value = value.replace(',', '.');
+                
+                // Hapus semua titik kecuali yang terakhir (untuk decimal separator)
+                let parts = value.split('.');
+                if (parts.length > 1) {
+                    value = parts[0].replace(/\./g, '') + '.' + parts.slice(1).join('');
+                } else {
+                    value = value.replace(/\./g, '');
+                }
+                
                 let num = parseFloat(value);
                 return isNaN(num) ? 0 : num;
             }
 
-            // Reset form ke kondisi default
+            // Reset form pembiayaan
             function resetForm() {
                 $('#frmPembiayaan')[0].reset();
                 $('#idPembiayaan').val('');
@@ -402,18 +653,16 @@
                 $('#existingDokumen').hide();
                 $('#uploadedFiles').empty();
                 $('#existingFiles').empty();
+                $('input[name="deleted_files"]').remove();
                 
-                // Tampilkan field project jika jenis project
+                // Untuk project, tampilkan info project
                 if (currentType === 'project') {
-                    $('#projectField').show();
-                    loadProjects();
-                } else {
-                    $('#projectField').hide();
-                    $('#idproject').val('');
+                    loadProjectInfo();
                 }
                 
                 setDefaultDate();
                 initializeSelect2();
+                updateSaldoAfter();
             }
 
             // Initialize select2
@@ -424,15 +673,15 @@
                 });
             }
 
-            // Load projects untuk pembiayaan project
-            function loadProjects() {
-                $.get("{{ route('transaksi.pembiayaan.projects') }}", function(res) {
+            // Load project info untuk pembiayaan project
+            function loadProjectInfo() {
+                $.get("{{ route('transaksi.pembiayaan.project.session') }}", function(res) {
                     if (res.success) {
-                        let options = '<option value="">-- Pilih Project --</option>';
-                        res.data.forEach(function(project) {
-                            options += `<option value="${project.id}">${project.nama_project}</option>`;
-                        });
-                        $('#idproject').html(options);
+                        $('#projectNameDisplay').text(res.data.namaproject);
+                        $('#projectInfo').val(JSON.stringify(res.data));
+                    } else {
+                        Swal.fire('Peringatan', res.message, 'warning');
+                        $('#modalPembiayaan').modal('hide');
                     }
                 });
             }
@@ -533,6 +782,11 @@
 
             // Tombol tambah pembiayaan
             $('#btnTambahPembiayaan').click(function() {
+                @if($type === 'project' && !$projectId)
+                    Swal.fire('Peringatan', 'Silakan pilih project terlebih dahulu', 'warning');
+                    return;
+                @endif
+                
                 resetForm();
                 $('#modalPembiayaan').modal('show');
             });
@@ -544,6 +798,7 @@
                 $.get("{{ route('transaksi.pembiayaan.show', ['id' => ':id']) }}".replace(':id', pembiayaanId), function(res) {
                     if (res.success) {
                         let data = res.data;
+                        let summary = res.summary;
                         
                         // Isi data
                         $('#viewKode').text(data.kode_pembiayaan);
@@ -553,15 +808,17 @@
                         $('#viewRekening').text(data.rekening ? 
                             data.rekening.norek + ' - ' + data.rekening.namarek : '-');
                         $('#viewNominal').text(formatRupiah(data.nominal));
-                        $('#viewPayment').text(data.metode_pembayaran === 'cash' ? 'Cash' : 'Transfer');
-                        $('#viewStatus').html(getStatusBadge(data.status));
+                        $('#viewTotalNominal').text(formatRupiah(data.nominal));
+                        $('#viewTotalTerbayar').text(formatRupiah(summary.total_setoran));
+                        $('#viewSisa').text(formatRupiah(summary.sisa));
+                        $('#viewStatus').html(getStatusBadge(data.status, summary.sisa));
                         $('#viewUser').text(data.creator ? data.creator.name : '-');
                         $('#viewDeskripsi').text(data.deskripsi || '-');
                         
                         // Tampilkan project jika ada
                         if (data.jenis === 'project' && data.project) {
                             $('#viewProjectRow').show();
-                            $('#viewProject').text(data.project.nama_project);
+                            $('#viewProject').text(data.project.namaproject);
                         } else {
                             $('#viewProjectRow').hide();
                         }
@@ -628,9 +885,91 @@
                             $('#viewLogContainer').html('<p class="text-muted small mb-0">Tidak ada riwayat</p>');
                         }
                         
+                        // Load setoran
+                        loadSetoran(pembiayaanId);
+                        
                         $('#modalViewPembiayaan').modal('show');
                     } else {
                         Swal.fire('Error', res.message, 'error');
+                    }
+                });
+            });
+
+            // Load setoran untuk view
+            function loadSetoran(pembiayaanId) {
+                $.get("{{ route('transaksi.pembiayaan.setoran.get', ['id' => ':id']) }}".replace(':id', pembiayaanId), function(res) {
+                    if (res.success) {
+                        let setoranHtml = '';
+                        let setorans = res.setorans || [];
+                        
+                        if (setorans.length > 0) {
+                            setorans.forEach(function(setoran) {
+                                setoranHtml += `
+                                    <tr>
+                                        <td>${setoran.kode_setoran}</td>
+                                        <td>${new Date(setoran.tanggal).toLocaleDateString('id-ID')}</td>
+                                        <td class="text-end">${formatRupiah(setoran.pokok)}</td>
+                                        <td class="text-end">${formatRupiah(setoran.administrasi)}</td>
+                                        <td class="text-end">${formatRupiah(setoran.margin)}</td>
+                                        <td class="text-end">${formatRupiah(setoran.total)}</td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-danger delete-setoran-btn" 
+                                                    data-id="${setoran.id}" 
+                                                    data-pembiayaan-id="${pembiayaanId}"
+                                                    title="Hapus Setoran">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        } else {
+                            setoranHtml = `
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Belum ada setoran</td>
+                                </tr>
+                            `;
+                        }
+                        
+                        $('#tblSetoran tbody').html(setoranHtml);
+                    }
+                });
+            }
+
+            // Hapus setoran
+            $(document).on('click', '.delete-setoran-btn', function() {
+                let setoranId = $(this).data('id');
+                let pembiayaanId = $(this).data('pembiayaan-id');
+                
+                Swal.fire({
+                    title: 'Hapus Setoran?',
+                    text: "Setoran akan dihapus dan saldo akan dikembalikan!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: "{{ route('transaksi.pembiayaan.setoran.delete', ['id' => ':id', 'setoranId' => ':setoranId']) }}"
+                                .replace(':id', pembiayaanId)
+                                .replace(':setoranId', setoranId),
+                            type: 'DELETE',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function(res) {
+                                if (res.success) {
+                                    loadSetoran(pembiayaanId);
+                                    tbPembiayaan.ajax.reload();
+                                    Swal.fire('Berhasil!', res.message, 'success');
+                                } else {
+                                    Swal.fire('Error!', res.message, 'error');
+                                }
+                            }
+                        });
                     }
                 });
             });
@@ -652,16 +991,9 @@
                         $('#rekeningId').val(data.rekening_id).trigger('change');
                         $('#nominal').val(data.nominal);
                         $('#deskripsi').val(data.deskripsi);
-                        $('#metodePembayaran').val(data.metode_pembayaran);
                         
-                        // Tampilkan project jika jenis project
-                        if (data.jenis === 'project') {
-                            $('#projectField').show();
-                            loadProjects();
-                            setTimeout(() => {
-                                $('#idproject').val(data.idproject).trigger('change');
-                            }, 500);
-                        }
+                        // Update modal title
+                        $('#modalPembiayaanTitle').text(`Edit Pembiayaan ${data.jenis === 'company' ? 'Company' : 'Project'}`);
                         
                         // Tampilkan dokumen existing
                         if (data.dokumen && data.dokumen.length > 0) {
@@ -693,9 +1025,6 @@
                             }
                         }
                         
-                        // Update modal title
-                        $('#modalPembiayaanTitle').text(`Edit Pembiayaan ${data.jenis === 'company' ? 'Company' : 'Project'}`);
-                        
                         // Tampilkan modal
                         $('#modalPembiayaan').modal('show');
                         
@@ -706,111 +1035,6 @@
                         
                     } else {
                         Swal.fire('Error', res.message, 'error');
-                    }
-                });
-            });
-
-            // Approve pembiayaan
-            $(document).on('click', '.approve-btn', function() {
-                let pembiayaanId = $(this).data('id');
-                
-                Swal.fire({
-                    title: 'Approve Pembiayaan?',
-                    text: "Pembiayaan akan di-approve dan siap untuk diproses.",
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Approve!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: "{{ route('transaksi.pembiayaan.approve', ['id' => ':id']) }}".replace(':id', pembiayaanId),
-                            type: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}'
-                            },
-                            success: function(res) {
-                                if (res.success) {
-                                    tbPembiayaan.ajax.reload();
-                                    Swal.fire('Berhasil!', res.message, 'success');
-                                } else {
-                                    Swal.fire('Error!', res.message, 'error');
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-
-            // Reject pembiayaan
-            $(document).on('click', '.reject-btn', function() {
-                let pembiayaanId = $(this).data('id');
-                
-                Swal.fire({
-                    title: 'Reject Pembiayaan?',
-                    text: "Pembiayaan akan di-reject dan tidak dapat diproses.",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, Reject!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: "{{ route('transaksi.pembiayaan.reject', ['id' => ':id']) }}".replace(':id', pembiayaanId),
-                            type: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}'
-                            },
-                            success: function(res) {
-                                if (res.success) {
-                                    tbPembiayaan.ajax.reload();
-                                    Swal.fire('Berhasil!', res.message, 'success');
-                                } else {
-                                    Swal.fire('Error!', res.message, 'error');
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-
-            // Complete pembiayaan (proses penambahan saldo)
-            $(document).on('click', '.complete-btn', function() {
-                let pembiayaanId = $(this).data('id');
-                
-                Swal.fire({
-                    title: 'Proses Pembiayaan?',
-                    html: `
-                        <p>Pembiayaan akan diproses dan saldo rekening akan ditambahkan.</p>
-                        <p class="text-danger"><strong>Pastikan dana sudah masuk ke rekening!</strong></p>
-                    `,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Proses!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: "{{ route('transaksi.pembiayaan.complete', ['id' => ':id']) }}".replace(':id', pembiayaanId),
-                            type: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}'
-                            },
-                            success: function(res) {
-                                if (res.success) {
-                                    tbPembiayaan.ajax.reload();
-                                    Swal.fire('Berhasil!', res.message, 'success');
-                                } else {
-                                    Swal.fire('Error!', res.message, 'error');
-                                }
-                            }
-                        });
                     }
                 });
             });
@@ -849,6 +1073,153 @@
                 });
             });
 
+            // ============ SETORAN FUNCTIONS ============ //
+
+            // Tombol setoran
+            $(document).on('click', '.setoran-btn', function() {
+                let pembiayaanId = $(this).data('id');
+                
+                $.get("{{ route('transaksi.pembiayaan.setoran.get', ['id' => ':id']) }}".replace(':id', pembiayaanId), function(res) {
+                    if (res.success) {
+                        let data = res.data;
+                        let sisa = res.sisa;
+                        
+                        // Isi data modal
+                        $('#pembiayaanId').val(pembiayaanId);
+                        $('#setoranTotalNominal').text(formatRupiah(data.nominal));
+                        $('#setoranSisa').text(formatRupiah(sisa));
+                        
+                        // Update info sisa
+                        $('#sisaInfo').text('Sisa: ' + formatRupiah(sisa) + ' (Maksimal yang bisa dibayar)');
+                        
+                        // Set maksimal input pokok
+                        $('#pokok').attr('max', sisa);
+                        
+                        // Reset form setoran
+                        $('#frmSetoran')[0].reset();
+                        setDefaultDate();
+                        
+                        // Reset preview
+                        $('#buktiPreview').hide();
+                        
+                        // Hitung total awal
+                        hitungTotalSetoran();
+                        
+                        $('#modalSetoran').modal('show');
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
+                    }
+                });
+            });
+
+            // Hitung total setoran
+            function hitungTotalSetoran() {
+                let pokok = parseNumber($('#pokok').val()) || 0;
+                let administrasi = parseNumber($('#administrasiSetoran').val()) || 0;
+                let margin = parseNumber($('#margin').val()) || 0;
+                let total = pokok + administrasi + margin;
+                $('#totalSetoran').val(formatRupiah(total));
+            }
+
+            // Event listeners untuk input setoran
+            $(document).on('input', '#pokok, #administrasiSetoran, #margin', function() {
+                hitungTotalSetoran();
+            });
+
+            // Preview bukti setoran
+            $('#buktiSetoran').change(function() {
+                const file = this.files[0];
+                if (file) {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            $('#previewBukti').attr('src', e.target.result);
+                            $('#buktiPreview').show();
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        $('#buktiPreview').hide();
+                    }
+                } else {
+                    $('#buktiPreview').hide();
+                }
+            });
+
+            // Submit form setoran
+            $('#frmSetoran').submit(function(e) {
+                e.preventDefault();
+                
+                let pembiayaanId = $('#pembiayaanId').val();
+                let pokok = parseNumber($('#pokok').val());
+                let sisa = $('#setoranSisa').text();
+                
+                // Validasi pokok
+                if (pokok <= 0) {
+                    Swal.fire('Peringatan', 'Pokok harus lebih dari 0', 'warning');
+                    return;
+                }
+                
+                if (pokok > sisa) {
+                    Swal.fire(
+                        'Peringatan',
+                        'Pokok tidak boleh melebihi sisa pembiayaan: ' + sisa,
+                        'warning'
+                    );
+                    return;
+                }
+
+                let formData = new FormData(this);
+                
+                // Tampilkan loading
+                $('#btnSubmitSetoran').prop('disabled', true);
+                $('.submit-text').hide();
+                $('.loading-text').show();
+
+                $.ajax({
+                    url: "{{ route('transaksi.pembiayaan.setoran.store', ['id' => ':id']) }}".replace(':id', pembiayaanId),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        $('#btnSubmitSetoran').prop('disabled', false);
+                        $('.submit-text').show();
+                        $('.loading-text').hide();
+                        
+                        if (res.success) {
+                            $('#modalSetoran').modal('hide');
+                            tbPembiayaan.ajax.reload();
+                            
+                            // Refresh view modal jika terbuka
+                            if ($('#modalViewPembiayaan').hasClass('show')) {
+                                loadSetoran(pembiayaanId);
+                            }
+                            
+                            Swal.fire('Berhasil!', res.message, 'success');
+                        } else {
+                            Swal.fire('Error!', res.message, 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#btnSubmitSetoran').prop('disabled', false);
+                        $('.submit-text').show();
+                        $('.loading-text').hide();
+                        
+                        let errors = xhr.responseJSON?.errors;
+                        let errorMsg = xhr.responseJSON?.message || 'Terjadi kesalahan saat menyimpan setoran';
+                        
+                        if (errors) {
+                            errorMsg = '';
+                            $.each(errors, function(key, value) {
+                                errorMsg += value[0] + '\n';
+                            });
+                        }
+                        
+                        Swal.fire('Error!', errorMsg, 'error');
+                    }
+                });
+            });
+
             // Submit form pembiayaan
             $('#frmPembiayaan').submit(function(e) {
                 e.preventDefault();
@@ -857,14 +1228,15 @@
 
             function processFormSubmission(formElement) {
                 // Validasi minimal
-                if (!parseNumber($('#nominal').val())) {
+                let nominal = parseNumber($('#nominal').val());
+                if (nominal <= 0) {
                     Swal.fire('Peringatan', 'Nominal harus lebih dari 0', 'warning');
                     return;
                 }
 
-                // Validasi untuk project
-                if (currentType === 'project' && !$('#idproject').val()) {
-                    Swal.fire('Peringatan', 'Project harus dipilih untuk pembiayaan project', 'warning');
+                // Validasi rekening
+                if (!$('#rekeningId').val()) {
+                    Swal.fire('Peringatan', 'Rekening tujuan harus dipilih', 'warning');
                     return;
                 }
 
@@ -923,14 +1295,31 @@
             }
 
             // Helper function untuk status badge
-            function getStatusBadge(status) {
+            function getStatusBadge(status, sisa = 0) {
                 const badge = {
                     'draft': 'bg-secondary',
-                    'approved': 'bg-primary',
-                    'completed': 'bg-success',
+                    'completed': 'bg-primary',
+                    'lunas': 'bg-success',
                     'rejected': 'bg-danger'
                 };
-                return `<span class="badge ${badge[status]}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+                
+                let statusText = ucfirst(status);
+                
+                // Jika status completed tapi ada sisa, tampilkan sebagai "Aktif"
+                if (status === 'completed' && sisa > 0) {
+                    statusText = 'Aktif';
+                }
+                // Jika status completed dan sisa = 0, tampilkan sebagai "Lunas"
+                else if (status === 'completed' && sisa <= 0) {
+                    statusText = 'Lunas';
+                }
+                
+                return `<span class="badge ${badge[status]}">${statusText}</span>`;
+            }
+
+            // Helper untuk capitalize
+            function ucfirst(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
             }
 
             // Initialize
