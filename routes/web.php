@@ -42,6 +42,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\PindahBukuController;
 use App\Http\Controllers\PembiayaanController;
 use App\Http\Controllers\AgencySaleController;
+use App\Http\Controllers\PekerjaanKonstruksiController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -356,19 +357,45 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
     // Agency Sales Routes
     Route::prefix('agency-sales')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->name('agency-sales.')
-        ->group(function () {
-            Route::get('/', [AgencySaleController::class, 'index'])->name('index');
-            Route::get('/data', [AgencySaleController::class, 'getData'])->name('get-data');
-            Route::get('/create/{unitDetailId}', [AgencySaleController::class, 'create'])->name('create');
-            Route::post('/', [AgencySaleController::class, 'store'])->name('store');
+    ->group(function () {
+        Route::get('/', [AgencySaleController::class, 'index'])->name('index');
+        Route::get('/data', [AgencySaleController::class, 'getData'])->name('get-data');
+        Route::get('/create/{unitDetailId}', [AgencySaleController::class, 'create'])->name('create');
+        Route::post('/', [AgencySaleController::class, 'store'])->name('store');
 
-            Route::get('/{id}/edit', [AgencySaleController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [AgencySaleController::class, 'update'])->name('update');
-            Route::delete('/{id}', [AgencySaleController::class, 'destroy'])->name('destroy');
-            Route::get('/transactions/data', [AgencySaleController::class, 'getTransactions'])->name('transactions.data');
-            Route::get('/{id}', [AgencySaleController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [AgencySaleController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [AgencySaleController::class, 'update'])->name('update');
+        Route::delete('/{id}', [AgencySaleController::class, 'destroy'])->name('destroy');
+        Route::get('/transactions/data', [AgencySaleController::class, 'getTransactions'])->name('transactions.data');
+        Route::get('/{id}', [AgencySaleController::class, 'show'])->name('show');
+    });
+
+    // routes/web.php
+    Route::prefix('pekerjaan-konstruksi')
+        ->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])
+        ->name('pekerjaan-konstruksi.')
+        ->group(function () {
+            Route::get('/', [PekerjaanKonstruksiController::class, 'index'])->name('index');
+            Route::get('/data', [PekerjaanKonstruksiController::class, 'getData'])->name('get-data');
+            Route::post('/', [PekerjaanKonstruksiController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [PekerjaanKonstruksiController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [PekerjaanKonstruksiController::class, 'update'])->name('update');
+            Route::delete('/{id}', [PekerjaanKonstruksiController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/update-status', [PekerjaanKonstruksiController::class, 'updateStatus'])->name('update-status');
+            Route::get('/by-project/{projectId}', [PekerjaanKonstruksiController::class, 'getByProject'])->name('by-project');
+            Route::get('/report', [PekerjaanKonstruksiController::class, 'report'])->name('report');
+            // PERBAIKAN: Hapus '.pekerjaan-konstruksi' dari nama route
+            Route::get('/{id}', [PekerjaanKonstruksiController::class, 'show'])->name('show'); // ← Nama yang benar
+            
         });
 
+    Route::prefix('construction')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->name('construction.')->group(function () {
+        Route::get('/progress', [PekerjaanKonstruksiController::class, 'progressIndex'])->name('progress.index');
+        Route::get('/progress/data', [PekerjaanKonstruksiController::class, 'getProgressData'])->name('progress.data');
+        Route::get('/progress/{id}/detail', [PekerjaanKonstruksiController::class, 'getProgressDetail'])->name('progress.detail');
+        Route::put('/progress/{id}/update', [PekerjaanKonstruksiController::class, 'updateProgress'])->name('progress.update');
+        Route::get('/progress/{id}/logs', [PekerjaanKonstruksiController::class, 'getProgressLogs'])->name('progress.logs');
+    });
     // Routes untuk pending pembayaran dan piutang
     Route::prefix('pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
 

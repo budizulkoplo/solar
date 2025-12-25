@@ -128,7 +128,7 @@ class ProjectSelectionController extends Controller
         // Tentukan module berdasarkan idretail
         $module = match ((int) $project->idretail) {
             6 => 'agency',
-            5 => 'konstruksi',
+            5 => 'kontruksi',
             default => 'project',
         };
 
