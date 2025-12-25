@@ -41,6 +41,7 @@ use App\Http\Controllers\CompanyPendingPiutangController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\PindahBukuController;
 use App\Http\Controllers\PembiayaanController;
+use App\Http\Controllers\AgencySaleController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -352,6 +353,21 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         });
 
     });
+
+    // Agency Sales Routes
+    Route::prefix('agency-sales')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->name('agency-sales.')
+        ->group(function () {
+            Route::get('/', [AgencySaleController::class, 'index'])->name('index');
+            Route::get('/data', [AgencySaleController::class, 'getData'])->name('get-data');
+            Route::get('/create/{unitDetailId}', [AgencySaleController::class, 'create'])->name('create');
+            Route::post('/', [AgencySaleController::class, 'store'])->name('store');
+
+            Route::get('/{id}/edit', [AgencySaleController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [AgencySaleController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AgencySaleController::class, 'destroy'])->name('destroy');
+            Route::get('/transactions/data', [AgencySaleController::class, 'getTransactions'])->name('transactions.data');
+            Route::get('/{id}', [AgencySaleController::class, 'show'])->name('show');
+        });
 
     // Routes untuk pending pembayaran dan piutang
     Route::prefix('pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {

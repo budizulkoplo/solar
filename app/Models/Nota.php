@@ -13,7 +13,7 @@ class Nota extends Model
         'nota_no', 'namatransaksi', 'idproject', 'idcompany', 'idretail',
         'vendor_id', 'idrek', 'tanggal', 'cashflow', 'paymen_method',
         'tgl_tempo', 'subtotal', 'ppn', 'diskon', 'total', 'status',
-        'bukti_nota', 'nip', 'namauser'
+        'bukti_nota', 'nip', 'namauser','type','unit_detail_id'
     ];
 
     // Add relationship to update logs
@@ -64,4 +64,10 @@ class Nota extends Model
     {
         return $this->hasMany(Angsuran::class, 'idnota');
     }
+
+    public function unitDetail()
+    {
+        return $this->belongsTo(UnitDetail::class, 'unit_detail_id');
+    }
+
 }

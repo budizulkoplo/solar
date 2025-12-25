@@ -125,11 +125,18 @@ class ProjectSelectionController extends Controller
         $project = Project::findOrFail($request->project_id);
         $company = $project->companyUnit;
 
+        // Tentukan module berdasarkan idretail
+        $module = match ((int) $project->idretail) {
+            6 => 'agency',
+            5 => 'konstruksi',
+            default => 'project',
+        };
+
         // Set session untuk project
         session([
             'active_project_id' => $project->id,
             'active_project_name' => $project->namaproject,
-            'active_project_module' => $project->module ?? 'project',
+             'active_project_module' => $module,
             // Juga set company dari project
             'active_company_id' => $company ? $company->id : null,
             'active_company_name' => $company ? $company->company_name : null,

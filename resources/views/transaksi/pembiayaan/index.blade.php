@@ -1,14 +1,35 @@
 <x-app-layout>
     <x-slot name="pagetitle">Pembiayaan - {{ ucfirst($type) }} - {{ session('active_company_name') }}</x-slot>
 
-    <div class="app-content-header">
+     <div class="app-content-header">
         <div class="container-fluid">
-            <h3 class="mb-0">
-                Pembiayaan {{ $type === 'company' ? 'Company' : 'Project' }}
-                @if($type === 'project' && $projectName)
-                    <small class="text-success">- {{ $projectName }}</small>
-                @endif
-            </h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <h3 class="mb-0">
+                        Pembiayaan {{ $type === 'company' ? 'Company' : 'Project' }}
+                        @if($type === 'project' && $projectName)
+                            <small class="text-success">- {{ $projectName }}</small>
+                        @endif
+                    </h3>
+                </div>
+                <div class="col-md-6">
+                    <div class="float-end">
+                        <div class="btn-group">
+                            <a href="{{ route('transaksi.pembiayaan.type', 'company') }}"
+                               class="btn btn-sm btn-outline-primary {{ $type === 'company' ? 'active' : '' }}">
+                                <i class="bi bi-building"></i> Company
+                            </a>
+
+                            <a href="{{ route('transaksi.pembiayaan.type', 'project') }}"
+                               class="btn btn-sm btn-outline-success {{ $type === 'project' ? 'active' : '' }}">
+                                <i class="bi bi-diagram-3"></i> Project
+                            </a>
+                        </div>
+
+                        
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
