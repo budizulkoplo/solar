@@ -43,6 +43,7 @@ use App\Http\Controllers\PindahBukuController;
 use App\Http\Controllers\PembiayaanController;
 use App\Http\Controllers\AgencySaleController;
 use App\Http\Controllers\PekerjaanKonstruksiController;
+use App\Http\Controllers\ConstructionTransactionController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -395,7 +396,27 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('/progress/{id}/detail', [PekerjaanKonstruksiController::class, 'getProgressDetail'])->name('progress.detail');
         Route::put('/progress/{id}/update', [PekerjaanKonstruksiController::class, 'updateProgress'])->name('progress.update');
         Route::get('/progress/{id}/logs', [PekerjaanKonstruksiController::class, 'getProgressLogs'])->name('progress.logs');
+        Route::put('/progress/{id}/start', [PekerjaanKonstruksiController::class, 'startProgress'])->name('progress.start');
     });
+
+    // Construction Transactions Routes
+    Route::prefix('construction/transactions')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->name('construction.transactions.')->group(function () {
+        Route::get('/', [ConstructionTransactionController::class, 'index'])->name('index');
+        Route::get('/{pekerjaanId}', [ConstructionTransactionController::class, 'showTransactions'])->name('detail');
+        Route::get('/{pekerjaanId}/data', [ConstructionTransactionController::class, 'getTransactionsData'])->name('data');
+        Route::get('/{pekerjaanId}/create', [ConstructionTransactionController::class, 'create'])->name('create');
+        Route::post('/{pekerjaanId}/store', [ConstructionTransactionController::class, 'store'])->name('store');
+        Route::get('/{pekerjaanId}/edit/{notaId}', [ConstructionTransactionController::class, 'edit'])->name('edit');
+        Route::put('/{pekerjaanId}/update/{notaId}', [ConstructionTransactionController::class, 'update'])->name('update');
+        Route::get('/{pekerjaanId}/show/{notaId}', [ConstructionTransactionController::class, 'show'])->name('show');
+        Route::delete('/{pekerjaanId}/delete/{notaId}', [ConstructionTransactionController::class, 'destroy'])->name('destroy');
+        Route::put('/{pekerjaanId}/status/{notaId}', [ConstructionTransactionController::class, 'updateStatus'])->name('status');
+        Route::get('/{pekerjaanId}/logs/{notaId}', [ConstructionTransactionController::class, 'getUpdateLogs'])->name('logs');
+        Route::get('/rekening/{id}/saldo', [ConstructionTransactionController::class, 'saldoRekening'])->name('rekening.saldo');
+
+        Route::get('/{pekerjaanId}/report', [ConstructionTransactionController::class, 'getReport'])->name('report');
+    });
+
     // Routes untuk pending pembayaran dan piutang
     Route::prefix('pending')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
 

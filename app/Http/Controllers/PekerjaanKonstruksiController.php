@@ -21,11 +21,13 @@ class PekerjaanKonstruksiController extends Controller
                 ->get(['id', 'namaproject']);
 
         } elseif ($projectId) {
-            $projects = Project::where('id', $projectId)
+           $projects = Project::where('idcompany', 3)
+                ->orderBy('namaproject')
                 ->get(['id', 'namaproject']);
 
         } else {
-            $projects = Project::orderBy('namaproject')
+            $projects = Project::where('idcompany', 3)
+                ->orderBy('namaproject')
                 ->get(['id', 'namaproject']);
         }
 
@@ -747,6 +749,71 @@ class PekerjaanKonstruksiController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan'
+            ], 500);
+        }
+    }
+
+    public function startProgress(Request $request, $id)
+    {
+        try {
+            $pekerjaan = PekerjaanKonstruksi::find($id);
+            
+            if (!$pekerjaan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pekerjaan konstruksi tidak ditemukan'
+                ], 404);
+            }
+            
+            // Validasi: hanya bisa start dari planning
+            if ($pekerjaan->status !== 'planning') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hanya pekerjaan dengan status planning yang bisa dimulai'
+                ], 400);
+            }
+            
+            // Validasi: harus ada tanggal mulai
+            if (!$pekerjaan->tanggal_mulai) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tanggal mulai harus diisi sebelum memulai pekerjaan'
+                ], 400);
+            }
+            
+            DB::beginTransaction();
+            
+            // Update status menjadi ongoing
+            $pekerjaan->status = 'ongoing';
+            $pekerjaan->save();
+            
+            // Buat log pertama
+            DB::table('pekerjaan_progress_logs')->insert([
+                'pekerjaan_id' => $id,
+                'progress' => 0,
+                'status' => 'ongoing',
+                'keterangan' => 'Pekerjaan dimulai',
+                'tanggal_update' => date('Y-m-d'),
+                'created_by' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            DB::commit();
+            
+            \Log::info('Pekerjaan dimulai: ' . $pekerjaan->nama_pekerjaan);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Pekerjaan berhasil dimulai'
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error in startProgress: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }

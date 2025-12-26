@@ -254,11 +254,11 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
+                            <!-- <div class="col-md-6">
                                 <label class="form-label">Realisasi Anggaran (Rp)</label>
                                 <input type="number" class="form-control" name="realisasi_anggaran" 
                                        id="realisasiAnggaran" min="0">
-                            </div>
+                            </div> -->
                             
                             <div class="col-md-6">
                                 <label class="form-label">Tanggal Update <span class="text-danger">*</span></label>
