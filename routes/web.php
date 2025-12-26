@@ -44,6 +44,7 @@ use App\Http\Controllers\PembiayaanController;
 use App\Http\Controllers\AgencySaleController;
 use App\Http\Controllers\PekerjaanKonstruksiController;
 use App\Http\Controllers\ConstructionTransactionController;
+use App\Http\Controllers\AssetTransactionController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -309,6 +310,20 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             // ambil saldo rekening
             Route::get('rekening/{id}/saldo', [PindahBukuController::class,'saldoRekening'])
                 ->name('transaksi.pindahbuku.rekening.saldo');
+        });
+
+        // === TRANSAKSI ASSET ===
+        Route::prefix('asset')->group(function() {
+            Route::get('/', [AssetTransactionController::class,'index'])->name('transaksi.asset.index');
+            Route::get('create', [AssetTransactionController::class,'create'])->name('transaksi.asset.create');
+            Route::post('store', [AssetTransactionController::class,'store'])->name('transaksi.asset.store');
+            Route::get('getdata', [AssetTransactionController::class,'getdata'])->name('transaksi.asset.getdata');
+            Route::post('{id}/generate', [AssetTransactionController::class,'generateAssetFromNota'])->name('transaksi.asset.generate');
+            Route::get('{id}/assets', [AssetTransactionController::class,'getAssetDetails'])->name('transaksi.asset.details');
+            Route::get('list', [AssetTransactionController::class,'assetList'])->name('transaksi.asset.list');
+            Route::get('list/getdata', [AssetTransactionController::class,'getAssetData'])->name('transaksi.asset.list.getdata');
+            Route::post('generate-depreciation', [AssetTransactionController::class,'generateMonthlyDepreciation'])->name('transaksi.asset.generate.depreciation');
+            Route::get('export', [AssetTransactionController::class,'exportAssets'])->name('transaksi.asset.export');
         });
 
         // === PEMBIAYAAN ===
