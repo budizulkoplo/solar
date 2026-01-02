@@ -565,19 +565,19 @@ class LaporanController extends Controller
     public function cashflowPT()
     {
         $startDate = now()->format('Y-m-01');
-        $endDate = now()->format('Y-m-t');
+        $endDate   = now()->format('Y-m-t');
+
         return view('transaksi.laporan.cashflow_pt', compact('startDate', 'endDate'));
     }
 
     public function cashflowPTData(Request $request)
     {
         $startDate = $request->input('start_date', now()->format('Y-m-01'));
-        $endDate = $request->input('end_date', now()->format('Y-m-t'));
-        
-        // Validasi tanggal
+        $endDate   = $request->input('end_date', now()->format('Y-m-t'));
+
         if (empty($startDate) || empty($endDate)) {
             return response()->json([
-                'data' => [], 
+                'data' => [],
                 'total' => [
                     'pemasukan' => 0,
                     'pengeluaran' => 0,
@@ -585,9 +585,13 @@ class LaporanController extends Controller
                 ]
             ]);
         }
-        
-        // Query data transaksi PT (idcompany tidak null, idproject null)
-        $data = DB::table('notas as n')
+
+        /**
+         * ==================================================
+         * 1. TRANSAKSI NOTA (PT)
+         * ==================================================
+         */
+        $notaQuery = DB::table('notas as n')
             ->select(
                 'n.id',
                 'np.id as id_payment',
@@ -598,7 +602,7 @@ class LaporanController extends Controller
                 'np.jumlah as jumlah_transaksi',
                 DB::raw('CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END as pemasukan'),
                 DB::raw('CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END as pengeluaran'),
-                DB::raw('COALESCE(cf.saldo_akhir, 0) as saldo'), // Ambil langsung dari cashflows
+                DB::raw('COALESCE(cf.saldo_akhir, 0) as saldo'),
                 'v.namavendor',
                 'r.namarek as rekening',
                 'cu.company_name as nama_company',
@@ -608,76 +612,120 @@ class LaporanController extends Controller
             ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
             ->leftJoin('rekening as r', 'np.idrek', '=', 'r.idrek')
             ->leftJoin('company_units as cu', 'n.idcompany', '=', 'cu.id')
-            ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota') // Join langsung berdasarkan idnota
-            ->where('n.status', 'paid')
-            ->whereNotNull('n.idcompany') // Hanya yang punya company (PT)
-            ->whereNull('n.idproject')    // idproject harus null untuk PT
-            ->whereBetween('n.tanggal', [$startDate, $endDate])
-            ->orderBy('n.tanggal', 'asc')
-            ->orderBy('n.id', 'asc')
-            ->get();
-
-        // TIDAK PERLU hitung saldo running karena sudah diambil langsung dari cashflows
-        
-        // Hitung total pemasukan dan pengeluaran
-        $totals = DB::table('notas as n')
-            ->selectRaw('
-                COALESCE(SUM(CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END), 0) as total_pemasukan,
-                COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END), 0) as total_pengeluaran
-            ')
-            ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
+            ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota')
             ->where('n.status', 'paid')
             ->whereNotNull('n.idcompany')
-            ->whereNull('n.idproject') // Tambahkan kondisi ini
+            ->whereNull('n.idproject')
+            ->whereBetween('n.tanggal', [$startDate, $endDate]);
+
+        /**
+         * ==================================================
+         * 2. PINDAH BUKU - REKENING ASAL (OUT)
+         * ==================================================
+         */
+        $pbkOut = DB::table('transaksi_pindah_buku as pbk')
+            ->select(
+                DB::raw('pbk.id * -1 as id'),
+                DB::raw('NULL as id_payment'),
+                'pbk.kode_transaksi as nota_no',
+                'pbk.tanggal',
+                DB::raw('"Pindah Buku" as kategori'),
+                'pbk.keterangan as namatransaksi',
+                'pbk.nominal as jumlah_transaksi',
+                DB::raw('0 as pemasukan'),
+                DB::raw('pbk.nominal as pengeluaran'),
+                DB::raw('0 as saldo'),
+                DB::raw('NULL as namavendor'),
+                'r_asal.namarek as rekening',
+                'cu.company_name as nama_company',
+                'pbk.idcompany'
+            )
+            ->join('rekening as r_asal', 'pbk.rekening_asal_id', '=', 'r_asal.idrek')
+            ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
+            ->where('pbk.status', 'completed')
+            ->whereNotNull('pbk.idcompany')
+         
+            ->whereBetween('pbk.tanggal', [$startDate, $endDate]);
+
+        /**
+         * ==================================================
+         * 3. PINDAH BUKU - REKENING TUJUAN (IN)
+         * ==================================================
+         */
+        $pbkIn = DB::table('transaksi_pindah_buku as pbk')
+            ->select(
+                DB::raw('pbk.id * -1 as id'),
+                DB::raw('NULL as id_payment'),
+                'pbk.kode_transaksi as nota_no',
+                'pbk.tanggal',
+                DB::raw('"Pindah Buku" as kategori'),
+                'pbk.keterangan as namatransaksi',
+                'pbk.nominal as jumlah_transaksi',
+                DB::raw('pbk.nominal as pemasukan'),
+                DB::raw('0 as pengeluaran'),
+                DB::raw('0 as saldo'),
+                DB::raw('NULL as namavendor'),
+                'r_tujuan.namarek as rekening',
+                'cu.company_name as nama_company',
+                'pbk.idcompany'
+            )
+            ->join('rekening as r_tujuan', 'pbk.rekening_tujuan_id', '=', 'r_tujuan.idrek')
+            ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
+            ->where('pbk.status', 'completed')
+            ->whereNotNull('pbk.idcompany')
+            ->whereBetween('pbk.tanggal', [$startDate, $endDate]);
+
+        /**
+         * ==================================================
+         * 4. UNION & SORTING
+         * ==================================================
+         */
+        $data = $notaQuery
+            ->unionAll($pbkOut)
+            ->unionAll($pbkIn)
+            ->orderBy('tanggal', 'asc')
+            ->orderBy('nota_no', 'asc')
+            ->get();
+
+        /**
+         * ==================================================
+         * 5. TOTAL (PBK TIDAK DIHITUNG)
+         * ==================================================
+         */
+        $totals = DB::table('notas as n')
+            ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN n.cashflow = "in" THEN np.jumlah ELSE 0 END),0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END),0) as total_pengeluaran
+            ')
+            ->where('n.status', 'paid')
+            ->whereNotNull('n.idcompany')
+            ->whereNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate])
             ->first();
 
-        // Ambil saldo akhir dari cashflows terakhir yang sesuai filter
+        /**
+         * ==================================================
+         * 6. SALDO AKHIR
+         * ==================================================
+         */
         $lastCashflow = DB::table('cashflows as cf')
             ->join('notas as n', 'cf.idnota', '=', 'n.id')
             ->where('n.status', 'paid')
             ->whereNotNull('n.idcompany')
-            ->whereNull('n.idproject') // Tambahkan kondisi ini
+            ->whereNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate])
             ->orderBy('cf.tanggal', 'desc')
             ->orderBy('cf.id', 'desc')
             ->select('cf.saldo_akhir')
             ->first();
 
-        $saldoAkhir = $lastCashflow ? $lastCashflow->saldo_akhir : 0;
-
-        // Debug: cek apakah data memiliki saldo dari cashflows
-        if ($data->count() > 0) {
-            $firstItem = $data->first();
-            Log::info('Data pertama PT:', [
-                'id' => $firstItem->id,
-                'nota_no' => $firstItem->nota_no,
-                'pemasukan' => $firstItem->pemasukan,
-                'pengeluaran' => $firstItem->pengeluaran,
-                'saldo_dari_cashflows' => $firstItem->saldo
-            ]);
-        }
-
-        Log::info('Cashflow PT Data', [
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'total_records' => $data->count(),
-            'total_pemasukan' => $totals->total_pemasukan ?? 0,
-            'total_pengeluaran' => $totals->total_pengeluaran ?? 0,
-            'saldo_akhir' => $saldoAkhir,
-            'filter_conditions' => [
-                'status' => 'paid',
-                'idcompany_not_null' => true,
-                'idproject_null' => true
-            ]
-        ]);
-
         return response()->json([
             'data' => $data,
             'total' => [
-                'pemasukan' => $totals->total_pemasukan ?? 0,
+                'pemasukan'   => $totals->total_pemasukan ?? 0,
                 'pengeluaran' => $totals->total_pengeluaran ?? 0,
-                'saldo_akhir' => $saldoAkhir
+                'saldo_akhir' => $lastCashflow->saldo_akhir ?? 0
             ]
         ]);
     }

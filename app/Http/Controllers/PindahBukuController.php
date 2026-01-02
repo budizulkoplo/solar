@@ -127,6 +127,10 @@ class PindahBukuController extends Controller
             $companyId = session('active_company_id');
             $user = Auth::user();
 
+            if (!$companyId) {
+                throw new \Exception("Company aktif tidak ditemukan");
+            }
+
             // Validasi rekening milik company yang sama
             $rekeningAsal = Rekening::where('idrek', $request->rekening_asal_id)
                 ->where('idcompany', $companyId)
@@ -142,37 +146,46 @@ class PindahBukuController extends Controller
 
             // Validasi saldo mencukupi
             if ($rekeningAsal->saldo < $request->nominal) {
-                throw new \Exception("Saldo rekening asal tidak mencukupi. Saldo tersedia: Rp " . 
-                    number_format($rekeningAsal->saldo, 0, ',', '.'));
+                throw new \Exception(
+                    "Saldo rekening asal tidak mencukupi. Saldo tersedia: Rp " .
+                    number_format($rekeningAsal->saldo, 0, ',', '.')
+                );
             }
 
             // Generate kode transaksi
             $kodeTransaksi = 'PBK-' . $companyId . '-' . date('Ymd') . '-' . rand(1000, 9999);
 
-            // Simpan transaksi
+            // ==========================
+            // SIMPAN TRANSAKSI PBK
+            // ==========================
             $transaksi = TransaksiPindahBuku::create([
-                'kode_transaksi' => $kodeTransaksi,
-                'rekening_asal_id' => $request->rekening_asal_id,
+                'kode_transaksi'     => $kodeTransaksi,
+                'rekening_asal_id'   => $request->rekening_asal_id,
                 'rekening_tujuan_id' => $request->rekening_tujuan_id,
-                'nominal' => $request->nominal,
-                'keterangan' => $request->keterangan,
-                'tanggal' => $request->tanggal,
-                'status' => 'pending',
-                'created_by' => $user->id
+                'nominal'            => $request->nominal,
+                'keterangan'         => $request->keterangan,
+                'tanggal'            => $request->tanggal,
+                'status'             => 'pending',
+                'idcompany'          => $companyId, 
+
+                'created_by'         => $user->id
             ]);
 
-            // Proses transfer
+            // Proses transfer saldo rekening
             $this->processTransfer($transaksi);
 
             // Update status menjadi completed
             $transaksi->update(['status' => 'completed']);
 
             // Buat log
-            $this->createLog($transaksi->id, 'create', 
+            $this->createLog(
+                $transaksi->id,
+                'create',
                 "Transaksi pindah buku berhasil dibuat: {$kodeTransaksi}, " .
                 "Rekening Asal: {$rekeningAsal->norek} - {$rekeningAsal->namarek}, " .
                 "Rekening Tujuan: {$rekeningTujuan->norek} - {$rekeningTujuan->namarek}, " .
-                "Nominal: Rp " . number_format($request->nominal, 0, ',', '.'));
+                "Nominal: Rp " . number_format($request->nominal, 0, ',', '.')
+            );
 
             DB::commit();
 
