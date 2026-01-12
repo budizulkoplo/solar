@@ -54,7 +54,7 @@
     </div>
     <!-- * App Capsule -->
     {{-- Hanya tampilkan bottomNav jika bukan halaman presensi/create atau lembur --}}
-    @if (!request()->is('mobile/presensi/create') && !request()->is('mobile/presensi/lembur'))
+    @if (!request()->is('mobile/presensi/create') && !request()->is('mobile/presensi/lembur') && !request()->is('mobile/presensi/visit'))
         @include('layouts.bottomNav')
     @endif
 

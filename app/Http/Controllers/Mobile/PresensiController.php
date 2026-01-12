@@ -20,6 +20,183 @@ class PresensiController extends BaseMobileController
         $cek = DB::table('presensi')->where('tgl_presensi', $hariini)->where('nik', $nik)->count();
         return view('mobile.presensi.create', compact('cek'));
     }
+    
+    public function visit()
+    {
+        $hariini = date("Y-m-d");
+        $nik = $this->user->nik;
+        
+        // Cek presensi visit hari ini
+        $cekMasuk = DB::table('presensi_visit')
+            ->where('tgl_presensi', $hariini)
+            ->where('nik', $nik)
+            ->where('inoutmode', 1)
+            ->count();
+            
+        $cekPulang = DB::table('presensi_visit')
+            ->where('tgl_presensi', $hariini)
+            ->where('nik', $nik)
+            ->where('inoutmode', 2)
+            ->count();
+            
+        $cekLemburIn = DB::table('presensi_visit')
+            ->where('tgl_presensi', $hariini)
+            ->where('nik', $nik)
+            ->where('inoutmode', 3)
+            ->count();
+            
+        $cekLemburOut = DB::table('presensi_visit')
+            ->where('tgl_presensi', $hariini)
+            ->where('nik', $nik)
+            ->where('inoutmode', 4)
+            ->count();
+
+        return view('mobile.presensi.visit', compact('cekMasuk', 'cekPulang', 'cekLemburIn', 'cekLemburOut'));
+    }
+
+    public function storeVisit(Request $request)
+    {
+        $nik = $this->user->nik;
+        $tgl_presensi = date("Y-m-d");
+        $jam = date("H:i:s");
+        $lokasi = $request->lokasi;
+        $image = $request->image;
+        $keterangan = $request->keterangan;
+        $inoutmode = (int) $request->inoutmode;
+
+        // Validasi
+        if (!$image) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gambar tidak ditemukan.'
+            ]);
+        }
+
+        if (!in_array($inoutmode, [1, 2, 3, 4])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mode presensi tidak valid.'
+            ]);
+        }
+
+        // Validasi keterangan wajib untuk visit
+        if (empty($keterangan)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Keterangan wajib diisi untuk presensi visit.'
+            ]);
+        }
+
+        // Validasi lokasi
+        if (empty($lokasi)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lokasi tidak terdeteksi. Pastikan GPS aktif.'
+            ]);
+        }
+
+        // Cek apakah sudah presensi visit dengan mode yang sama
+        $cek = DB::table('presensi_visit')
+            ->where('nik', $nik)
+            ->where('tgl_presensi', $tgl_presensi)
+            ->where('inoutmode', $inoutmode)
+            ->first();
+
+        if ($cek) {
+            $modeText = [
+                1 => 'visit masuk',
+                2 => 'visit pulang',
+                3 => 'visit lembur masuk',
+                4 => 'visit lembur pulang'
+            ];
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda sudah melakukan ' . $modeText[$inoutmode] . ' hari ini.'
+            ]);
+        }
+
+        // Validasi untuk pulang/lembur pulang visit
+        if (in_array($inoutmode, [2, 4])) {
+            $cekMasuk = DB::table('presensi_visit')
+                ->where('nik', $nik)
+                ->where('tgl_presensi', $tgl_presensi)
+                ->whereIn('inoutmode', [1, 3])
+                ->first();
+                
+            if (!$cekMasuk) {
+                $message = $inoutmode == 2 ? 
+                    'Anda belum melakukan presensi visit masuk sebelumnya.' :
+                    'Anda belum melakukan presensi visit lembur masuk sebelumnya.';
+                    
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $message
+                ]);
+            }
+        }
+
+        // Simpan foto
+        $modeFileMap = [
+            1 => 'visit_in',
+            2 => 'visit_out',
+            3 => 'visit_lembur_in',
+            4 => 'visit_lembur_out',
+        ];
+        
+        $formatName = $nik . "-" . $tgl_presensi . "-" . $modeFileMap[$inoutmode];
+
+        $image_parts = explode(";base64,", $image);
+        if (count($image_parts) < 2) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Format gambar tidak valid.'
+            ]);
+        }
+        
+        $image_base64 = base64_decode($image_parts[1]);
+        $fileName = $formatName . ".png";
+        $filePath = 'uploads/visit/' . $fileName;
+
+        // Simpan data presensi visit
+        $data = [
+            'nik' => $nik,
+            'tgl_presensi' => $tgl_presensi,
+            'jam_in' => $jam,
+            'inoutmode' => $inoutmode,
+            'foto_in' => $fileName,
+            'lokasi' => $lokasi,
+            'keterangan' => $keterangan,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        $simpan = DB::table('presensi_visit')->insert($data);
+
+        if ($simpan) {
+            // Simpan gambar
+            Storage::disk('public')->put($filePath, $image_base64);
+
+            $messages = [
+                1 => 'Visit masuk berhasil!',
+                2 => 'Visit pulang berhasil!',
+                3 => 'Visit lembur masuk berhasil!',
+                4 => 'Visit lembur pulang berhasil!',
+            ];
+
+            $type = in_array($inoutmode, [1, 3]) ? 'in' : 'out';
+
+            return response()->json([
+                'status' => 'success',
+                'message' => $messages[$inoutmode],
+                'type' => $type
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal menyimpan presensi visit.'
+        ]);
+    }
 
     public function lembur()
     {
@@ -583,4 +760,26 @@ class PresensiController extends BaseMobileController
         ]);
     }
 
+    public function historiVisit()
+    {
+        $namabulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni","Juli", "Agustus","September", "Oktober", "November", "Desember"];
+        return view('mobile.presensi.histori_visit', compact('namabulan'));
+    }
+
+    public function gethistoriVisit(Request $request)
+    {
+        $bulan = $request->bulan;
+        $tahun = $request->tahun;
+        $nik = $this->user->nik;
+
+        $histori = DB::table('presensi_visit')
+            ->whereRaw('MONTH(tgl_presensi)="'.$bulan.'"')
+            ->whereRaw('YEAR(tgl_presensi)="'.$tahun.'"')
+            ->where('nik', $nik)
+            ->orderBy('tgl_presensi')
+            ->orderBy('jam_in')
+            ->get();
+
+        return view('mobile.presensi.gethistori_visit', compact('histori'));
+    }
 }

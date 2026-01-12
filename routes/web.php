@@ -45,6 +45,7 @@ use App\Http\Controllers\AgencySaleController;
 use App\Http\Controllers\PekerjaanKonstruksiController;
 use App\Http\Controllers\ConstructionTransactionController;
 use App\Http\Controllers\AssetTransactionController;
+use App\Http\Controllers\BonusController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -52,6 +53,7 @@ use App\Http\Controllers\Mobile\MobileProjectController;
 use App\Http\Controllers\Mobile\MobileProfileController;
 use App\Http\Controllers\Mobile\PresensiController;
 use App\Http\Controllers\Mobile\KalenderController;
+use App\Http\Controllers\Mobile\MobileBonusController;
 /*
 |--------------------------------------------------------------------------
 | Routes
@@ -192,6 +194,15 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('payroll/data', [PayrollController::class, 'getData'])->name('hris.payroll.data');
         Route::post('payroll/update', [PayrollController::class, 'updateManual'])->name('hris.payroll.update_manual');
         Route::get('payroll/slip/{payroll_id}', [PayrollController::class, 'downloadSlip'])->name('hris.payroll.slip');
+
+        // === Bonus (Tabel Bonus) ===
+        Route::get('bonus', [BonusController::class, 'index'])->name('hris.bonus.index');
+        Route::get('bonus/data', [BonusController::class, 'getData'])->name('hris.bonus.data');
+        Route::post('bonus', [BonusController::class, 'store'])->name('hris.bonus.store');
+        Route::put('bonus/{id}', [BonusController::class, 'update'])->name('hris.bonus.update');
+        Route::delete('bonus/{id}', [BonusController::class, 'destroy'])->name('hris.bonus.destroy');
+        Route::get('bonus/slip/{nik}/{periode}', [BonusController::class, 'downloadSlip'])->name('hris.bonus.slip');
+        Route::get('bonus/user-bonus', [BonusController::class, 'getBonusByUser'])->name('hris.bonus.user_bonus');
     });
 
     // Laporan
@@ -581,6 +592,10 @@ Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.presensi.')
     Route::post('/cek-radius', [PresensiController::class, 'cekRadius'])->name('mobile.presensi.cekRadius');
     Route::get('/get-unitkerja-location', [PresensiController::class, 'getUnitKerjaLocation'])
             ->name('getUnitKerjaLocation');
+    Route::get('/visit', [PresensiController::class, 'visit'])->name('visit');
+    Route::post('/store-visit', [PresensiController::class, 'storeVisit'])->name('storeVisit');
+    Route::get('/histori-visit', [PresensiController::class, 'historiVisit'])->name('historiVisit');
+    Route::get('/gethistori-visit', [PresensiController::class, 'gethistoriVisit'])->name('gethistoriVisit');
 
     //Izin
     Route::get('/izin', [PresensiController::class, 'izin']);
@@ -620,6 +635,13 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
         Route::get('/{tahun}/{bulan}', [App\Http\Controllers\Mobile\MobilePayrollController::class, 'detail'])->name('detail');
         Route::get('/download/{id}', [App\Http\Controllers\Mobile\MobilePayrollController::class, 'slip'])->name('slip');
         
+    });
+
+    // === Bonus Routes Mobile ===
+    Route::prefix('bonus')->name('bonus.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Mobile\MobileBonusController::class, 'index'])->name('index');
+        Route::get('/detail/{periode}', [\App\Http\Controllers\Mobile\MobileBonusController::class, 'detail'])->name('detail');
+        Route::get('/slip/{periode}', [\App\Http\Controllers\Mobile\MobileBonusController::class, 'slip'])->name('slip');
     });
 
 });

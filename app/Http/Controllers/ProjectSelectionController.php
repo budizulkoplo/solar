@@ -39,6 +39,8 @@ class ProjectSelectionController extends Controller
         // 🔹 Ambil module unik dari tabel menu
         $modules = Menu::whereNotNull('module')
             ->where('module', '!=', 'project')
+            ->where('module', '!=', 'agency')
+            ->where('module', '!=', 'kontruksi')
             ->where(function ($q) use ($userRole) {
                 $q->where('role', 'like', "%;$userRole;%")
                     ->orWhere('role', 'like', "$userRole;%")
