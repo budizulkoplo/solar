@@ -390,7 +390,7 @@
                                                 <div class="text-center my-2">
                                                     <div class="bg-light rounded p-2">
                                                         <small class="text-muted d-block">No Rumah</small>
-                                                        <strong class="text-primary fs-5">{{ $detail->id }}</strong>
+                                                        <strong class="text-primary fs-5">{{ $detail->no_rumah }}</strong>
                                                     </div>
                                                 </div>
                                                 

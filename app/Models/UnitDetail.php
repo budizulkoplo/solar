@@ -11,7 +11,9 @@ class UnitDetail extends Model
 
     protected $fillable = [
         'idunit',
+        'no_rumah',
         'status',
+        'shgd',
         'customer_id',
         'booking_id',
         'penjualan_id'

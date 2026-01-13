@@ -69,11 +69,18 @@ class UnitController extends Controller
 
             $unit = Unit::create($validated);
 
-            // Buat unit details
-            for ($i = 0; $i < $unit->jumlah; $i++) {
+            // Buat unit details dengan generate no_rumah
+            for ($i = 1; $i <= $unit->jumlah; $i++) {
+                $no_rumah = $this->generateNoRumah($unit->blok, $i, $unit->idproject);
+                
                 UnitDetail::create([
                     'idunit' => $unit->id,
+                    'no_rumah' => $no_rumah,
                     'status' => 'tersedia',
+                    'shgd' => null,
+                    'customer_id' => null,
+                    'booking_id' => null,
+                    'penjualan_id' => null,
                 ]);
             }
 
@@ -146,6 +153,10 @@ class UnitController extends Controller
 
             DB::beginTransaction();
 
+            // Simpan blok lama untuk pengecekan perubahan
+            $oldBlok = $unit->blok;
+            $newBlok = $validated['blok'];
+
             // Update unit
             $unit->update($validated);
 
@@ -154,10 +165,20 @@ class UnitController extends Controller
             
             if ($validated['jumlah'] > $currentDetailsCount) {
                 // Tambah detail baru
-                for ($i = $currentDetailsCount; $i < $validated['jumlah']; $i++) {
+                $startNumber = $currentDetailsCount + 1;
+                for ($i = $startNumber; $i <= $validated['jumlah']; $i++) {
+                    // Gunakan blok baru untuk generate nomor rumah
+                    $blokForNoRumah = $newBlok ?? $oldBlok;
+                    $no_rumah = $this->generateNoRumah($blokForNoRumah, $i, $unit->idproject);
+                    
                     UnitDetail::create([
                         'idunit' => $unit->id,
+                        'no_rumah' => $no_rumah,
                         'status' => 'tersedia',
+                        'shgd' => null,
+                        'customer_id' => null,
+                        'booking_id' => null,
+                        'penjualan_id' => null,
                     ]);
                 }
             } elseif ($validated['jumlah'] < $currentDetailsCount) {
@@ -172,6 +193,11 @@ class UnitController extends Controller
                 foreach ($availableToDelete as $detail) {
                     $detail->delete();
                 }
+            }
+
+            // Jika blok berubah, regenerate semua no_rumah untuk unit ini
+            if ($oldBlok !== $newBlok) {
+                $this->regenerateAllNoRumah($unit);
             }
 
             DB::commit();
@@ -252,6 +278,99 @@ class UnitController extends Controller
             
         } catch (\Exception $e) {
             \Log::error('Error in getUnitsByProject: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan'
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate nomor rumah berdasarkan blok dan nomor urut
+     */
+    private function generateNoRumah($blok, $nomorUrut, $projectId)
+    {
+        // Format: {blok}-{nomor urut}
+        // Jika blok kosong, gunakan format khusus
+        if (empty($blok) || $blok == '-') {
+            return $nomorUrut;
+        }
+        
+        return strtoupper($blok) . '-' . $nomorUrut;
+    }
+
+    /**
+     * Regenerate semua nomor rumah untuk unit tertentu
+     */
+    private function regenerateAllNoRumah($unit)
+    {
+        $details = $unit->details()
+            ->orderBy('id')
+            ->get();
+        
+        $nomorUrut = 1;
+        foreach ($details as $detail) {
+            $no_rumah = $this->generateNoRumah($unit->blok, $nomorUrut, $unit->idproject);
+            $detail->update(['no_rumah' => $no_rumah]);
+            $nomorUrut++;
+        }
+    }
+
+    /**
+     * Get available units for dropdown (hanya yang tersedia)
+     */
+    public function getAvailableUnits($unitId = null)
+    {
+        try {
+            $query = UnitDetail::where('status', 'tersedia')
+                ->with(['unit' => function($query) {
+                    $query->select('id', 'namaunit', 'blok', 'hargadasar');
+                }]);
+            
+            // Jika ada unitId, filter berdasarkan unit tertentu
+            if ($unitId) {
+                $query->where('idunit', $unitId);
+            }
+            
+            $availableUnits = $query->get(['id', 'idunit', 'no_rumah', 'status']);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $availableUnits
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error in getAvailableUnits: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get unit detail by ID
+     */
+    public function getUnitDetail($id)
+    {
+        try {
+            $unitDetail = UnitDetail::with(['unit', 'customer', 'booking', 'penjualan'])
+                ->find($id);
+            
+            if (!$unitDetail) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unit detail tidak ditemukan'
+                ], 404);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'data' => $unitDetail
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error in getUnitDetail: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan'

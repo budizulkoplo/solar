@@ -473,28 +473,26 @@ class DashboardController extends Controller
     protected function getTransaksiTempoBelumLunas()
     {
         $today = Carbon::today()->format('Y-m-d');
-        
-        // Hitung total transaksi tempo yang belum lunas
-        $totalTempo = Nota::where('paymen_method', 'tempo')
-            ->where('status', '!=', 'paid')
-            ->where('tgl_tempo', '>=', $today)
-            ->count();
+        $projectIds = $this->accessibleProjectIds();
 
-        // Hitung transaksi yang sudah jatuh tempo
-        $jatuhTempo = Nota::where('paymen_method', 'tempo')
-            ->where('status', '!=', 'paid')
-            ->where('tgl_tempo', '<', $today)
-            ->count();
+        $baseQuery = Nota::where('paymen_method', 'tempo')
+            ->where('status', '!=', 'paid');
 
-        // Hitung total nominal
-        $totalNominal = Nota::where('paymen_method', 'tempo')
-            ->where('status', '!=', 'paid')
-            ->sum('total');
+        if ($projectIds) {
+            $baseQuery->whereIn('idproject', $projectIds);
+        }
 
         return (object) [
-            'total_tempo' => $totalTempo,
-            'jatuh_tempo' => $jatuhTempo,
-            'total_nominal' => $totalNominal
+            'total_tempo' => (clone $baseQuery)
+                ->where('tgl_tempo', '>=', $today)
+                ->count(),
+
+            'jatuh_tempo' => (clone $baseQuery)
+                ->where('tgl_tempo', '<', $today)
+                ->count(),
+
+            'total_nominal' => (clone $baseQuery)
+                ->sum('total'),
         ];
     }
 
@@ -504,8 +502,9 @@ class DashboardController extends Controller
     protected function getTempoModalData()
     {
         $today = Carbon::today()->format('Y-m-d');
-        
-        $tempoData = Nota::select([
+        $projectIds = $this->accessibleProjectIds();
+
+        $query = Nota::select([
                 'notas.id',
                 'notas.nota_no',
                 'notas.namatransaksi',
@@ -523,14 +522,20 @@ class DashboardController extends Controller
             ->leftJoin('projects', 'notas.idproject', '=', 'projects.id')
             ->leftJoin('company_units', 'notas.idcompany', '=', 'company_units.id')
             ->where('paymen_method', 'tempo')
-            ->where('status', '!=', 'paid')
+            ->where('status', '!=', 'paid');
+
+        // 🔒 Batasi project sesuai hak user
+        if ($projectIds) {
+            $query->whereIn('notas.idproject', $projectIds);
+        }
+
+        return $query
             ->orderBy('notas.tgl_tempo', 'asc')
             ->get()
-            ->map(function($item) use ($today) {
-                // Tentukan status tempo
+            ->map(function ($item) {
                 $statusTempo = 'Akan Jatuh Tempo';
                 $badgeClass = 'badge-warning';
-                
+
                 if ($item->sisa_hari < 0) {
                     $statusTempo = 'Jatuh Tempo';
                     $badgeClass = 'badge-danger';
@@ -538,11 +543,10 @@ class DashboardController extends Controller
                     $statusTempo = 'Mendekati Jatuh Tempo';
                     $badgeClass = 'badge-info';
                 }
-                
-                // Tentukan jenis transaksi
+
                 $jenisTransaksi = $item->cashflow == 'in' ? 'Penerimaan' : 'Pengeluaran';
                 $jenisBadge = $item->cashflow == 'in' ? 'badge-success' : 'badge-primary';
-                
+
                 return [
                     'id' => $item->id,
                     'nota_no' => $item->nota_no,
@@ -564,8 +568,13 @@ class DashboardController extends Controller
                     'is_near_due' => $item->sisa_hari <= 3 && $item->sisa_hari >= 0,
                 ];
             });
+    }
 
-        return $tempoData;
+    protected function accessibleProjectIds()
+    {
+        $user = auth()->user();
+
+        return $user->projects()->pluck('projects.id');
     }
 
 }
