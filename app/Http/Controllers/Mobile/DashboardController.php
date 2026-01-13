@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Request;
+use App\Models\Nota;
 
 class DashboardController extends Controller
 {
@@ -213,6 +215,12 @@ class DashboardController extends Controller
         // Data untuk modal presensi
         $presensiModalData = $this->getPresensiModalData($presensiBulanIni);
 
+        // Data transaksi tempo yang belum lunas
+        $transaksiTempo = $this->getTransaksiTempoBelumLunas();
+
+        // Data untuk modal transaksi tempo
+        $tempoModalData = $this->getTempoModalData();
+
         return view('mobile.index', [
             'user' => $user,
             'rekapPresensiBulanIni' => $presensiBulanIni,
@@ -225,6 +233,8 @@ class DashboardController extends Controller
             'ticketSummary' => $ticketSummary,
             'userTickets' => $userTickets,
             'presensiModalData' => $presensiModalData,
+            'transaksiTempo' => $transaksiTempo,
+            'tempoModalData' => $tempoModalData,
         ]);
     }
 
@@ -385,6 +395,177 @@ class DashboardController extends Controller
         }
 
         return $data;
+    }
+
+    public function agendaList(Request $request)
+    {
+        try {
+            $bulan = $request->input('bulan', date('Y-m'));
+
+            // Validasi format bulan
+            if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+                $bulan = date('Y-m');
+            }
+
+            $user = Auth::user();
+
+            // Debug: Cek apakah user terautentikasi
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi'
+                ], 401);
+            }
+
+            $agenda = DB::table('agenda')
+                ->whereYear('tgl', date('Y', strtotime($bulan)))
+                ->whereMonth('tgl', date('m', strtotime($bulan)))
+                ->orderBy('tgl')
+                ->orderBy('waktu')
+                ->get();
+
+            // Parse tanggal untuk tampilan
+            $agenda = $agenda->map(function($item) use ($user) {
+                try {
+                    $carbonDate = \Carbon\Carbon::parse($item->tgl . ' ' . $item->waktu);
+                    $item->is_past = $carbonDate->isPast();
+                    $item->status = $item->is_past ? 'Berakhir' : 'Akan Datang';
+                    $item->badge_class = $item->is_past ? 'bg-danger' : 'bg-success';
+                    $item->bg_color = $item->is_past ? '#ffe6ec' : '#e3fcec';
+                    $item->formatted_date = \Carbon\Carbon::parse($item->tgl)->translatedFormat('d F Y');
+                    $item->formatted_time = substr($item->waktu, 0, 5);
+                    $item->is_owner = $user->nik === $item->nik;
+                } catch (\Exception $e) {
+                    // Tangani error parsing
+                    $item->is_past = false;
+                    $item->status = 'Error';
+                    $item->badge_class = 'bg-secondary';
+                    $item->bg_color = '#f8f9fa';
+                    $item->formatted_date = $item->tgl;
+                    $item->formatted_time = $item->waktu;
+                    $item->is_owner = false;
+                }
+                
+                return $item;
+            });
+
+            return response()->json([
+                'success' => true,
+                'agenda' => $agenda,
+                'bulan' => $bulan,
+                'bulan_label' => \Carbon\Carbon::parse($bulan . '-01')->translatedFormat('F Y'),
+                'total' => $agenda->count()
+            ]);
+
+        } catch (\Exception $e) {
+            // Log error untuk debugging
+            \Log::error('Error in agendaList: ' . $e->getMessage());
+            \Log::error('Trace: ' . $e->getTraceAsString());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan server: ' . $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+            ], 500);
+        }
+    }
+
+    protected function getTransaksiTempoBelumLunas()
+    {
+        $today = Carbon::today()->format('Y-m-d');
+        
+        // Hitung total transaksi tempo yang belum lunas
+        $totalTempo = Nota::where('paymen_method', 'tempo')
+            ->where('status', '!=', 'paid')
+            ->where('tgl_tempo', '>=', $today)
+            ->count();
+
+        // Hitung transaksi yang sudah jatuh tempo
+        $jatuhTempo = Nota::where('paymen_method', 'tempo')
+            ->where('status', '!=', 'paid')
+            ->where('tgl_tempo', '<', $today)
+            ->count();
+
+        // Hitung total nominal
+        $totalNominal = Nota::where('paymen_method', 'tempo')
+            ->where('status', '!=', 'paid')
+            ->sum('total');
+
+        return (object) [
+            'total_tempo' => $totalTempo,
+            'jatuh_tempo' => $jatuhTempo,
+            'total_nominal' => $totalNominal
+        ];
+    }
+
+    /**
+     * Data untuk modal transaksi tempo
+     */
+    protected function getTempoModalData()
+    {
+        $today = Carbon::today()->format('Y-m-d');
+        
+        $tempoData = Nota::select([
+                'notas.id',
+                'notas.nota_no',
+                'notas.namatransaksi',
+                'notas.tanggal',
+                'notas.tgl_tempo',
+                'notas.total',
+                'notas.cashflow',
+                'notas.status',
+                DB::raw('DATEDIFF(tgl_tempo, CURDATE()) as sisa_hari'),
+                'vendors.namavendor',
+                'projects.namaproject',
+                'company_units.company_name'
+            ])
+            ->leftJoin('vendors', 'notas.vendor_id', '=', 'vendors.id')
+            ->leftJoin('projects', 'notas.idproject', '=', 'projects.id')
+            ->leftJoin('company_units', 'notas.idcompany', '=', 'company_units.id')
+            ->where('paymen_method', 'tempo')
+            ->where('status', '!=', 'paid')
+            ->orderBy('notas.tgl_tempo', 'asc')
+            ->get()
+            ->map(function($item) use ($today) {
+                // Tentukan status tempo
+                $statusTempo = 'Akan Jatuh Tempo';
+                $badgeClass = 'badge-warning';
+                
+                if ($item->sisa_hari < 0) {
+                    $statusTempo = 'Jatuh Tempo';
+                    $badgeClass = 'badge-danger';
+                } elseif ($item->sisa_hari <= 3) {
+                    $statusTempo = 'Mendekati Jatuh Tempo';
+                    $badgeClass = 'badge-info';
+                }
+                
+                // Tentukan jenis transaksi
+                $jenisTransaksi = $item->cashflow == 'in' ? 'Penerimaan' : 'Pengeluaran';
+                $jenisBadge = $item->cashflow == 'in' ? 'badge-success' : 'badge-primary';
+                
+                return [
+                    'id' => $item->id,
+                    'nota_no' => $item->nota_no,
+                    'namatransaksi' => $item->namatransaksi,
+                    'tanggal' => Carbon::parse($item->tanggal)->format('d/m/Y'),
+                    'tgl_tempo' => Carbon::parse($item->tgl_tempo)->format('d/m/Y'),
+                    'total' => number_format($item->total, 0, ',', '.'),
+                    'total_raw' => $item->total,
+                    'sisa_hari' => $item->sisa_hari,
+                    'status_tempo' => $statusTempo,
+                    'badge_tempo_class' => $badgeClass,
+                    'jenis_transaksi' => $jenisTransaksi,
+                    'jenis_badge' => $jenisBadge,
+                    'vendor' => $item->namavendor ?? '-',
+                    'project' => $item->namaproject ?? '-',
+                    'company' => $item->company_name ?? '-',
+                    'cashflow' => $item->cashflow,
+                    'is_overdue' => $item->sisa_hari < 0,
+                    'is_near_due' => $item->sisa_hari <= 3 && $item->sisa_hari >= 0,
+                ];
+            });
+
+        return $tempoData;
     }
 
 }

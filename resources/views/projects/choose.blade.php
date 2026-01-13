@@ -285,6 +285,7 @@
                             </div>
                             <div class="project-company">{{ $project->companyUnit->company_name }}</div>
                             <div class="project-name">{{ $project->namaproject }}</div>
+                            <div class="project-company">{{ $project->retail->namaretail }}</div>
                         </button>
                     </form>
                 </div>

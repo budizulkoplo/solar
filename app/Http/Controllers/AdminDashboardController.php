@@ -37,7 +37,7 @@ class AdminDashboardController extends Controller
                 return $this->dashboardProject();
             case 'hris':
                 return $this->dashboardHRIS();
-            case 'marketing':
+            case 'agency':
                 return $this->dashboardMarketing();
             default:
                 // Default ke project dashboard

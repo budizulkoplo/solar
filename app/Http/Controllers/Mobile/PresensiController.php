@@ -782,4 +782,75 @@ class PresensiController extends BaseMobileController
 
         return view('mobile.presensi.gethistori_visit', compact('histori'));
     }
+
+    public function agendaForm()
+    {
+        return view('mobile.presensi.agenda');
+    }
+
+    public function storeAgenda(Request $request)
+    {
+        $request->validate([
+            'namaagenda' => 'required|string|max:255',
+            'tgl'        => 'required|date',
+            'waktu'      => 'required',
+            'jenis'      => 'required|string|max:100',
+            'lokasi'     => 'required|string|max:255',
+            'peserta'    => 'required|string|max:255',
+        ]);
+
+        $user = $this->user;
+        
+
+        DB::table('agenda')->insert([
+            'namaagenda' => $request->namaagenda,
+            'tgl'        => $request->tgl,
+            'waktu'      => $request->waktu,
+            'jenis'      => $request->jenis,
+            'lokasi'     => $request->lokasi,
+            'peserta'    => $request->peserta,
+            'nik'        => $user->nik,
+            'creator'    => $user->name,
+        ]);
+
+        return redirect()->back()->with('success', 'Agenda berhasil ditambahkan.');
+    }
+
+    public function listAgenda(Request $request)
+    {
+        $bulan = $request->bulan ?? date('Y-m');
+
+        // Validasi format bulan
+        if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+            $bulan = date('Y-m');
+        }
+
+        $agenda = DB::table('agenda')
+            ->whereYear('tgl', date('Y', strtotime($bulan)))
+            ->whereMonth('tgl', date('m', strtotime($bulan)))
+            ->orderBy('tgl')
+            ->orderBy('waktu')
+            ->get();
+
+        return view('mobile.presensi.list_agenda', compact('agenda', 'bulan'));
+    }
+
+    public function deleteAgenda($id)
+    {
+        $userNik =  $this->user->nik;
+
+        $agenda = DB::table('agenda')->where('id', $id)->first();
+
+        if (!$agenda) {
+            return redirect()->back()->with('error', 'Agenda tidak ditemukan.');
+        }
+
+        if ($agenda->nik !== $userNik) {
+            return redirect()->back()->with('error', 'Anda tidak berhak menghapus agenda ini.');
+        }
+
+        DB::table('agenda')->where('id', $id)->delete();
+
+        return redirect()->back()->with('success', 'Agenda berhasil dihapus.');
+    }
 }

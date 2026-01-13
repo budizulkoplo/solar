@@ -137,6 +137,171 @@
     </div>
 </div>
 
+<!-- Transaksi Tempo Section -->
+<div class="performance-card mb-3">
+    <div class="todaypresence">
+        <div class="rekappresensi">
+            <h3 class="section-title">Transaksi Tempo</h3>
+            <div class="row text-center">
+                @php
+                    $tempoData = [
+                        ['label' => 'Total Tempo', 'icon' => 'calendar-outline', 'value' => $transaksiTempo->total_tempo ?? 0, 'color' => 'primary', 'type' => 'tempo'],
+                        ['label' => 'Jatuh Tempo', 'icon' => 'alert-circle-outline', 'value' => $transaksiTempo->jatuh_tempo ?? 0, 'color' => 'danger', 'type' => 'tempo'],
+                        ['label' => 'Total Nominal', 'icon' => 'cash-outline', 'value' => 'Rp ' . number_format($transaksiTempo->total_nominal ?? 0, 0, ',', '.'), 'color' => 'success', 'type' => 'tempo'],
+                    ];
+                @endphp
+
+                @foreach($tempoData as $data)
+                <div class="col-4 mb-2">
+                    <div class="card stat-card" data-type="{{ $data['type'] }}" data-label="{{ $data['label'] }}">
+                        <div class="card-body position-relative p-2">
+                            @if($data['value'] > 0 && !is_string($data['value']))
+                                <span class="badge bg-danger position-absolute count-badge">
+                                    {{ $data['value'] }}
+                                </span>
+                            @endif
+                            <ion-icon name="{{ $data['icon'] }}" class="text-{{ $data['color'] }} stat-icon" style="font-size: 1.5rem;"></ion-icon>
+                            
+                            <span class="stat-label" style="font-size: 0.65rem;">{{ $data['label'] }}</span>
+                            @if($data['label'] == 'Total Nominal')
+                                <small class="d-block text-muted" style="font-size: 0.6rem;">{{ $data['value'] }}</small>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Transaksi Tempo -->
+<div class="modal fade" id="tempoModal" tabindex="-1" aria-labelledby="tempoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="section-title text-white" id="tempoModalLabel">Daftar Transaksi Tempo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <!-- Filter Status -->
+        <!-- <div class="p-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted">Filter berdasarkan:</small>
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="tempoFilter" id="filterAll" checked>
+                    <label class="btn btn-outline-primary" for="filterAll">Semua</label>
+                    
+                    <input type="radio" class="btn-check" name="tempoFilter" id="filterOverdue">
+                    <label class="btn btn-outline-danger" for="filterOverdue">Jatuh Tempo</label>
+                    
+                    <input type="radio" class="btn-check" name="tempoFilter" id="filterNearDue">
+                    <label class="btn btn-outline-warning" for="filterNearDue">Mendekati</label>
+                    
+                    <input type="radio" class="btn-check" name="tempoFilter" id="filterFuture">
+                    <label class="btn btn-outline-info" for="filterFuture">Akan Datang</label>
+                </div>
+            </div>
+        </div> -->
+        
+        <!-- Daftar Transaksi -->
+        <div class="p-3">
+            <div id="tempoListContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Memuat data transaksi tempo...</p>
+                </div>
+            </div>
+            
+            <!-- Summary -->
+            <div class="mt-3 p-3 bg-light rounded" id="tempoSummary">
+                <!-- Summary akan diisi lewat JS -->
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Agenda Section -->
+<div class="performance-card mb-3">
+    <div class="todaypresence">
+        <div class="rekappresensi">
+            <h3 class="section-title">Agenda</h3>
+            <div class="row">
+                <div class="col-12">
+                    <div class="card stat-card" id="agendaCard" data-type="agenda">
+                        <div class="card-body position-relative">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <ion-icon name="calendar-outline" class="text-primary stat-icon"></ion-icon>
+                                    <div class="text-start">
+                                        <div class="stat-label">Lihat Agenda</div>
+                                        <small class="text-muted" id="agendaCount">Memuat agenda...</small>
+                                    </div>
+                                </div>
+                                <ion-icon name="chevron-forward-outline" class="text-primary"></ion-icon>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agenda -->
+<div class="modal fade" id="agendaModal" tabindex="-1" aria-labelledby="agendaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="section-title text-white" id="agendaModalLabel">Daftar Agenda</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <!-- Filter Bulan -->
+        <div class="p-3 border-bottom">
+            <form id="agendaFilterForm">
+                <div class="row g-2">
+                    <div class="col-8">
+                        <input type="month" id="agendaMonth" name="bulan" class="form-control form-control-sm" 
+                               value="{{ date('Y-m') }}">
+                    </div>
+                    <div class="col-4">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <ion-icon name="filter-outline" class="me-1"></ion-icon> Filter
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Daftar Agenda -->
+        <div class="p-3">
+            <div id="agendaListContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Memuat agenda...</p>
+                </div>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Presensi -->
 <div class="modal fade" id="presensiModal" tabindex="-1" aria-labelledby="presensiModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-scrollable">
@@ -822,6 +987,7 @@
     height: auto;
 }
 </style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const allTickets = @json($userTickets ?? []);
@@ -1224,6 +1390,493 @@ function formatSimpleDate(dateString) {
             default: return 'dark';
         }
     }
+});
+
+// Click handler untuk card agenda
+document.getElementById('agendaCard')?.addEventListener('click', function() {
+    showAgendaModal();
+    loadAgendaData();
+});
+
+// Function untuk menampilkan modal agenda
+function showAgendaModal() {
+    const modal = new bootstrap.Modal(document.getElementById('agendaModal'));
+    modal.show();
+}
+
+// Function untuk load data agenda
+function loadAgendaData(month = null) {
+    const container = document.getElementById('agendaListContainer');
+    const monthInput = document.getElementById('agendaMonth');
+    const selectedMonth = month || monthInput.value;
+    
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mt-2">Memuat agenda...</p>
+        </div>
+    `;
+    
+    fetch(`/mobile/dashboard/agenda?bulan=${selectedMonth}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderAgendaList(data.agenda, data.bulan_label, data.total);
+            updateAgendaCount(data.total, data.bulan_label);
+        } else {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    Gagal memuat data agenda
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading agenda:', error);
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                Terjadi kesalahan saat memuat agenda
+            </div>
+        `;
+    });
+}
+
+// Function untuk render list agenda
+function renderAgendaList(agenda, monthLabel, total) {
+    const container = document.getElementById('agendaListContainer');
+    
+    if (total === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <ion-icon name="calendar-outline" style="font-size: 3rem; color: #ccc;"></ion-icon>
+                <p class="text-muted mt-2">Tidak ada agenda untuk ${monthLabel}(</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="mb-3">
+            <small class="text-muted">Menampilkan ${total} agenda untuk ${monthLabel}</small>
+        </div>
+    `;
+    
+    agenda.forEach(item => {
+        html += `
+            <div class="card mb-3" style="background-color: ${item.bg_color}; border-left: 3px solid ${item.is_past ? '#dc3545' : '#28a745'}">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="text-warning mb-2">${item.namaagenda}</h6>
+                            <div class="small text-muted">
+                                <div class="d-flex align-items-center mb-1">
+                                    <ion-icon name="calendar-outline" class="me-1"></ion-icon>
+                                    &nbsp; ${item.formatted_date}
+                                </div>
+                                <div class="d-flex align-items-center mb-1">
+                                    <ion-icon name="time-outline" class="me-1"></ion-icon>
+                                    &nbsp; ${item.formatted_time}
+                                </div>
+                                <div class="d-flex align-items-center mb-1">
+                                    <ion-icon name="pricetag-outline" class="me-1"></ion-icon>
+                                    &nbsp; ${item.jenis}
+                                </div>
+                                <div class="d-flex align-items-center mb-1">
+                                    <ion-icon name="location-outline" class="me-1"></ion-icon>
+                                    &nbsp; ${item.lokasi}
+                                </div>
+                                <div class="d-flex align-items-center mb-1">
+                                    <ion-icon name="people-outline" class="me-1"></ion-icon>
+                                    &nbsp; ${item.peserta}
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <ion-icon name="person-outline" class="me-1"></ion-icon>
+                                    &nbsp; ${item.creator}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end ms-3">
+                            <span class="badge ${item.badge_class} px-3 py-1 rounded-pill">
+                                ${item.status}
+                            </span>
+                            ${item.is_owner ? `
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-danger delete-agenda" 
+                                        data-id="${item.id}" 
+                                        onclick="deleteAgenda(${item.id})">
+                                    <ion-icon name="trash-outline"></ion-icon>
+                                </button>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Function untuk update agenda count di card
+function updateAgendaCount(count, monthLabel) {
+    const agendaCountElement = document.getElementById('agendaCount');
+    if (agendaCountElement) {
+        agendaCountElement.innerHTML = `&nbsp; ${count} agenda (${monthLabel}) &nbsp;`;
+    }
+}
+
+// Function untuk delete agenda
+function deleteAgenda(id) {
+    if (!confirm('Yakin ingin menghapus agenda ini?')) {
+        return;
+    }
+    
+    fetch(`/agenda/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'Agenda berhasil dihapus');
+            // Reload data agenda
+            const currentMonth = document.getElementById('agendaMonth').value;
+            loadAgendaData(currentMonth);
+        } else {
+            showToast('error', data.message || 'Gagal menghapus agenda');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting agenda:', error);
+        showToast('error', 'Terjadi kesalahan saat menghapus agenda');
+    });
+}
+
+// Function untuk show toast notification
+function showToast(type, message) {
+    // Buat toast element
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type === 'success' ? 'success' : 'danger'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    // Tambahkan ke container toast
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        const container = document.createElement('div');
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(container);
+    }
+    
+    document.querySelector('.toast-container').appendChild(toast);
+    
+    // Inisialisasi dan tampilkan toast
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    
+    // Hapus toast setelah selesai
+    toast.addEventListener('hidden.bs.toast', function () {
+        toast.remove();
+    });
+}
+
+// Event listener untuk form filter agenda
+document.getElementById('agendaFilterForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const month = document.getElementById('agendaMonth').value;
+    loadAgendaData(month);
+});
+
+// Load agenda count saat halaman dimuat
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial agenda count
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    fetch(`/mobile/dashboard/agenda?bulan=${currentMonth}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateAgendaCount(data.total, data.bulan_label);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading agenda count:', error);
+            document.getElementById('agendaCount').textContent = 'Gagal memuat';
+        });
+});
+
+// Di bagian document.addEventListener('DOMContentLoaded', function () { ...
+const tempoModalEl = document.getElementById('tempoModal');
+const tempoListContainer = document.getElementById('tempoListContainer');
+const tempoSummary = document.getElementById('tempoSummary');
+
+// Data transaksi tempo dari controller
+const tempoData = @json($tempoModalData ?? []);
+
+// Di bagian event listener stat-card, tambahkan handler untuk tempo
+document.querySelectorAll('.stat-card').forEach(card => {
+    card.addEventListener('click', function () {
+        const type = this.getAttribute('data-type');
+        const label = this.getAttribute('data-label');
+        const status = this.getAttribute('data-status');
+
+        if (type === 'presensi') {
+            showPresensiModal(label);
+        } else if (type === 'ticket') {
+            showTicketModal(status);
+        } else if (type === 'tempo') {
+            showTempoModal(label);
+        }
+    });
+});
+
+// Function untuk menampilkan modal transaksi tempo
+function showTempoModal(label) {
+    // Render daftar transaksi
+    renderTempoList();
+    
+    // Render summary
+    renderTempoSummary();
+    
+    // Set judul modal berdasarkan label
+    let modalTitle = 'Daftar Transaksi Tempo';
+    if (label === 'Total Tempo') {
+        modalTitle = 'Semua Transaksi Tempo';
+    } else if (label === 'Jatuh Tempo') {
+        modalTitle = 'Transaksi Jatuh Tempo';
+        // Otomatis filter jatuh tempo
+        document.getElementById('filterOverdue').checked = true;
+        filterTempoList('overdue');
+    } else if (label === 'Total Nominal') {
+        modalTitle = 'Ringkasan Transaksi Tempo';
+    }
+    
+    document.getElementById('tempoModalLabel').textContent = modalTitle;
+    
+    // Tampilkan modal
+    const modal = new bootstrap.Modal(tempoModalEl);
+    modal.show();
+}
+
+// Function untuk render daftar transaksi tempo
+function renderTempoList(filterType = 'all') {
+    let filteredData = tempoData;
+    
+    // Filter data berdasarkan tipe
+    if (filterType === 'overdue') {
+        filteredData = tempoData.filter(item => item.is_overdue);
+    } else if (filterType === 'near-due') {
+        filteredData = tempoData.filter(item => item.is_near_due);
+    } else if (filterType === 'future') {
+        filteredData = tempoData.filter(item => !item.is_overdue && !item.is_near_due);
+    }
+    
+    if (filteredData.length === 0) {
+        tempoListContainer.innerHTML = `
+            <div class="text-center py-4">
+                <ion-icon name="receipt-outline" style="font-size: 3rem; color: #ccc;"></ion-icon>
+                <p class="text-muted mt-2">Tidak ada transaksi tempo</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="mb-2">
+            <small class="text-muted">Menampilkan ${filteredData.length} transaksi</small>
+        </div>
+    `;
+    
+    filteredData.forEach((item, index) => {
+        // Warna border berdasarkan status
+        let borderColor = '#28a745'; // default hijau
+        if (item.is_overdue) {
+            borderColor = '#dc3545'; // merah untuk jatuh tempo
+        } else if (item.is_near_due) {
+            borderColor = '#ffc107'; // kuning untuk mendekati
+        }
+        
+        // Icon berdasarkan jenis transaksi
+        let iconName = item.cashflow === 'in' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline';
+        let iconColor = item.cashflow === 'in' ? 'text-success' : 'text-primary';
+        
+        html += `
+            <div class="card mb-3 border-start" style="border-left-color: ${borderColor} !important; border-left-width: 4px;">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                <ion-icon name="${iconName}" class="${iconColor} me-2"></ion-icon>
+                                <h6 class="mb-0 text-dark">${item.nota_no}</h6>
+                            </div>
+                            <h6 class="text-primary mb-1">${item.namatransaksi}</h6>
+                            
+                            <div class="row small text-muted mb-2">
+                                <div class="col-6">
+                                    <ion-icon name="calendar-outline" class="me-1"></ion-icon>
+                                    Tanggal: ${item.tanggal}
+                                </div>
+                                <div class="col-6">
+                                    <ion-icon name="time-outline" class="me-1"></ion-icon>
+                                    Jatuh Tempo: ${item.tgl_tempo}
+                                </div>
+                            </div>
+                            
+                            <div class="row small text-muted mb-2">
+                                <div class="col-6">
+                                    <ion-icon name="${item.cashflow === 'in' ? 'trending-up' : 'trending-down'}" class="me-1"></ion-icon>
+                                    ${item.jenis_transaksi}
+                                </div>
+                                <div class="col-6">
+                                    <ion-icon name="business-outline" class="me-1"></ion-icon>
+                                    ${item.project || item.company || '-'}
+                                </div>
+                            </div>
+                            
+                            <div class="small text-muted">
+                                <ion-icon name="person-outline" class="me-1"></ion-icon>
+                                ${item.vendor}
+                            </div>
+                        </div>
+                        
+                        <div class="text-end ms-3">
+                            <div class="mb-2">
+                                <span class="badge ${item.jenis_badge} px-3 py-1">
+                                    ${item.jenis_transaksi}
+                                </span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="badge ${item.badge_tempo_class} px-3 py-1">
+                                    ${item.status_tempo}
+                                </span>
+                            </div>
+                            <div>
+                                <h5 class="text-danger mb-0">Rp ${item.total}</h5>
+                                <small class="text-muted">${Math.abs(item.sisa_hari)} hari ${item.sisa_hari < 0 ? 'lewat' : 'lagi'}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${item.sisa_hari < 0 ? `
+                        <div class="alert alert-danger py-2 mt-2 mb-0">
+                            <div class="d-flex align-items-center">
+                                <ion-icon name="warning-outline" class="me-2"></ion-icon>
+                                <small>Telah lewat ${Math.abs(item.sisa_hari)} hari dari tanggal jatuh tempo</small>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${item.sisa_hari <= 3 && item.sisa_hari >= 0 ? `
+                        <div class="alert alert-warning py-2 mt-2 mb-0">
+                            <div class="d-flex align-items-center">
+                                <ion-icon name="alert-circle-outline" class="me-2"></ion-icon>
+                                <small>Akan jatuh tempo dalam ${item.sisa_hari} hari</small>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    tempoListContainer.innerHTML = html;
+}
+
+// Function untuk render summary
+function renderTempoSummary() {
+    // Hitung total per kategori
+    const totalItems = tempoData.length;
+    const overdueItems = tempoData.filter(item => item.is_overdue).length;
+    const nearDueItems = tempoData.filter(item => item.is_near_due).length;
+    const futureItems = tempoData.filter(item => !item.is_overdue && !item.is_near_due).length;
+    
+    // Hitung total nominal
+    const totalNominal = tempoData.reduce((sum, item) => sum + item.total_raw, 0);
+    const overdueNominal = tempoData.filter(item => item.is_overdue)
+        .reduce((sum, item) => sum + item.total_raw, 0);
+    
+    let html = `
+        <h6 class="mb-3">Ringkasan Transaksi Tempo</h6>
+        <div class="row">
+            <div class="col-4 mb-2">
+                <div class="text-center">
+                    <div class="text-primary fw-bold">${totalItems}</div>
+                    <small class="text-muted">Total Transaksi</small>
+                </div>
+            </div>
+            <div class="col-4 mb-2">
+                <div class="text-center">
+                    <div class="text-danger fw-bold">${overdueItems}</div>
+                    <small class="text-muted">Jatuh Tempo</small>
+                </div>
+            </div>
+            <div class="col-4 mb-2">
+                <div class="text-center">
+                    <div class="text-warning fw-bold">${nearDueItems}</div>
+                    <small class="text-muted">Mendekati</small>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-6">
+                <div class="text-center">
+                    <div class="text-success fw-bold">Rp ${formatNumber(totalNominal)}</div>
+                    <small class="text-muted">Total Nominal</small>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="text-center">
+                    <div class="text-danger fw-bold">Rp ${formatNumber(overdueNominal)}</div>
+                    <small class="text-muted">Nominal Jatuh Tempo</small>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    tempoSummary.innerHTML = html;
+}
+
+// Function untuk filter daftar tempo
+function filterTempoList(filterType) {
+    renderTempoList(filterType);
+}
+
+// Helper function untuk format number
+function formatNumber(number) {
+    return new Intl.NumberFormat('id-ID').format(number);
+}
+
+// Event listener untuk filter radio buttons
+document.querySelectorAll('input[name="tempoFilter"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const filterType = this.id.replace('filter', '').toLowerCase();
+        filterTempoList(filterType);
+    });
+});
+
+// Event listener untuk modal show
+tempoModalEl.addEventListener('show.bs.modal', function() {
+    // Reset ke filter semua saat modal dibuka
+    document.getElementById('filterAll').checked = true;
+    renderTempoList('all');
+    renderTempoSummary();
 });
 </script>
 

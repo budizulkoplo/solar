@@ -189,6 +189,15 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('laporan/cashflow-project/view-nota', [LaporanController::class, 'viewNotaDetail'])->name('transaksi.laporan.cashflow_project.view_nota');
         Route::get('laporan/cashflow-pt/view-nota', [LaporanController::class, 'viewNotaDetailPT'])->name('transaksi.laporan.cashflow_pt.view_nota');
 
+        // Laporan Presensi Visit
+        Route::get('laporan/rekap-visit', [LaporanController::class, 'rekapVisit'])->name('hris.laporan.rekap_visit');
+        Route::get('laporan/rekap-visit/data', [LaporanController::class, 'rekapVisitData'])->name('hris.laporan.rekap_visit.data');
+        Route::get('laporan/monitoring-visit', [LaporanController::class, 'monitoringVisit'])->name('hris.laporan.monitoring_visit');
+        Route::get('laporan/monitoring-visit/data', [LaporanController::class, 'monitoringVisitData'])->name('hris.laporan.monitoring_visit.data');
+        Route::get('laporan/detail-visit', [LaporanController::class, 'detailVisit'])->name('hris.laporan.detail_visit');
+        Route::get('laporan/view-foto-visit', [LaporanController::class, 'viewFotoVisit'])->name('hris.laporan.view_foto_visit');
+        Route::get('laporan/export-visit-excel', [LaporanController::class, 'exportVisitExcel'])->name('hris.laporan.export_visit_excel');
+
         // === Payroll (Tabel Gaji) ===
         Route::get('payroll', [PayrollController::class, 'index'])->name('hris.payroll.index');
         Route::get('payroll/data', [PayrollController::class, 'getData'])->name('hris.payroll.data');
@@ -203,6 +212,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::delete('bonus/{id}', [BonusController::class, 'destroy'])->name('hris.bonus.destroy');
         Route::get('bonus/slip/{nik}/{periode}', [BonusController::class, 'downloadSlip'])->name('hris.bonus.slip');
         Route::get('bonus/user-bonus', [BonusController::class, 'getBonusByUser'])->name('hris.bonus.user_bonus');
+
     });
 
     // Laporan
@@ -616,11 +626,27 @@ Route::middleware(['auth'])->prefix('mobile/presensi')->name('mobile.presensi.')
     //Histori
     Route::get('/histori', [PresensiController::class, 'histori']);
     Route::post('/gethistori', [PresensiController::class, 'gethistori']);
+
+    Route::get('/agenda', [PresensiController::class, 'agendaForm'])->name('agenda');
+    Route::post('/agenda', [PresensiController::class, 'storeAgenda'])->name('agenda.store');
+    Route::get('/agenda/list', [PresensiController::class, 'listAgenda'])->name('agenda.list');
+    Route::delete('/agenda/{id}/delete', [PresensiController::class, 'deleteAgenda'])->name('agenda.delete');
+
 });
 
 Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function () {
     // Dashboard
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
+
+    Route::get('/dashboard/agenda', [DashboardController::class, 'agendaList'])
+        ->name('dashboard.agenda');
+    
+    // Route untuk delete agenda
+    Route::delete('/agenda/{id}', [PresensiController::class, 'deleteAgenda'])
+        ->name('presensi.agenda.delete');
+
+    // Di routes/web.php
+    Route::get('/dashboard/tempo-data', [DashboardController::class, 'getTempoData'])->name('dashboard.tempo_data');
     
     // Modul Kalender
     Route::prefix('kalender')->name('kalender.')->group(function () {

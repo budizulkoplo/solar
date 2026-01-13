@@ -18,9 +18,10 @@ class ProjectSelectionController extends Controller
 
         // 🔹 Ambil daftar project user
         $projects = $user->projects()
-            ->with('companyUnit')
-            ->whereHas('companyUnit') // Hanya project yang punya company
-            ->get();
+        ->with(['companyUnit', 'retail'])
+        ->whereHas('companyUnit')
+        ->get();
+
 
         // 🔹 Ambil daftar PT (Company) yang terkait dengan project user
         $companies = CompanyUnit::whereIn('id', function($query) use ($user) {

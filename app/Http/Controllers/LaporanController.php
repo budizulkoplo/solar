@@ -25,7 +25,8 @@ use App\Models\Project;
 use App\Models\Unit;
 use App\Models\KodeTransaksi;
 use Yajra\DataTables\Facades\DataTables;
-
+use App\Exports\VisitExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
 {
@@ -1775,4 +1776,422 @@ class LaporanController extends Controller
             return response()->back()->with('error', 'Gagal print: ' . $e->getMessage());
         }
     }
+
+    // ==========================
+    // LAPORAN PRESENSI VISIT
+    // ==========================
+    public function rekapVisit()
+    {
+        $bulan = now()->format('m');
+        $tahun = now()->format('Y');
+        return view('hris.laporan.rekap_visit', compact('bulan', 'tahun'));
+    }
+
+    public function rekapVisitData(Request $request)
+    {
+        $bulan = $request->input('bulan', now()->format('m'));
+        $tahun = $request->input('tahun', now()->format('Y'));
+
+        $awal = Carbon::createFromDate($tahun, $bulan, 1)->startOfDay();
+        $akhir = $awal->copy()->endOfMonth();
+
+        // Ambil data pegawai aktif
+        $pegawaiList = User::with('unitkerja')
+            ->where('status', 'aktif')
+            ->whereHas('pegawaiDtl')
+            ->get();
+
+        $data = [];
+
+        foreach ($pegawaiList as $p) {
+            // Ambil data presensi visit berdasarkan bulan dan tahun
+            $presensiVisit = DB::table('presensi_visit')
+                ->where('nik', $p->nik)
+                ->whereYear('tgl_presensi', $tahun)
+                ->whereMonth('tgl_presensi', $bulan)
+                ->orderBy('tgl_presensi')
+                ->orderBy('jam_in')
+                ->get();
+
+            // Kelompokkan berdasarkan tanggal
+            $presensiByDate = $presensiVisit->groupBy('tgl_presensi');
+
+            $totalHariVisit = 0;
+            
+            foreach ($presensiByDate as $tgl => $presensiHari) {
+                $visitMasuk = $presensiHari->where('inoutmode', 1)->first();
+                $visitPulang = $presensiHari->where('inoutmode', 2)->first();
+
+                // Hitung total hari visit (jika ada masuk dan pulang)
+                if ($visitMasuk && $visitPulang) {
+                    $totalHariVisit++;
+                }
+            }
+
+            $data[] = [
+                'nik' => $p->nik,
+                'nama' => $p->name,
+                'unitkerja' => optional($p->unitkerja)->company_name ?? '-',
+                'total_hari_visit' => $totalHariVisit,
+            ];
+        }
+
+        // Untuk DataTables server-side, kita perlu mengembalikan format khusus
+        if ($request->ajax() && $request->has('draw')) {
+            // DataTables server-side processing
+            $draw = $request->input('draw');
+            $start = $request->input('start', 0);
+            $length = $request->input('length', 10);
+            
+            // Pagination manual
+            $totalRecords = count($data);
+            $paginatedData = array_slice($data, $start, $length);
+            
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $totalRecords,
+                'data' => $paginatedData
+            ]);
+        }
+        
+        // Untuk non-Datatables request (backward compatibility)
+        return response()->json(['data' => $data]);
+    }
+
+    // ==========================
+    // MONITORING PRESENSI VISIT
+    // ==========================
+    public function monitoringVisit()
+    {
+        return view('hris.laporan.monitoring_visit');
+    }
+
+    public function monitoringVisitData(Request $request)
+    {
+        $tanggal = $request->tanggal ?? date('Y-m-d');
+
+        $data = DB::table('presensi_visit as pv')
+            ->select(
+                'pv.nik',
+                'u.nip',
+                'u.name',
+                'cu.company_name',
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 1 THEN pv.jam_in END) as visit_masuk'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 2 THEN pv.jam_in END) as visit_pulang'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 3 THEN pv.jam_in END) as lembur_masuk'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 4 THEN pv.jam_in END) as lembur_pulang'),
+                DB::raw('GROUP_CONCAT(DISTINCT CASE WHEN pv.inoutmode = 1 THEN pv.keterangan END) as keterangan_masuk'),
+                DB::raw('GROUP_CONCAT(DISTINCT CASE WHEN pv.inoutmode = 2 THEN pv.keterangan END) as keterangan_pulang'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 1 THEN pv.foto_in END) as foto_masuk'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 2 THEN pv.foto_in END) as foto_pulang'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 1 THEN pv.lokasi END) as lokasi_masuk'),
+                DB::raw('MAX(CASE WHEN pv.inoutmode = 2 THEN pv.lokasi END) as lokasi_pulang')
+            )
+            ->join('users as u', 'pv.nik', '=', 'u.nik')
+            ->leftJoin('company_units as cu', 'u.id_unitkerja', '=', 'cu.id')
+            ->where('pv.tgl_presensi', $tanggal)
+            ->groupBy('pv.nik', 'u.nip', 'u.name', 'cu.company_name')
+            ->orderBy('u.name')
+            ->get();
+
+        // Format data untuk response
+        $formattedData = $data->map(function ($item) {
+            // Hitung durasi visit jika ada masuk dan pulang
+            $durasiVisit = null;
+            if ($item->visit_masuk && $item->visit_pulang) {
+                $masuk = Carbon::parse($item->visit_masuk);
+                $pulang = Carbon::parse($item->visit_pulang);
+                $durasiVisit = $masuk->diff($pulang)->format('%H jam %I menit');
+            }
+
+            // Hitung durasi lembur jika ada
+            $durasiLembur = null;
+            if ($item->lembur_masuk && $item->lembur_pulang) {
+                $lemburIn = Carbon::parse($item->lembur_masuk);
+                $lemburOut = Carbon::parse($item->lembur_pulang);
+                $durasiLembur = $lemburIn->diff($lemburOut)->format('%H jam %I menit');
+            }
+
+            return [
+                'nik' => $item->nik,
+                'nip' => $item->nip,
+                'nama' => $item->name,
+                'unitkerja' => $item->company_name,
+                'visit_masuk' => $item->visit_masuk ? Carbon::parse($item->visit_masuk)->format('H:i') : '-',
+                'visit_pulang' => $item->visit_pulang ? Carbon::parse($item->visit_pulang)->format('H:i') : '-',
+                'durasi_visit' => $durasiVisit ?? '-',
+                'lembur_masuk' => $item->lembur_masuk ? Carbon::parse($item->lembur_masuk)->format('H:i') : '-',
+                'lembur_pulang' => $item->lembur_pulang ? Carbon::parse($item->lembur_pulang)->format('H:i') : '-',
+                'durasi_lembur' => $durasiLembur ?? '-',
+                'keterangan_masuk' => $item->keterangan_masuk ?? '-',
+                'keterangan_pulang' => $item->keterangan_pulang ?? '-',
+                'lokasi_masuk' => $item->lokasi_masuk ?? '-',
+                'lokasi_pulang' => $item->lokasi_pulang ?? '-',
+                'foto_masuk' => $item->foto_masuk,
+                'foto_pulang' => $item->foto_pulang,
+                'status' => $item->visit_masuk ? ($item->visit_pulang ? 'Complete' : 'Belum Pulang') : 'Belum Presensi'
+            ];
+        });
+
+        return response()->json(['data' => $formattedData]);
+    }
+
+    // ==========================
+    // DETAIL PRESENSI VISIT PER PEGAWAI
+    // ==========================
+    public function detailVisit(Request $request)
+    {
+        $nik = $request->nik;
+        $bulan = $request->bulan ?? now()->format('m');
+        $tahun = $request->tahun ?? now()->format('Y');
+        
+        $pegawai = User::with('unitkerja')->where('nik', $nik)->first();
+        
+        if (!$pegawai) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pegawai tidak ditemukan'
+            ]);
+        }
+
+        $awal = Carbon::createFromDate($tahun, $bulan, 1)->startOfDay();
+        $akhir = $awal->copy()->endOfMonth();
+
+        // Ambil data presensi visit
+        $presensiVisit = DB::table('presensi_visit')
+            ->where('nik', $nik)
+            ->whereYear('tgl_presensi', $tahun)
+            ->whereMonth('tgl_presensi', $bulan)
+            ->orderBy('tgl_presensi')
+            ->orderBy('jam_in')
+            ->get();
+
+        // Kelompokkan berdasarkan tanggal
+        $presensiByDate = $presensiVisit->groupBy('tgl_presensi');
+
+        $detailPresensi = [];
+        $totalHariVisit = 0;
+        $totalJamLembur = 0;
+
+        foreach ($presensiByDate as $tgl => $presensiHari) {
+            $visitMasuk = $presensiHari->where('inoutmode', 1)->first();
+            $visitPulang = $presensiHari->where('inoutmode', 2)->first();
+            $lemburMasuk = $presensiHari->where('inoutmode', 3)->first();
+            $lemburPulang = $presensiHari->where('inoutmode', 4)->first();
+
+            // Hitung durasi visit
+            $durasiVisit = null;
+            $durasiJam = 0;
+            if ($visitMasuk && $visitPulang) {
+                $jamMasuk = Carbon::parse($visitMasuk->jam_in);
+                $jamPulang = Carbon::parse($visitPulang->jam_in);
+                $durasiJam = $jamMasuk->diffInHours($jamPulang);
+                $durasiVisit = $jamMasuk->diff($jamPulang)->format('%H:%I');
+                $totalHariVisit++;
+            }
+
+            // Hitung durasi lembur
+            $durasiLembur = null;
+            $lemburJam = 0;
+            if ($lemburMasuk && $lemburPulang) {
+                $lemburIn = Carbon::parse($lemburMasuk->jam_in);
+                $lemburOut = Carbon::parse($lemburPulang->jam_in);
+                $lemburJam = $lemburIn->diffInHours($lemburOut);
+                $durasiLembur = $lemburIn->diff($lemburOut)->format('%H:%I');
+                $totalJamLembur += $lemburJam;
+            }
+
+            $detailPresensi[] = [
+                'tanggal' => Carbon::parse($tgl)->format('d/m/Y'),
+                'hari' => Carbon::parse($tgl)->translatedFormat('l'),
+                'visit_masuk' => $visitMasuk ? Carbon::parse($visitMasuk->jam_in)->format('H:i') : '-',
+                'visit_pulang' => $visitPulang ? Carbon::parse($visitPulang->jam_in)->format('H:i') : '-',
+                'durasi_visit' => $durasiVisit ?? '-',
+                'durasi_jam' => $durasiJam,
+                'lembur_masuk' => $lemburMasuk ? Carbon::parse($lemburMasuk->jam_in)->format('H:i') : '-',
+                'lembur_pulang' => $lemburPulang ? Carbon::parse($lemburPulang->jam_in)->format('H:i') : '-',
+                'durasi_lembur' => $durasiLembur ?? '-',
+                'durasi_lembur_jam' => $lemburJam,
+                'keterangan' => $visitMasuk->keterangan ?? ($visitPulang->keterangan ?? '-'),
+                'lokasi' => $visitMasuk->lokasi ?? ($visitPulang->lokasi ?? '-'),
+                'foto_masuk' => $visitMasuk ? asset('storage/uploads/visit/' . $visitMasuk->foto_in) : null,
+                'foto_pulang' => $visitPulang ? asset('storage/uploads/visit/' . $visitPulang->foto_in) : null,
+                'foto_lembur_masuk' => $lemburMasuk ? asset('storage/uploads/visit/' . $lemburMasuk->foto_in) : null,
+                'foto_lembur_pulang' => $lemburPulang ? asset('storage/uploads/visit/' . $lemburPulang->foto_in) : null
+            ];
+        }
+
+        // Statistik
+        $statistik = [
+            'total_hari_visit' => $totalHariVisit,
+            'total_jam_lembur' => sprintf('%02d:%02d', floor($totalJamLembur), fmod($totalJamLembur, 1) * 60),
+            'rata_rata_jam_per_hari' => $totalHariVisit > 0 ? number_format(array_sum(array_column($detailPresensi, 'durasi_jam')) / $totalHariVisit, 2) : 0,
+            'persentase_hadir' => $totalHariVisit > 0 ? round(($totalHariVisit / $awal->daysInMonth) * 100, 2) : 0
+        ];
+
+        return response()->json([
+            'success' => true,
+            'pegawai' => [
+                'nik' => $pegawai->nik,
+                'nama' => $pegawai->name,
+                'unitkerja' => optional($pegawai->unitkerja)->company_name ?? '-',
+                'jabatan' => $pegawai->jabatan ?? '-'
+            ],
+            'periode' => [
+                'bulan' => Carbon::createFromDate($tahun, $bulan, 1)->translatedFormat('F'),
+                'tahun' => $tahun,
+                'range' => $awal->format('d/m/Y') . ' - ' . $akhir->format('d/m/Y')
+            ],
+            'statistik' => $statistik,
+            'detail_presensi' => $detailPresensi,
+            'total_data' => count($detailPresensi)
+        ]);
+    }
+
+    // ==========================
+    // EXPORT LAPORAN PRESENSI VISIT
+    // ==========================
+    public function exportVisitExcel(Request $request)
+    {
+        $bulan = $request->bulan ?? now()->format('m');
+        $tahun = $request->tahun ?? now()->format('Y');
+        $nik = $request->nik; // jika ingin export per pegawai
+
+        // Ambil data berdasarkan parameter
+        if ($nik) {
+            $data = $this->getDetailVisitForExport($nik, $bulan, $tahun);
+            $filename = "laporan-visit-{$nik}-{$bulan}-{$tahun}.xlsx";
+        } else {
+            $data = $this->getAllVisitForExport($bulan, $tahun);
+            $filename = "laporan-visit-all-{$bulan}-{$tahun}.xlsx";
+        }
+
+        // Generate Excel
+        return Excel::download(new VisitExport($data), $filename);
+    }
+
+    private function getDetailVisitForExport($nik, $bulan, $tahun)
+    {
+        $pegawai = User::where('nik', $nik)->first();
+        
+        $presensiVisit = DB::table('presensi_visit')
+            ->where('nik', $nik)
+            ->whereYear('tgl_presensi', $tahun)
+            ->whereMonth('tgl_presensi', $bulan)
+            ->orderBy('tgl_presensi')
+            ->orderBy('jam_in')
+            ->get();
+
+        $grouped = $presensiVisit->groupBy('tgl_presensi');
+
+        $result = [];
+        foreach ($grouped as $tgl => $items) {
+            $visitMasuk = $items->where('inoutmode', 1)->first();
+            $visitPulang = $items->where('inoutmode', 2)->first();
+            $lemburMasuk = $items->where('inoutmode', 3)->first();
+            $lemburPulang = $items->where('inoutmode', 4)->first();
+
+            $durasiVisit = null;
+            if ($visitMasuk && $visitPulang) {
+                $masuk = Carbon::parse($visitMasuk->jam_in);
+                $pulang = Carbon::parse($visitPulang->jam_in);
+                $durasiVisit = $masuk->diff($pulang)->format('%H:%I');
+            }
+
+            $result[] = [
+                'NIK' => $pegawai->nik ?? $nik,
+                'Nama' => $pegawai->name ?? '-',
+                'Tanggal' => Carbon::parse($tgl)->format('d/m/Y'),
+                'Visit Masuk' => $visitMasuk ? Carbon::parse($visitMasuk->jam_in)->format('H:i') : '-',
+                'Visit Pulang' => $visitPulang ? Carbon::parse($visitPulang->jam_in)->format('H:i') : '-',
+                'Durasi Visit' => $durasiVisit ?? '-',
+                'Lembur Masuk' => $lemburMasuk ? Carbon::parse($lemburMasuk->jam_in)->format('H:i') : '-',
+                'Lembur Pulang' => $lemburPulang ? Carbon::parse($lemburPulang->jam_in)->format('H:i') : '-',
+                'Keterangan' => $visitMasuk->keterangan ?? ($visitPulang->keterangan ?? '-'),
+                'Lokasi' => $visitMasuk->lokasi ?? ($visitPulang->lokasi ?? '-')
+            ];
+        }
+
+        return $result;
+    }
+
+    private function getAllVisitForExport($bulan, $tahun)
+    {
+        $pegawaiList = User::with('unitkerja')
+            ->where('status', 'aktif')
+            ->get();
+
+        $result = [];
+        
+        foreach ($pegawaiList as $pegawai) {
+            $presensiVisit = DB::table('presensi_visit')
+                ->where('nik', $pegawai->nik)
+                ->whereYear('tgl_presensi', $tahun)
+                ->whereMonth('tgl_presensi', $bulan)
+                ->get();
+
+            $grouped = $presensiVisit->groupBy('tgl_presensi');
+
+            foreach ($grouped as $tgl => $items) {
+                $visitMasuk = $items->where('inoutmode', 1)->first();
+                $visitPulang = $items->where('inoutmode', 2)->first();
+
+                $durasiVisit = null;
+                if ($visitMasuk && $visitPulang) {
+                    $masuk = Carbon::parse($visitMasuk->jam_in);
+                    $pulang = Carbon::parse($visitPulang->jam_in);
+                    $durasiVisit = $masuk->diff($pulang)->format('%H:%I');
+                }
+
+                $result[] = [
+                    'NIK' => $pegawai->nik,
+                    'Nama' => $pegawai->name,
+                    'Unit Kerja' => optional($pegawai->unitkerja)->company_name ?? '-',
+                    'Tanggal' => Carbon::parse($tgl)->format('d/m/Y'),
+                    'Visit Masuk' => $visitMasuk ? Carbon::parse($visitMasuk->jam_in)->format('H:i') : '-',
+                    'Visit Pulang' => $visitPulang ? Carbon::parse($visitPulang->jam_in)->format('H:i') : '-',
+                    'Durasi Visit' => $durasiVisit ?? '-',
+                    'Keterangan' => $visitMasuk->keterangan ?? ($visitPulang->keterangan ?? '-'),
+                    'Lokasi' => $visitMasuk->lokasi ?? ($visitPulang->lokasi ?? '-')
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    // ==========================
+    // VIEW FOTO PRESENSI VISIT
+    // ==========================
+    public function viewFotoVisit(Request $request)
+    {
+        $filename = $request->filename;
+        
+        if (!$filename) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nama file tidak valid'
+            ]);
+        }
+
+        $path = storage_path('app/public/uploads/visit/' . $filename);
+        
+        if (!file_exists($path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File foto tidak ditemukan'
+            ]);
+        }
+
+        $image = base64_encode(file_get_contents($path));
+        $type = pathinfo($path, PATHINFO_EXTENSION);
+        
+        return response()->json([
+            'success' => true,
+            'image' => 'data:image/' . $type . ';base64,' . $image,
+            'filename' => $filename
+        ]);
+    }
+
 }
