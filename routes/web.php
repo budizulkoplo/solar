@@ -699,6 +699,8 @@ Route::prefix('toko')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|
     Route::get('/{id}', [TokoController::class, 'show'])->name('toko.show');
     Route::get('/{id}/edit', [TokoController::class, 'edit'])->name('toko.edit');
     Route::delete('/{id}', [TokoController::class, 'destroy'])->name('toko.destroy');
+    Route::get('{id}/logs', [ProjectController::class,'getUpdateLogs'])->name('toko.logs');
+
 });
 
 Route::middleware(['auth'])->group(function () {
