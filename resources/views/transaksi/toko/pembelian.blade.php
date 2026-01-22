@@ -67,8 +67,8 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">Vendor</label>
-                                <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;">
+                                <label class="form-label">Vendor *</label>
+                                <select class="form-select form-select-sm select2" name="vendor_id" id="vendorId" style="width:100%;" required>
                                     <option value="">-- Pilih Vendor --</option>
                                     @foreach(\App\Models\Vendor::whereNull('deleted_at')->get() as $v)
                                         <option value="{{ $v->id }}">{{ $v->namavendor }}</option>
@@ -82,11 +82,13 @@
                                     <option value="">-- Pilih Rekening --</option>
                                     @foreach(\App\Models\Rekening::forProject(session('active_project_id'))->get() as $rek)
                                         <option value="{{ $rek->idrek }}" data-saldo="{{ $rek->saldo }}">
-                                            {{ $rek->norek }} - {{ $rek->namarek }}
+                                            {{ $rek->norek }} - {{ $rek->namarek }} (Saldo: Rp {{ number_format($rek->saldo, 0, ',', '.') }})
                                         </option>
                                     @endforeach
                                 </select>
-                                <small class="text-muted" id="saldoInfo">Saldo: Rp 0</small>
+                                <div class="mt-1">
+                                    <small class="text-muted">Saldo tersedia: <strong id="saldoInfo">Rp 0</strong></small>
+                                </div>
                             </div>
 
                             <div class="col-12">
@@ -99,11 +101,25 @@
 
                         <hr>
 
-                        <h6>Detail Barang</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6>Detail Barang</h6>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnToggleBarangBaru">
+                                    <i class="bi bi-plus-circle"></i> Mode Tambah Barang Baru
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info p-2 mb-3" id="modeBarangBaruAlert" style="display:none;">
+                            <i class="bi bi-info-circle"></i> Mode Tambah Barang Baru aktif. Anda bisa langsung membuat barang baru di form ini.
+                        </div>
+                        
                         <table class="table table-sm table-bordered" id="tblDetailBarang">
                             <thead>
                                 <tr>
-                                    <th width="40%">Barang *</th>
+                                    <th width="35%">Barang *</th>
                                     <th>Deskripsi</th>
                                     <th width="80">Qty</th>
                                     <th width="120">Harga Beli</th>
@@ -117,11 +133,19 @@
                             <tbody>
                                 <tr>
                                     <td>
-                                        <select class="form-select form-select-sm select2 barang-select" name="transactions[0][idbarang]" style="width:100%;">
-                                            <option value="">-- Pilih Barang --</option>
-                                        </select>
-                                        <input type="text" class="form-control form-control-sm mt-1 barang-new" 
-                                               name="transactions[0][nama_barang]" placeholder="Nama Barang Baru" style="display:none;">
+                                        <div class="input-group input-group-sm">
+                                            <select class="form-select form-select-sm barang-select" name="transactions[0][idbarang]" style="width:100%;" required>
+                                                <option value="">-- Pilih Barang --</option>
+                                            </select>
+                                            <button class="btn btn-outline-secondary btn-sm" type="button" id="toggleBarangBaru0">
+                                                <i class="bi bi-plus"></i>
+                                            </button>
+                                        </div>
+                                        <div class="barang-baru-container mt-1" style="display:none;">
+                                            <input type="text" class="form-control form-control-sm barang-nama" 
+                                                   name="transactions[0][nama_barang]" placeholder="Nama Barang Baru *" required>
+                                            <small class="text-muted">Barang baru akan dibuat otomatis</small>
+                                        </div>
                                     </td>
                                     <td><input type="text" class="form-control form-control-sm" name="transactions[0][deskripsi]" placeholder="Deskripsi"></td>
                                     <td><input type="number" class="form-control form-control-sm text-end qty" name="transactions[0][qty]" value="1" min="1"></td>
@@ -139,6 +163,12 @@
                                 </tr>
                             </tfoot>
                         </table>
+                        
+                        <!-- Warning saldo tidak cukup -->
+                        <div class="alert alert-warning p-2 mt-2" id="saldoWarning" style="display:none;">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Peringatan:</strong> Grand Total melebihi saldo rekening!
+                        </div>
                     </div>
 
                     <div class="modal-footer">
@@ -198,52 +228,116 @@
                     dropdownParent: $('#modalPembelian'),
                     width: '100%'
                 });
+                
+                // Initialize select2 untuk barang
+                $('.barang-select').each(function(index) {
+                    if (!$(this).hasClass('select2-hidden-accessible')) {
+                        $(this).select2({
+                            dropdownParent: $('#modalPembelian'),
+                            width: '100%',
+                            ajax: {
+                                url: "{{ route('toko.barang.search') }}",
+                                dataType: 'json',
+                                delay: 250,
+                                data: function(params) {
+                                    return {
+                                        search: params.term
+                                    };
+                                },
+                                processResults: function(data) {
+                                    return {
+                                        results: data
+                                    };
+                                }
+                            },
+                            minimumInputLength: 1
+                        });
+                    }
+                });
             }
 
-            // Load barang untuk select2
-            $('.barang-select').select2({
-                dropdownParent: $('#modalPembelian'),
-                width: '100%',
-                ajax: {
-                    url: "{{ route('toko.barang.search') }}",
-                    dataType: 'json',
-                    delay: 250,
-                    data: function(params) {
-                        return {
-                            search: params.term
-                        };
-                    },
-                    processResults: function(data) {
-                        return {
-                            results: data
-                        };
-                    }
-                },
-                minimumInputLength: 1
-            }).on('select2:select', function(e) {
+            // Update saldo rekening
+            function updateSaldoRekening() {
+                let selectedRekening = $('#idRekening').find(':selected');
+                let saldo = selectedRekening.data('saldo') || 0;
+                $('#saldoInfo').text('Rp ' + formatNumber(saldo));
+                checkSaldoCukup();
+            }
+
+            // Cek saldo cukup
+            function checkSaldoCukup() {
+                let saldo = parseFloat($('#idRekening').find(':selected').data('saldo')) || 0;
+                let grandTotal = parseFloat($('#grandTotal').val().replace(/[^\d]/g, '')) || 0;
+                
+                if (grandTotal > 0 && grandTotal > saldo) {
+                    $('#saldoWarning').show();
+                    return false;
+                } else {
+                    $('#saldoWarning').hide();
+                    return true;
+                }
+            }
+
+            // Toggle mode barang baru
+            let modeBarangBaru = false;
+            $('#btnToggleBarangBaru').click(function() {
+                modeBarangBaru = !modeBarangBaru;
+                
+                if (modeBarangBaru) {
+                    $('#modeBarangBaruAlert').show();
+                    $('#btnToggleBarangBaru').html('<i class="bi bi-box"></i> Mode Pilih Barang');
+                    $('.barang-select').prop('disabled', true);
+                    $('.barang-baru-container').show();
+                    $('.barang-nama').prop('required', true);
+                    $('.barang-select').prop('required', false);
+                } else {
+                    $('#modeBarangBaruAlert').hide();
+                    $('#btnToggleBarangBaru').html('<i class="bi bi-plus-circle"></i> Mode Tambah Barang Baru');
+                    $('.barang-select').prop('disabled', false);
+                    $('.barang-baru-container').hide();
+                    $('.barang-nama').prop('required', false);
+                    $('.barang-select').prop('required', true);
+                }
+            });
+
+            // Toggle barang baru per row
+            $(document).on('click', '.toggle-barang-baru', function() {
+                let button = $(this);
+                let container = button.closest('.input-group').next('.barang-baru-container');
+                let select = button.closest('.input-group').find('.barang-select');
+                
+                if (container.is(':visible')) {
+                    container.hide();
+                    select.prop('disabled', false).prop('required', true);
+                    container.find('.barang-nama').prop('required', false);
+                    button.html('<i class="bi bi-plus"></i>');
+                } else {
+                    container.show();
+                    select.prop('disabled', true).prop('required', false);
+                    container.find('.barang-nama').prop('required', true);
+                    button.html('<i class="bi bi-box"></i>');
+                }
+            });
+
+            // Load detail barang saat dipilih
+            $(document).on('select2:select', '.barang-select', function(e) {
                 let row = $(this).closest('tr');
                 let barangId = e.params.data.id;
                 
-                // Get detail barang
-                $.get("{{ route('toko.barang.detail', '') }}/" + barangId, function(res) {
-                    if (res.success) {
-                        let barang = res.data.barang;
-                        row.find('.harga-beli').val(barang.harga_beli);
-                        row.find('.harga-jual').val(barang.harga_jual);
-                        row.find('.barang-new').hide();
-                        calculateRowTotal(row);
-                    }
-                });
-            });
-
-            // Toggle input barang baru
-            $(document).on('change', '.barang-select', function() {
-                if ($(this).val() === 'new') {
-                    $(this).hide();
-                    $(this).closest('td').find('.barang-new').show().focus();
-                } else {
-                    $(this).show();
-                    $(this).closest('td').find('.barang-new').hide();
+                if (barangId) {
+                    let detailUrl = "{{ route('toko.barang.detail', ['id' => ':id']) }}";
+                    detailUrl = detailUrl.replace(':id', barangId);
+                    
+                    $.get(detailUrl, function(res) {
+                        if (res.success) {
+                            let barang = res.data.barang;
+                            row.find('.harga-beli').val(barang.harga_beli);
+                            row.find('.harga-jual').val(barang.harga_jual);
+                            calculateRowTotal(row);
+                        }
+                    }).fail(function() {
+                        console.error('Gagal mengambil detail barang');
+                    });
                 }
             });
 
@@ -253,11 +347,19 @@
                 let html = `
                     <tr>
                         <td>
-                            <select class="form-select form-select-sm select2 barang-select" name="transactions[${barangRowIndex}][idbarang]" style="width:100%;">
-                                <option value="">-- Pilih Barang --</option>
-                            </select>
-                            <input type="text" class="form-control form-control-sm mt-1 barang-new" 
-                                   name="transactions[${barangRowIndex}][nama_barang]" placeholder="Nama Barang Baru" style="display:none;">
+                            <div class="input-group input-group-sm">
+                                <select class="form-select form-select-sm barang-select" name="transactions[${barangRowIndex}][idbarang]" style="width:100%;" ${modeBarangBaru ? 'disabled' : 'required'}>
+                                    <option value="">-- Pilih Barang --</option>
+                                </select>
+                                <button class="btn btn-outline-secondary btn-sm toggle-barang-baru" type="button">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                            <div class="barang-baru-container mt-1" style="display:${modeBarangBaru ? 'block' : 'none'}">
+                                <input type="text" class="form-control form-control-sm barang-nama" 
+                                       name="transactions[${barangRowIndex}][nama_barang]" placeholder="Nama Barang Baru *" ${modeBarangBaru ? 'required' : ''}>
+                                <small class="text-muted">Barang baru akan dibuat otomatis</small>
+                            </div>
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[${barangRowIndex}][deskripsi]" placeholder="Deskripsi"></td>
                         <td><input type="number" class="form-control form-control-sm text-end qty" name="transactions[${barangRowIndex}][qty]" value="1" min="1"></td>
@@ -297,20 +399,31 @@
                     grandTotal += val;
                 });
                 $('#grandTotal').val(formatRupiah(grandTotal));
+                checkSaldoCukup();
             }
 
             // Format Rupiah
             function formatRupiah(angka) {
                 if (!angka || isNaN(angka)) return 'Rp 0';
-                return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                return 'Rp ' + formatNumber(angka);
+            }
+            
+            // Format number
+            function formatNumber(num) {
+                return new Intl.NumberFormat('id-ID', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0
-                }).format(angka);
+                }).format(num);
             }
 
             // Event listeners untuk perhitungan
-            $(document).on('input', '.qty, .harga-beli', function() {
+            $(document).on('input', '.qty, .harga-beli, .harga-jual', function() {
                 calculateRowTotal($(this).closest('tr'));
+            });
+
+            // Update saldo saat rekening berubah
+            $('#idRekening').change(function() {
+                updateSaldoRekening();
             });
 
             // Tombol tambah pembelian
@@ -323,14 +436,27 @@
             function resetForm() {
                 $('#frmPembelian')[0].reset();
                 $('#idPembelian').val('');
+                modeBarangBaru = false;
+                $('#modeBarangBaruAlert').hide();
+                $('#btnToggleBarangBaru').html('<i class="bi bi-plus-circle"></i> Mode Tambah Barang Baru');
+                $('#saldoWarning').hide();
+                
                 $('#tblDetailBarang tbody').html(`
                     <tr>
                         <td>
-                            <select class="form-select form-select-sm select2 barang-select" name="transactions[0][idbarang]" style="width:100%;">
-                                <option value="">-- Pilih Barang --</option>
-                            </select>
-                            <input type="text" class="form-control form-control-sm mt-1 barang-new" 
-                                   name="transactions[0][nama_barang]" placeholder="Nama Barang Baru" style="display:none;">
+                            <div class="input-group input-group-sm">
+                                <select class="form-select form-select-sm barang-select" name="transactions[0][idbarang]" style="width:100%;" required>
+                                    <option value="">-- Pilih Barang --</option>
+                                </select>
+                                <button class="btn btn-outline-secondary btn-sm toggle-barang-baru" type="button" id="toggleBarangBaru0">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                            <div class="barang-baru-container mt-1" style="display:none;">
+                                <input type="text" class="form-control form-control-sm barang-nama" 
+                                       name="transactions[0][nama_barang]" placeholder="Nama Barang Baru *">
+                                <small class="text-muted">Barang baru akan dibuat otomatis</small>
+                            </div>
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][deskripsi]" placeholder="Deskripsi"></td>
                         <td><input type="number" class="form-control form-control-sm text-end qty" name="transactions[0][qty]" value="1" min="1"></td>
@@ -345,13 +471,50 @@
                 $('#notaNo').val(generateNotaNo());
                 barangRowIndex = 1;
                 initializeSelect2();
+                updateSaldoRekening();
             }
 
             // Submit form
             $('#frmPembelian').submit(function(e) {
                 e.preventDefault();
                 
-                let formData = new FormData(this);
+                // Validasi saldo
+                if (!checkSaldoCukup()) {
+                    Swal.fire({
+                        title: 'Saldo Tidak Cukup',
+                        text: 'Saldo rekening tidak mencukupi untuk transaksi ini. Lanjutkan?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Lanjutkan',
+                        cancelButtonText: 'Batal'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            processFormSubmission();
+                        }
+                    });
+                } else {
+                    processFormSubmission();
+                }
+            });
+
+            function processFormSubmission() {
+                let formData = new FormData($('#frmPembelian')[0]);
+                
+                // Validasi minimal 1 barang
+                let isValid = false;
+                $('#tblDetailBarang tbody tr').each(function() {
+                    let barangId = $(this).find('.barang-select').val();
+                    let namaBarang = $(this).find('.barang-nama').val();
+                    
+                    if (barangId || (namaBarang && namaBarang.trim() !== '')) {
+                        isValid = true;
+                    }
+                });
+                
+                if (!isValid) {
+                    Swal.fire('Peringatan', 'Minimal harus ada 1 barang yang dipilih atau dibuat', 'warning');
+                    return;
+                }
                 
                 // Tampilkan loading
                 $('#btnSubmit').prop('disabled', true);
@@ -386,10 +549,11 @@
                         Swal.fire('Error!', errorMsg, 'error');
                     }
                 });
-            });
+            }
 
             // Initialize
             initializeSelect2();
+            updateSaldoRekening();
         });
         </script>
     </x-slot>

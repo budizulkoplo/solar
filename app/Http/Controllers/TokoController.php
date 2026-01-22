@@ -46,7 +46,7 @@ class TokoController extends Controller
                 'project:id,namaproject',
                 'vendor:id,namavendor'
             ])
-            ->where('cashflow', 'in')
+            ->where('cashflow', 'out')
             ->where('type', 'toko')
             ->where('idproject', session('active_project_id'));
 
@@ -117,7 +117,7 @@ class TokoController extends Controller
                 'project:id,namaproject',
                 'vendor:id,namavendor'
             ])
-            ->where('cashflow', 'out')
+            ->where('cashflow', 'in')
             ->where('type', 'toko')
             ->where('idproject', session('active_project_id'));
 
@@ -188,26 +188,29 @@ class TokoController extends Controller
         
         $query = Barang::select('barang.*', 
                 DB::raw('COALESCE(sp.stock, 0) as stock_project'),
-                DB::raw('COALESCE(SUM(sh.qty), 0) as total_masuk'),
-                DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "keluar" THEN sh.qty END), 0) as total_keluar')
+                DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "masuk" THEN sh.qty ELSE 0 END), 0) as total_masuk'),
+                DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "keluar" THEN sh.qty ELSE 0 END), 0) as total_keluar')
             )
             ->leftJoin('stock_project as sp', function($join) use ($projectId) {
                 $join->on('sp.barang_id', '=', 'barang.idbarang')
-                     ->where('sp.project_id', $projectId);
+                    ->where('sp.project_id', $projectId)
+                    ->whereNull('sp.deleted_at');
             })
             ->leftJoin('stock_history as sh', function($join) use ($projectId) {
                 $join->on('sh.barang_id', '=', 'barang.idbarang')
-                     ->where('sh.project_id', $projectId);
+                    ->where('sh.project_id', $projectId);
             })
+            ->whereNull('barang.deleted_at')
             ->groupBy('barang.idbarang');
 
         return DataTables::eloquent($query)
-            ->addIndexColumn()
+            ->addIndexColumn() // Ini membuat DT_RowIndex
             ->addColumn('action', function($row) {
                 return '<div class="btn-group">
                     <button class="btn btn-sm btn-info view-barang-btn" data-id="'.$row->idbarang.'"><i class="bi bi-eye"></i></button>
                     <button class="btn btn-sm btn-warning edit-barang-btn" data-id="'.$row->idbarang.'"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-primary adjust-stock-btn" data-id="'.$row->idbarang.'"><i class="bi bi-box-arrow-in-down"></i></button>
+                    <button class="btn btn-sm btn-secondary view-history-btn" data-id="'.$row->idbarang.'" data-name="'.$row->nama_barang.'"><i class="bi bi-clock-history"></i></button>
                 </div>';
             })
             ->editColumn('harga_beli', function($row) {
@@ -222,10 +225,10 @@ class TokoController extends Controller
                 return '<span class="badge '.$badge.'">'.$stock.'</span>';
             })
             ->editColumn('total_masuk', function($row) {
-                return number_format($row->total_masuk, 0, ',', '.');
+                return '<span class="text-success">' . number_format($row->total_masuk, 0, ',', '.') . '</span>';
             })
             ->editColumn('total_keluar', function($row) {
-                return number_format($row->total_keluar, 0, ',', '.');
+                return '<span class="text-danger">' . number_format($row->total_keluar, 0, ',', '.') . '</span>';
             })
             ->filter(function($query) {
                 $search = request('search.value');
@@ -233,13 +236,27 @@ class TokoController extends Controller
                 if (!empty($search)) {
                     $query->where(function($q) use ($search) {
                         $q->where('nama_barang', 'like', "%{$search}%")
-                        ->orWhere('deskripsi', 'like', "%{$search}%")
-                        ->orWhere('harga_beli', 'like', "%{$search}%")
-                        ->orWhere('harga_jual', 'like', "%{$search}%");
+                        ->orWhere('deskripsi', 'like', "%{$search}%");
                     });
                 }
             })
-            ->rawColumns(['action', 'stock_project'])
+            // Tambahkan order column untuk mengatasi error
+            ->order(function($query) {
+                // Default order
+                if (!request()->has('order')) {
+                    $query->orderBy('barang.created_at', 'desc');
+                }
+            })
+            // Tentukan kolom yang bisa di-order
+            ->orderColumn('DT_RowIndex', function($query, $order) {
+                // Kolom DT_RowIndex tidak perlu order di database
+                return $query;
+            })
+            ->orderColumn('nama_barang', 'nama_barang $1')
+            ->orderColumn('harga_beli', 'harga_beli $1')
+            ->orderColumn('harga_jual', 'harga_jual $1')
+            ->orderColumn('stock_project', 'stock_project $1')
+            ->rawColumns(['action', 'stock_project', 'total_masuk', 'total_keluar'])
             ->toJson();
     }
 
@@ -318,10 +335,11 @@ class TokoController extends Controller
             $nota = Nota::create($notaData);
 
             // Simpan detail transaksi dan update stock
-            foreach ($request->transactions as $transaction) {
+                foreach ($request->transactions as $transaction) {
                 $itemTotal = $transaction['qty'] * $transaction['harga_beli'];
                 
                 // Cari atau buat barang
+                $barang = null;
                 if (isset($transaction['idbarang']) && $transaction['idbarang']) {
                     $barang = Barang::find($transaction['idbarang']);
                     if ($barang) {
@@ -329,22 +347,30 @@ class TokoController extends Controller
                         if ($barang->harga_beli != $transaction['harga_beli']) {
                             $barang->update(['harga_beli' => $transaction['harga_beli']]);
                         }
+                        if ($barang->harga_jual != $transaction['harga_jual']) {
+                            $barang->update(['harga_jual' => $transaction['harga_jual']]);
+                        }
                     }
-                } else {
+                } else if (isset($transaction['nama_barang']) && $transaction['nama_barang']) {
                     // Buat barang baru
                     $barang = Barang::create([
                         'nama_barang' => $transaction['nama_barang'],
                         'harga_beli' => $transaction['harga_beli'],
-                        'harga_jual' => $transaction['harga_jual'] ?? $transaction['harga_beli'] * 1.3, // Markup 30% default
+                        'harga_jual' => $transaction['harga_jual'] ?? $transaction['harga_beli'] * 1.3,
                         'deskripsi' => $transaction['deskripsi'] ?? null,
                     ]);
+                }
+                
+                if (!$barang) {
+                    throw new \Exception("Barang tidak valid");
                 }
 
                 // Simpan transaksi
                 NotaTransaction::create([
                     'idnota' => $nota->id,
                     'idbarang' => $barang->idbarang,
-                    'description' => $transaction['nama_barang'],
+                    'idkodetransaksi' => "77",
+                    'description' => $barang->nama_barang,
                     'nominal' => $transaction['harga_beli'],
                     'jml' => $transaction['qty'],
                     'total' => $itemTotal,
@@ -419,9 +445,8 @@ class TokoController extends Controller
                 'idrek' => 'required|exists:rekening,idrek',
                 'transactions' => 'required|array|min:1',
                 'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
-                'vendor_id' => 'nullable|exists:vendors,id',
                 'jenis_penjualan' => 'required|in:toko,project',
-                'project_tujuan_id' => 'required_if:jenis_penjualan,project|exists:projects,id',
+
             ]);
 
             // Ambil user yang login
@@ -463,7 +488,6 @@ class TokoController extends Controller
                 'idproject' => $projectToko->id,
                 'idcompany' => $idcompany,
                 'idretail' => $idretail,
-                'vendor_id' => $request->vendor_id,
                 'idrek' => $request->idrek,
                 'tanggal' => $request->tanggal,
                 'cashflow' => 'out',
@@ -505,6 +529,7 @@ class TokoController extends Controller
                 NotaTransaction::create([
                     'idnota' => $nota->id,
                     'idbarang' => $barang->idbarang,
+                    'idkodetransaksi' => "78",
                     'description' => $barang->nama_barang,
                     'nominal' => $transaction['harga_jual'],
                     'jml' => $transaction['qty'],
@@ -624,22 +649,35 @@ class TokoController extends Controller
     // Get detail barang
     public function getDetailBarang($id)
     {
-        $barang = Barang::find($id);
-        if (!$barang) {
-            return response()->json(['success' => false, 'message' => 'Barang tidak ditemukan']);
-        }
-        
-        $stock = StockProject::where('barang_id', $id)
-            ->where('project_id', session('active_project_id'))
-            ->first();
+        try {
+            $barang = Barang::find($id);
+            if (!$barang) {
+                return response()->json(['success' => false, 'message' => 'Barang tidak ditemukan']);
+            }
             
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'barang' => $barang,
-                'stock' => $stock ? $stock->stock : 0
-            ]
-        ]);
+            $projectId = session('active_project_id');
+            
+            // Ambil stock dari tabel stock_project
+            $stockProject = StockProject::where('barang_id', $id)
+                ->where('project_id', $projectId)
+                ->first();
+                
+            $stock = $stockProject ? $stockProject->stock : 0;
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'barang' => $barang,
+                    'stock' => $stock
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // Adjust stock manual
@@ -958,6 +996,38 @@ class TokoController extends Controller
                 'nota_id' => $nota->id
             ]);
             throw $e;
+        }
+    }
+
+    // Create barang baru
+    public function createBarang(Request $request)
+    {
+        try {
+            $request->validate([
+                'nama_barang' => 'required|string|max:150',
+                'harga_beli' => 'required|numeric|min:0',
+                'harga_jual' => 'required|numeric|min:0',
+                'deskripsi' => 'nullable|string|max:255'
+            ]);
+
+            $barang = Barang::create([
+                'nama_barang' => $request->nama_barang,
+                'harga_beli' => $request->harga_beli,
+                'harga_jual' => $request->harga_jual,
+                'deskripsi' => $request->deskripsi
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Barang berhasil dibuat',
+                'data' => $barang
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

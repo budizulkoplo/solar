@@ -46,6 +46,7 @@ use App\Http\Controllers\PekerjaanKonstruksiController;
 use App\Http\Controllers\ConstructionTransactionController;
 use App\Http\Controllers\AssetTransactionController;
 use App\Http\Controllers\BonusController;
+use App\Http\Controllers\TokoController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -678,6 +679,7 @@ Route::prefix('toko')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|
     Route::get('/pembelian', [TokoController::class, 'pembelian'])->name('toko.pembelian');
     Route::get('/penjualan', [TokoController::class, 'penjualan'])->name('toko.penjualan');
     Route::get('/stock', [TokoController::class, 'stock'])->name('toko.stock');
+    Route::post('/barang/create', [TokoController::class, 'createBarang'])->name('toko.barang.create');
 
     // DataTables
     Route::get('/pembelian/data', [TokoController::class, 'getDataPembelian'])->name('toko.pembelian.data');
