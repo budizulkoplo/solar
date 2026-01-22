@@ -484,16 +484,18 @@ class DashboardController extends Controller
 
         return (object) [
             'total_tempo' => (clone $baseQuery)
-                ->where('tgl_tempo', '>=', $today)
+                ->whereRaw('DATEDIFF(tgl_tempo, CURDATE()) BETWEEN 0 AND 15')
                 ->count(),
 
             'jatuh_tempo' => (clone $baseQuery)
-                ->where('tgl_tempo', '<', $today)
+                ->whereRaw('DATEDIFF(tgl_tempo, CURDATE()) < 0')
                 ->count(),
 
             'total_nominal' => (clone $baseQuery)
+                ->whereRaw('DATEDIFF(tgl_tempo, CURDATE()) BETWEEN 0 AND 15')
                 ->sum('total'),
         ];
+
     }
 
     /**
@@ -522,7 +524,8 @@ class DashboardController extends Controller
             ->leftJoin('projects', 'notas.idproject', '=', 'projects.id')
             ->leftJoin('company_units', 'notas.idcompany', '=', 'company_units.id')
             ->where('paymen_method', 'tempo')
-            ->where('status', '!=', 'paid');
+            ->where('status', '!=', 'paid')
+            ->whereRaw('DATEDIFF(tgl_tempo, CURDATE()) BETWEEN 0 AND 15');
 
         // 🔒 Batasi project sesuai hak user
         if ($projectIds) {

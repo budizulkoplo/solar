@@ -672,6 +672,33 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
 
 });
 
+// Toko routes
+Route::prefix('toko')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
+    // Halaman
+    Route::get('/pembelian', [TokoController::class, 'pembelian'])->name('toko.pembelian');
+    Route::get('/penjualan', [TokoController::class, 'penjualan'])->name('toko.penjualan');
+    Route::get('/stock', [TokoController::class, 'stock'])->name('toko.stock');
+
+    // DataTables
+    Route::get('/pembelian/data', [TokoController::class, 'getDataPembelian'])->name('toko.pembelian.data');
+    Route::get('/penjualan/data', [TokoController::class, 'getDataPenjualan'])->name('toko.penjualan.data');
+    Route::get('/stock/data', [TokoController::class, 'getDataStock'])->name('toko.stock.data');
+
+    // CRUD operations
+    Route::post('/pembelian/store', [TokoController::class, 'storePembelian'])->name('toko.pembelian.store');
+    Route::post('/penjualan/store', [TokoController::class, 'storePenjualan'])->name('toko.penjualan.store');
+    Route::post('/adjust-stock', [TokoController::class, 'adjustStock'])->name('toko.adjust-stock');
+    Route::get('/barang/search', [TokoController::class, 'getBarang'])->name('toko.barang.search');
+    Route::get('/barang/{id}', [TokoController::class, 'getDetailBarang'])->name('toko.barang.detail');
+    Route::put('/barang/{id}', [TokoController::class, 'updateBarang'])->name('toko.barang.update');
+    Route::get('/stock/history/{barangId}', [TokoController::class, 'getStockHistory'])->name('toko.stock.history');
+
+    // Common
+    Route::get('/{id}', [TokoController::class, 'show'])->name('toko.show');
+    Route::get('/{id}/edit', [TokoController::class, 'edit'])->name('toko.edit');
+    Route::delete('/{id}', [TokoController::class, 'destroy'])->name('toko.destroy');
+});
+
 Route::middleware(['auth'])->group(function () {
     Route::get('slip/{payroll_id}', [PayrollController::class, 'downloadSlip'])->name('slip');
 });

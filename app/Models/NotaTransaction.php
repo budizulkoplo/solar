@@ -14,6 +14,7 @@ class NotaTransaction extends Model
     protected $fillable = [
         'idnota',
         'idkodetransaksi',
+        'idbarang',
         'description',
         'nominal',
         'jml',
@@ -30,5 +31,11 @@ class NotaTransaction extends Model
     public function kodeTransaksi()
     {
         return $this->belongsTo(KodeTransaksi::class, 'idkodetransaksi');
+    }
+
+    // Relasi ke barang
+    public function barang()
+    {
+        return $this->belongsTo(Barang::class, 'idbarang', 'idbarang');
     }
 }
