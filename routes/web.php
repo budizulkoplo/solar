@@ -255,14 +255,12 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     Route::prefix('kodetransaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [KodetransaksiController::class,'index'])->name('kodetransaksi.index');
         Route::get('/data', [KodetransaksiController::class,'getData'])->name('kodetransaksi.data');
-
         Route::post('/store', [KodetransaksiController::class,'store'])->name('kodetransaksi.store');
-
-        Route::get('/{id}/edit', [KodetransaksiController::class,'edit'])->name('kodetransaksi.edit')->where('id', '[0-9]+');
-        Route::put('/{id}', [KodetransaksiController::class,'update'])->name('kodetransaksi.update')->where('id', '[0-9]+');
-        Route::delete('/{id}', [KodetransaksiController::class,'destroy'])->name('kodetransaksi.destroy')->where('id', '[0-9]+');
-
+        Route::get('/{id}/edit', [KodetransaksiController::class,'edit'])->name('kodetransaksi.edit');
+        Route::put('/{id}', [KodetransaksiController::class,'update'])->name('kodetransaksi.update');
+        Route::delete('/{id}', [KodetransaksiController::class,'destroy'])->name('kodetransaksi.destroy');
         Route::patch('/{id}/update-field', [KodetransaksiController::class,'updateField'])->name('kodetransaksi.updateField');
+        Route::get('/export/excel', [KodetransaksiController::class, 'exportExcel'])->name('kodetransaksi.export.excel');
     });
 
     Route::prefix('transaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {

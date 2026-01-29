@@ -36,8 +36,9 @@ class GlobalApp
         $activeModule = session('active_project_module');
         $userRole = $user->getRoleNames()->first();
 
-        // Ambil menu sesuai role & module
+        // Ambil menu sesuai role TANPA filter module yang ketat
         $menuQuery = Menu::orderBy('seq', 'asc');
+        
         if ($userRole) {
             $menuQuery->where(function ($q) use ($userRole) {
                 $q->where('role', 'like', "%;$userRole;%")
@@ -48,10 +49,15 @@ class GlobalApp
             });
         }
 
+        // Hanya filter module jika ada activeModule DAN bukan untuk menu utama
         if ($activeModule) {
             $menuQuery->where(function ($q) use ($activeModule) {
+                // Izinkan menu dengan module yang sesuai ATAU null ATAU module kosong
                 $q->where('module', $activeModule)
-                  ->orWhereNull('module');
+                  ->orWhereNull('module')
+                  ->orWhere('module', '')
+                  // Izinkan juga menu utama
+                  ->orWhereIn('name', ['Dashboard', 'Master', 'Settings', 'HRIS', 'Project', 'PT', 'Marketing', 'Laporan']);
             });
         }
 
@@ -91,7 +97,7 @@ class GlobalApp
             return $next($request);
         }
 
-        // Ambil semua route yang diizinkan dari menu
+        // Ambil semua route yang diizinkan dari menu (parameter kedua dihapus)
         $allowedRoutes = $this->getAllAllowedRoutes($menus);
 
         // AUTO ALLOW: jika route child dari parent menu, izinkan
@@ -105,15 +111,37 @@ class GlobalApp
             }
         }
 
+        // Izinkan khusus routes HRIS
+        if (Str::startsWith($currentRoute, 'hris.') || 
+            Str::startsWith($currentRoute, 'master.') && Str::contains($currentRoute, ['unitkerja', 'kelompokjam', 'jadwal', 'gaji']) ||
+            $currentRoute === 'pegawai.list') {
+            // Cek apakah role punya akses ke module HRIS
+            $hasHrisAccess = Menu::where('module', 'hris')
+                ->where(function ($q) use ($userRole) {
+                    $q->where('role', 'like', "%;$userRole;%")
+                      ->orWhere('role', 'like', "$userRole;%")
+                      ->orWhere('role', 'like', "%;$userRole")
+                      ->orWhere('role', '=', $userRole);
+                })
+                ->exists();
+            
+            if ($hasHrisAccess) {
+                return $next($request);
+            }
+        }
+
         // Cek akses berdasarkan nama route
         $hasAccess = in_array($currentRoute, $allowedRoutes) ||
                      $this->isRouteAllowed($currentRoute, $allowedRoutes);
 
         if (!$hasAccess) {
             \Log::info('Access denied', [
+                'user_id' => $user->id,
+                'user_role' => $userRole,
                 'current_route' => $currentRoute,
                 'allowed_routes' => $allowedRoutes,
-                'active_module' => $activeModule
+                'active_module' => $activeModule,
+                'menus' => $menus->pluck('name', 'link')->toArray()
             ]);
             abort(403, 'Anda tidak memiliki akses ke module ini.');
         }
