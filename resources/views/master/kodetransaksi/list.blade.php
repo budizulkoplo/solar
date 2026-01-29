@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-slot name="pagetitle">Kode Transaksi</x-slot>
 
+    {{-- Hidden iframe untuk download --}}
+    <iframe id="downloadFrame" style="display:none;"></iframe>
+
     <div class="app-content-header">
         <div class="container-fluid">
             <h3 class="mb-0">Master Kode Transaksi</h3>
@@ -12,6 +15,18 @@
             <div class="card card-info card-outline mb-4">
                 <div class="card-header pt-1 pb-1">
                     <div class="card-tools">
+                        {{-- Tombol Export --}}
+                        <div class="btn-group mr-2">
+                            <button type="button" class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="bi bi-download"></i> Export
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="javascript:void(0)" id="btnExportExcel">
+                                    <i class="bi bi-file-earmark-excel"></i> Export Excel (.csv)
+                                </a>
+                            </div>
+                        </div>
+                        
                         <button class="btn btn-sm btn-primary" id="btnTambah">
                             <i class="bi bi-plus"></i> Tambah
                         </button>
@@ -53,12 +68,12 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Kode Transaksi</label>
-                            <input type="text" class="form-control form-control-sm" name="kodetransaksi" required>
+                            <input type="text" class="form-control form-control-sm" name="kodetransaksi" id="kodetransaksi" required>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Nama Transaksi</label>
-                            <input type="text" class="form-control form-control-sm" name="transaksi" required>
+                            <input type="text" class="form-control form-control-sm" name="transaksi" id="transaksi" required>
                         </div>
 
                         <div class="mb-3">
@@ -131,22 +146,67 @@
                     width: '100%',
                     placeholder: 'Pilih opsi',
                     allowClear: true,
-                    dropdownParent: $('body') // Untuk memastikan dropdown tidak terpotong
+                    dropdownParent: $('body')
                 });
             }
+
+            // Fungsi untuk menampilkan error
+            function showError(message) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: message,
+                    confirmButtonText: 'OK'
+                });
+            }
+
+            // Fungsi untuk menampilkan success
+            function showSuccess(message) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: message,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
+
+            // Variabel untuk tracking export
+            let exportLoading = null;
 
             let tb = $('#tbData').DataTable({
                 processing: true,
                 serverSide: true,
                 responsive: true,
                 pageLength: 50,
-                ajax: "{{ route('kodetransaksi.data') }}",
+                ajax: {
+                    url: "{{ route('kodetransaksi.data') }}",
+                    type: "GET",
+                    error: function(xhr) {
+                        console.error('Error loading data:', xhr);
+                        showError('Gagal memuat data. Silakan refresh halaman.');
+                    }
+                },
                 columns: [
-                    { data: 'DT_RowIndex', className: 'text-center' },
-                    { data: 'kodetransaksi', className: 'text-center' },
-                    { data: 'transaksi' },
+                    { 
+                        data: 'DT_RowIndex', 
+                        name: 'DT_RowIndex',
+                        className: 'text-center',
+                        orderable: false,
+                        searchable: false 
+                    },
+                    { 
+                        data: 'kodetransaksi', 
+                        name: 'kodetransaksi',
+                        className: 'text-center' 
+                    },
+                    { 
+                        data: 'transaksi', 
+                        name: 'transaksi'
+                    },
                     { 
                         data: 'idheader',
+                        name: 'idheader',
                         render: function(data, type, row) {
                             let options = `<option value="">-- Pilih Header --</option>`;
                             @foreach($transaksiHeaders as $header)
@@ -159,6 +219,7 @@
                     },
                     { 
                         data: 'idcoa',
+                        name: 'idcoa',
                         render: function(data, type, row) {
                             let options = `<option value="">-- Pilih COA --</option>`;
                             @foreach($coa as $c)
@@ -171,6 +232,7 @@
                     },
                     { 
                         data: 'idneraca',
+                        name: 'idneraca',
                         render: function(data, type, row) {
                             let options = `<option value="">-- Pilih Neraca --</option>`;
                             @foreach($neracaHeaders as $neraca)
@@ -183,6 +245,7 @@
                     },
                     { 
                         data: 'idlabarugi',
+                        name: 'idlabarugi',
                         render: function(data, type, row) {
                             let options = `<option value="">-- Pilih Laba Rugi --</option>`;
                             @foreach($labaRugiHeaders as $labarugi)
@@ -195,16 +258,17 @@
                     },
                     { 
                         data: 'action', 
+                        name: 'action',
                         orderable: false, 
                         searchable: false,
                         className: 'text-center',
                         render: function(data, type, row) {
                             return `
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button class="btn btn-warning editData" data-id="${row.id}" title="Edit">
+                                    <button type="button" class="btn btn-warning btn-edit" data-id="${row.id}" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-danger deleteData" data-id="${row.id}" title="Hapus">
+                                    <button type="button" class="btn btn-danger btn-delete" data-id="${row.id}" data-kode="${row.kodetransaksi}" data-nama="${row.transaksi}" title="Hapus">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -222,8 +286,43 @@
                 }
             });
 
+            // Export Excel - Solusi 1: Menggunakan iframe
+            $('#btnExportExcel').click(function(e) {
+                e.preventDefault();
+                
+                // Tampilkan loading
+                exportLoading = Swal.fire({
+                    title: 'Export Data',
+                    text: 'Sedang menyiapkan file...',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Gunakan iframe untuk download
+                const downloadFrame = document.getElementById('downloadFrame');
+                downloadFrame.src = "{{ route('kodetransaksi.export.excel') }}";
+                
+                // Set timeout untuk menutup loading setelah beberapa detik
+                setTimeout(() => {
+                    if (exportLoading) {
+                        exportLoading.close();
+                        exportLoading = null;
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Download Selesai',
+                            text: 'File berhasil diunduh.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                }, 3000); // 3 detik
+            });
+
             // Update langsung dari table untuk semua field
-            $('#tbData').on('change', '.select2-table', function(){
+            $(document).on('change', '.select2-table', function(){
                 let id = $(this).data('id');
                 let field = $(this).data('field');
                 let value = $(this).val();
@@ -239,8 +338,17 @@
                     cancelButtonText: 'Batal'
                 }).then((result) => {
                     if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Memperbarui...',
+                            text: 'Mohon tunggu...',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
                         $.ajax({
-                            url: '/kodetransaksi/'+id+'/update-field',
+                            url: '{{ url("kodetransaksi") }}/' + id + '/update-field',
                             type: 'PATCH',
                             data: { 
                                 field: field,
@@ -248,24 +356,20 @@
                                 _token: '{{ csrf_token() }}' 
                             },
                             success: function(res) {
+                                Swal.close();
                                 if(res.success) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Berhasil!',
-                                        text: 'Data berhasil diperbarui.',
-                                        timer: 1500,
-                                        showConfirmButton: false
-                                    });
+                                    showSuccess('Data berhasil diperbarui.');
+                                } else {
+                                    showError('Gagal memperbarui data.');
                                 }
                             },
-                            error: function() {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error!',
-                                    text: 'Terjadi kesalahan saat memperbarui data.',
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
+                            error: function(xhr) {
+                                Swal.close();
+                                let errorMsg = 'Terjadi kesalahan saat memperbarui data.';
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    errorMsg = xhr.responseJSON.message;
+                                }
+                                showError(errorMsg);
                                 tb.ajax.reload(null, false);
                             }
                         });
@@ -300,7 +404,7 @@
                 e.preventDefault();
                 
                 let id = $('#idData').val();
-                let url = id ? '/kodetransaksi/'+id : "{{ route('kodetransaksi.store') }}";
+                let url = id ? '{{ url("kodetransaksi") }}/' + id : "{{ route('kodetransaksi.store') }}";
                 let method = id ? 'PUT' : 'POST';
                 
                 Swal.fire({
@@ -318,23 +422,19 @@
                     data: $(this).serialize(),
                     success: function(response) {
                         Swal.close();
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Berhasil!',
-                            text: 'Data berhasil disimpan.',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
+                        showSuccess('Data berhasil disimpan.');
                         $('#modalData').modal('hide');
-                        tb.ajax.reload();
+                        tb.ajax.reload(null, false);
                     },
                     error: function(xhr) {
                         Swal.close();
-                        let errors = xhr.responseJSON?.errors;
                         let errorMessage = 'Terjadi kesalahan saat menyimpan data.';
                         
-                        if (errors) {
+                        if (xhr.responseJSON && xhr.responseJSON.errors) {
+                            let errors = xhr.responseJSON.errors;
                             errorMessage = Object.values(errors).flat().join('<br>');
+                        } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
                         }
                         
                         Swal.fire({
@@ -346,8 +446,8 @@
                 });
             });
 
-            // Edit Data
-            $('#tbData').on('click', '.editData', function(){
+            // Edit Data - menggunakan event delegation
+            $(document).on('click', '.btn-edit', function(){
                 let id = $(this).data('id');
                 
                 Swal.fire({
@@ -359,46 +459,61 @@
                     }
                 });
                 
-                $.get('/kodetransaksi/'+id+'/edit', function(d){
-                    Swal.close();
-                    
-                    $('#idData').val(d.id);
-                    $('input[name="kodetransaksi"]').val(d.kodetransaksi);
-                    $('input[name="transaksi"]').val(d.transaksi);
-                    
-                    // Set nilai untuk Select2 di modal
-                    $('#modalHeader').val(d.idheader).trigger('change');
-                    $('#modalCoa').val(d.idcoa).trigger('change');
-                    $('#modalNeraca').val(d.idneraca).trigger('change');
-                    $('#modalLabaRugi').val(d.idlabarugi).trigger('change');
-                    
-                    // Set modal title
-                    $('.modal-title').text('Edit Kode Transaksi');
-                    
-                    $('#modalData').modal('show');
-                    
-                    // Inisialisasi Select2 untuk modal
-                    setTimeout(() => {
-                        initSelect2Modal();
-                    }, 100);
-                }).fail(function() {
-                    Swal.close();
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Gagal memuat data.'
-                    });
+                $.ajax({
+                    url: '{{ url("kodetransaksi") }}/' + id + '/edit',
+                    type: 'GET',
+                    success: function(d) {
+                        Swal.close();
+                        
+                        if (!d || !d.id) {
+                            showError('Data tidak ditemukan.');
+                            return;
+                        }
+                        
+                        $('#idData').val(d.id);
+                        $('#kodetransaksi').val(d.kodetransaksi);
+                        $('#transaksi').val(d.transaksi);
+                        
+                        // Set nilai untuk Select2 di modal
+                        $('#modalHeader').val(d.idheader).trigger('change');
+                        $('#modalCoa').val(d.idcoa).trigger('change');
+                        $('#modalNeraca').val(d.idneraca).trigger('change');
+                        $('#modalLabaRugi').val(d.idlabarugi).trigger('change');
+                        
+                        // Set modal title
+                        $('.modal-title').text('Edit Kode Transaksi');
+                        
+                        $('#modalData').modal('show');
+                        
+                        // Inisialisasi Select2 untuk modal
+                        setTimeout(() => {
+                            initSelect2Modal();
+                        }, 100);
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        let errorMsg = 'Gagal memuat data.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMsg = xhr.responseJSON.message;
+                        }
+                        showError(errorMsg);
+                    }
                 });
             });
 
-            // Delete Data
-            $('#tbData').on('click', '.deleteData', function(){
+            // Delete Data - menggunakan event delegation
+            $(document).on('click', '.btn-delete', function(){
                 let id = $(this).data('id');
+                let kode = $(this).data('kode');
+                let nama = $(this).data('nama');
                 
                 Swal.fire({
                     title: 'Hapus Data?',
-                    text: "Data yang dihapus tidak dapat dikembalikan!",
+                    html: `Apakah Anda yakin ingin menghapus:<br>
+                           <strong>${kode} - ${nama}</strong><br>
+                           Data yang dihapus tidak dapat dikembalikan!`,
                     icon: 'warning',
+                    showConfirmButton: true,
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
                     cancelButtonColor: '#3085d6',
@@ -416,27 +531,27 @@
                         });
                         
                         $.ajax({
-                            url: '/kodetransaksi/'+id,
+                            url: '{{ url("kodetransaksi") }}/' + id,
                             type: 'DELETE',
-                            data: {_token: '{{ csrf_token() }}'},
-                            success: function() {
-                                Swal.close();
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Terhapus!',
-                                    text: 'Data berhasil dihapus.',
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
-                                tb.ajax.reload();
+                            data: {
+                                _token: '{{ csrf_token() }}'
                             },
-                            error: function() {
+                            success: function(response) {
                                 Swal.close();
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error!',
-                                    text: 'Gagal menghapus data.'
-                                });
+                                if (response && response.success) {
+                                    showSuccess('Data berhasil dihapus.');
+                                    tb.ajax.reload(null, false);
+                                } else {
+                                    showError('Gagal menghapus data.');
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.close();
+                                let errorMsg = 'Gagal menghapus data.';
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    errorMsg = xhr.responseJSON.message;
+                                }
+                                showError(errorMsg);
                             }
                         });
                     }
@@ -473,6 +588,15 @@
             .table .select2-selection {
                 border: 1px solid #dee2e6;
                 border-radius: .25rem;
+            }
+            .btn-group .dropdown-toggle::after {
+                margin-left: 0.255em;
+            }
+            .dataTables_wrapper {
+                position: relative;
+            }
+            .btn-group {
+                white-space: nowrap;
             }
         </style>
     </x-slot>

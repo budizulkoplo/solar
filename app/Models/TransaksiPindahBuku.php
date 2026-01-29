@@ -18,7 +18,6 @@ class TransaksiPindahBuku extends Model
         'keterangan',
         'tanggal',
         'status',
-        'idcompany','idproject',
         'created_by'
     ];
     

@@ -467,16 +467,20 @@ class PekerjaanKonstruksiController extends Controller
 
     public function progressIndex()
     {
-        $companyId = session('active_company_id');
-        $projectId = session('active_project_id');
+        $companyId = session()->get('active_company_id');
+        $projectId = session()->get('active_project_id');
 
-        if ($companyId) {
+        if ($projectId !== null) {
+            // login project → hanya 1 project
+            $projects = Project::where('id', $projectId)
+                ->get(['id', 'namaproject']);
+
+        } elseif ($companyId !== null) {
+            // login company → semua project di company
             $projects = Project::where('idcompany', $companyId)
                 ->orderBy('namaproject')
                 ->get(['id', 'namaproject']);
-        } elseif ($projectId) {
-            $projects = Project::where('id', $projectId)
-                ->get(['id', 'namaproject']);
+
         } else {
             $projects = Project::orderBy('namaproject')
                 ->get(['id', 'namaproject']);

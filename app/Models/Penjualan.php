@@ -98,4 +98,46 @@ class Penjualan extends Model
 
         return $prefix . $date . $newNumber;
     }
+
+    
+    public function pencairanBank()
+    {
+        return $this->hasMany(PencairanBank::class, 'penjualan_id');
+    }
+    
+    // Total pencairan yang sudah direalisasi
+    public function totalPencairanRealized()
+    {
+        return $this->pencairanBank()
+            ->where('status_pencairan', 'realized')
+            ->sum('nominal_pencairan');
+    }
+    
+    // Sisa yang belum dicairkan
+    public function sisaBelumDicairkan()
+    {
+        return $this->harga_jual - $this->totalPencairanRealized();
+    }
+    
+    // Progress pencairan dalam persen
+    public function progressPencairan()
+    {
+        if ($this->harga_jual <= 0) return 0;
+        return ($this->totalPencairanRealized() / $this->harga_jual) * 100;
+    }
+    
+    // Status pencairan
+    public function statusPencairan()
+    {
+        $total = $this->totalPencairanRealized();
+        $sisa = $this->sisaBelumDicairkan();
+        
+        if ($total <= 0) {
+            return 'Belum ada pencairan';
+        } elseif ($sisa <= 0) {
+            return 'Lunas';
+        } else {
+            return number_format($this->progressPencairan(), 1) . '%';
+        }
+    }
 }

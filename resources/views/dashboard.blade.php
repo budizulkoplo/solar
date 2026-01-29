@@ -9,7 +9,7 @@
 
     <div class="app-content">
         <div class="container-fluid my-4">
-            <h2 class="mb-4">📊 Ringkasan Dashboarsd</h2>{{session('active_project_module')}}
+            <h2 class="mb-4">📊 Ringkasan Dashboard</h2>
 
 
            

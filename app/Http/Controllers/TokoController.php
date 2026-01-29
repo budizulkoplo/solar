@@ -186,22 +186,40 @@ class TokoController extends Controller
     {
         $projectId = session('active_project_id');
         
-        $query = Barang::select('barang.*', 
-                DB::raw('COALESCE(sp.stock, 0) as stock_project'),
-                DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "masuk" THEN sh.qty ELSE 0 END), 0) as total_masuk'),
-                DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "keluar" THEN sh.qty ELSE 0 END), 0) as total_keluar')
-            )
-            ->leftJoin('stock_project as sp', function($join) use ($projectId) {
-                $join->on('sp.barang_id', '=', 'barang.idbarang')
-                    ->where('sp.project_id', $projectId)
-                    ->whereNull('sp.deleted_at');
-            })
-            ->leftJoin('stock_history as sh', function($join) use ($projectId) {
-                $join->on('sh.barang_id', '=', 'barang.idbarang')
-                    ->where('sh.project_id', $projectId);
-            })
-            ->whereNull('barang.deleted_at')
-            ->groupBy('barang.idbarang');
+        $query = Barang::query()
+    ->select(
+        'barang.idbarang',
+        'barang.nama_barang',
+        'barang.harga_beli',
+        'barang.harga_jual',
+        'barang.deskripsi',
+
+        DB::raw('COALESCE(MAX(sp.stock), 0) as stock_project'),
+        DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "masuk" THEN sh.qty ELSE 0 END), 0) as total_masuk'),
+        DB::raw('COALESCE(SUM(CASE WHEN sh.tipe = "keluar" THEN sh.qty ELSE 0 END), 0) as total_keluar')
+    )
+
+    ->leftJoin('stock_project as sp', function ($join) use ($projectId) {
+        $join->on('sp.barang_id', '=', 'barang.idbarang')
+             ->where('sp.project_id', $projectId)
+             ->whereNull('sp.deleted_at');
+    })
+
+    ->leftJoin('stock_history as sh', function ($join) use ($projectId) {
+        $join->on('sh.barang_id', '=', 'barang.idbarang')
+             ->where('sh.project_id', $projectId);
+    })
+
+    ->whereNull('barang.deleted_at')
+
+    ->groupBy(
+        'barang.idbarang',
+        'barang.nama_barang',
+        'barang.harga_beli',
+        'barang.harga_jual',
+        'barang.deskripsi'
+    );
+
 
         return DataTables::eloquent($query)
             ->addIndexColumn() // Ini membuat DT_RowIndex

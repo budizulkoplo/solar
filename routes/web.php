@@ -47,6 +47,7 @@ use App\Http\Controllers\ConstructionTransactionController;
 use App\Http\Controllers\AssetTransactionController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\TokoController;
+use App\Http\Controllers\PencairanBankController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -255,14 +256,12 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     Route::prefix('kodetransaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/', [KodetransaksiController::class,'index'])->name('kodetransaksi.index');
         Route::get('/data', [KodetransaksiController::class,'getData'])->name('kodetransaksi.data');
-
         Route::post('/store', [KodetransaksiController::class,'store'])->name('kodetransaksi.store');
-
-        Route::get('/{id}/edit', [KodetransaksiController::class,'edit'])->name('kodetransaksi.edit')->where('id', '[0-9]+');
-        Route::put('/{id}', [KodetransaksiController::class,'update'])->name('kodetransaksi.update')->where('id', '[0-9]+');
-        Route::delete('/{id}', [KodetransaksiController::class,'destroy'])->name('kodetransaksi.destroy')->where('id', '[0-9]+');
-
+        Route::get('/{id}/edit', [KodetransaksiController::class,'edit'])->name('kodetransaksi.edit');
+        Route::put('/{id}', [KodetransaksiController::class,'update'])->name('kodetransaksi.update');
+        Route::delete('/{id}', [KodetransaksiController::class,'destroy'])->name('kodetransaksi.destroy');
         Route::patch('/{id}/update-field', [KodetransaksiController::class,'updateField'])->name('kodetransaksi.updateField');
+        Route::get('/export/excel', [KodetransaksiController::class, 'exportExcel'])->name('kodetransaksi.export.excel');
     });
 
     Route::prefix('transaksi')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
@@ -701,6 +700,30 @@ Route::prefix('toko')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|
     Route::delete('/{id}', [TokoController::class, 'destroy'])->name('toko.destroy');
     Route::get('{id}/logs', [ProjectController::class,'getUpdateLogs'])->name('toko.logs');
 
+});
+
+Route::prefix('pencairan-bank')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->name('pencairan-bank.')->group(function () {
+    Route::get('/', [PencairanBankController::class, 'index'])->name('index');
+    Route::get('/detail/{penjualanId}', [PencairanBankController::class, 'detail'])->name('detail');
+    Route::get('/create/{penjualanId}', [PencairanBankController::class, 'createByPenjualan'])->name('create-by-penjualan');
+    Route::post('/', [PencairanBankController::class, 'store'])->name('store');
+    
+    // Untuk manage pencairan individu
+    Route::get('/pencairan/{id}', [PencairanBankController::class, 'show'])->name('show');
+    Route::get('/pencairan/{id}/edit', [PencairanBankController::class, 'edit'])->name('edit');
+    Route::put('/pencairan/{id}', [PencairanBankController::class, 'update'])->name('update');
+    Route::delete('/pencairan/{id}', [PencairanBankController::class, 'destroy'])->name('destroy');
+    
+    Route::post('/pencairan/{id}/approve', [PencairanBankController::class, 'approve'])->name('approve');
+    Route::post('/pencairan/{id}/reject', [PencairanBankController::class, 'reject'])->name('reject');
+    Route::post('/pencairan/{id}/realisasi', [PencairanBankController::class, 'realisasi'])->name('realisasi');
+
+    Route::get('/{id}/edit', [PencairanBankController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [PencairanBankController::class, 'update'])->name('update');
+    
+    // Export routes
+    Route::get('/export-excel/{penjualanId}', [PencairanBankController::class, 'exportExcel'])->name('export.excel');
+    Route::get('/export-pdf/{penjualanId}', [PencairanBankController::class, 'exportPDF'])->name('export.pdf');
 });
 
 Route::middleware(['auth'])->group(function () {

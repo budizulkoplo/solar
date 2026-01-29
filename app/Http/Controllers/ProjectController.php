@@ -60,7 +60,7 @@ class ProjectController extends Controller
                 return date('d/m/Y', strtotime($row->tanggal));
             })
             ->editColumn('total', function($row) {
-                return 'Rp ' . number_format($row->total, 0, ',', '.');
+                return 'Rp ' . number_format($row->total, 2, ',', '.');
             })
             ->editColumn('status', function($row) {
                 $badge = [

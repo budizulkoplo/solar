@@ -14,25 +14,29 @@ class PayrollController extends Controller
 {
 
     public function index(Request $request)
-    {
-        $user = Auth::user();
-        $tahun = $request->get('tahun', now()->year);
+{
+    $user = Auth::user();
 
-        // Ambil semua tahun unik dari kolom periode (string)
-        $tahunList = Payroll::selectRaw("DISTINCT LEFT(periode, 4) as tahun")
-            ->orderBy('tahun', 'desc')
-            ->pluck('tahun');
+    // Tahun manual: 2024 s/d tahun depan
+    $startYear = 2024;
+    $endYear   = now()->year + 1;
 
-        // Ambil slip berdasarkan NIK dan tahun (cocok dengan format 'YYYY-MM')
-        $data = Payroll::where('nik', $user->nik)
-            ->whereRaw("LEFT(periode, 4) = ?", [$tahun])
-            ->selectRaw("RIGHT(periode, 2) as bulan, MAX(id) as id")
-            ->groupBy('bulan')
-            ->orderBy('bulan', 'desc')
-            ->get();
+    $tahunList = collect(range($endYear, $startYear)); // desc
 
-        return view('mobile.payroll.index', compact('data', 'tahun', 'tahunList'));
-    }
+    // Tahun terpilih
+    $tahun = $request->get('tahun', now()->year);
+
+    $data = Payroll::where('nik', $user->nik)
+        ->whereRaw("LEFT(periode, 4) = ?", [$tahun])
+        ->selectRaw("RIGHT(periode, 2) as bulan, MAX(id) as id")
+        ->groupBy('bulan')
+        ->orderBy('bulan', 'desc')
+        ->get();
+
+    return view('mobile.payroll.index', compact('data', 'tahun', 'tahunList'));
+}
+
+
 
     public function detail($tahun, $bulan)
     {

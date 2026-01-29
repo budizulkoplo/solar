@@ -177,7 +177,7 @@
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                                             <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                                            <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                                            <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0" step="0.01"></td>
                                             <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
@@ -193,7 +193,7 @@
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text">PPN</span>
                                                     <input type="number"  class="form-control form-control-sm text-end" 
-                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" min="0" value="0">
+                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" min="0" value="0" step="0.01">
                                                 </div>
                                             </td>
                                             <td class="text-end"><strong>PPN:</strong></td>
@@ -578,7 +578,7 @@
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                         <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0" step="0.01"></td>
                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
@@ -849,7 +849,7 @@
                     </td>
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
                     <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0" step="0.01"></td>
                     <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" value="0" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
@@ -1135,7 +1135,7 @@
                                         </td>
                                         <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
                                         <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" ></td>
-                                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0"></td>
+                                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0" step="0.01"></td>
                                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
                                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                     </tr>
