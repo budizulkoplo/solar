@@ -201,7 +201,11 @@ class TokoController extends Controller
                     ->where('sh.project_id', $projectId);
             })
             ->whereNull('barang.deleted_at')
-            ->groupBy('barang.idbarang');
+            ->groupBy(
+                'barang.idbarang',
+                'barang.nama_barang',
+                'barang.kode_barang'
+            );
 
         return DataTables::eloquent($query)
             ->addIndexColumn() // Ini membuat DT_RowIndex
