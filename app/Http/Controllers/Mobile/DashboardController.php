@@ -417,9 +417,12 @@ class DashboardController extends Controller
                 ], 401);
             }
 
+            $minDateTime = \Carbon\Carbon::now()->subDay();
+
             $agenda = DB::table('agenda')
                 ->whereYear('tgl', date('Y', strtotime($bulan)))
                 ->whereMonth('tgl', date('m', strtotime($bulan)))
+                ->whereRaw("TIMESTAMP(tgl, waktu) >= ?", [$minDateTime])
                 ->orderBy('tgl')
                 ->orderBy('waktu')
                 ->get();

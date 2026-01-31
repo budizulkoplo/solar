@@ -141,10 +141,10 @@ class PTController extends Controller
 
             // Untuk transaksi OUT (keluar), vendor wajib
             if ($type == 'out') {
-                $validationRules['bukti_nota'] = 'required|file|mimes:jpg,jpeg,png,pdf|max:2048';
+                $validationRules['bukti_nota'] = 'required|file|mimes:jpg,jpeg,png,pdf|max:8048';
             } else {
                 // Untuk transaksi IN (masuk), vendor tidak wajib dan bukti nota optional
-                $validationRules['bukti_nota'] = 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048';
+                $validationRules['bukti_nota'] = 'nullable|file|mimes:jpg,jpeg,png,pdf|max:8048';
             }
 
             $request->validate($validationRules);
@@ -636,7 +636,7 @@ class PTController extends Controller
                 'transactions.*.description' => 'required|string|max:255',
                 'transactions.*.nominal' => 'required|numeric|min:0',
                 'transactions.*.jml' => 'required|numeric|min:0',
-                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:8048',
                 'ppn' => 'nullable|numeric|min:0',
                 'diskon' => 'nullable|numeric|min:0',
                 'ppn_kode' => 'nullable|string',

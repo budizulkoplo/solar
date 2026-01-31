@@ -118,7 +118,7 @@
                                         <label class="form-label">Bukti Nota <span class="text-muted">(Optional)</span></label>
                                         <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
                                                accept=".jpg,.jpeg,.png,.pdf">
-                                        <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
+                                        <small class="text-muted">Format: JPG, PNG, PDF (Max: 8MB)</small>
                                         <div id="buktiPreview" class="mt-2" style="display:none;">
                                             <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
                                         </div>

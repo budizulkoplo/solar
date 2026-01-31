@@ -99,7 +99,11 @@ class Penjualan extends Model
         return $prefix . $date . $newNumber;
     }
 
-    
+    public function payments()
+    {
+        return $this->hasMany(PenjualanPayment::class);
+    }
+
     public function pencairanBank()
     {
         return $this->hasMany(PencairanBank::class, 'penjualan_id');

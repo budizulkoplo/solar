@@ -48,6 +48,7 @@ use App\Http\Controllers\AssetTransactionController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\TokoController;
 use App\Http\Controllers\PencairanBankController;
+use App\Http\Controllers\PenjualanPaymentController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -724,6 +725,22 @@ Route::prefix('pencairan-bank')->middleware(['role:superadmin|admin|hrd|pengurus
     // Export routes
     Route::get('/export-excel/{penjualanId}', [PencairanBankController::class, 'exportExcel'])->name('export.excel');
     Route::get('/export-pdf/{penjualanId}', [PencairanBankController::class, 'exportPDF'])->name('export.pdf');
+});
+
+// web.php
+Route::prefix('penjualan-payment')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->name('penjualan-payment.')->group(function () {
+    Route::get('/', [PenjualanPaymentController::class, 'index'])->name('index');
+    Route::get('/detail/{penjualanId}', [PenjualanPaymentController::class, 'detail'])->name('detail');
+    Route::get('/create/{penjualanId}', [PenjualanPaymentController::class, 'createByPenjualan'])->name('create-by-penjualan');
+    Route::post('/', [PenjualanPaymentController::class, 'store'])->name('store');
+    
+    Route::get('/{id}/edit', [PenjualanPaymentController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [PenjualanPaymentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [PenjualanPaymentController::class, 'destroy'])->name('destroy');
+    
+    // Export routes
+    Route::get('/export-excel/{penjualanId}', [PenjualanPaymentController::class, 'exportExcel'])->name('export.excel');
+    Route::get('/export-pdf/{penjualanId}', [PenjualanPaymentController::class, 'exportPDF'])->name('export.pdf');
 });
 
 Route::middleware(['auth'])->group(function () {

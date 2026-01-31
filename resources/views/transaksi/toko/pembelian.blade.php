@@ -59,7 +59,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Nama Transaksi *</label>
-                                <input type="text" class="form-control form-control-sm" name="namatransaksi" value="Pembelian Barang Toko" required>
+                                <input type="text" class="form-control form-control-sm" name="namatransaksi" value="Pembelian Barang" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Tanggal *</label>

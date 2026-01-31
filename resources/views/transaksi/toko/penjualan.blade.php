@@ -614,7 +614,7 @@
                 if ($(this).val() === 'project') {
                     $('#projectTujuanContainer').show();
                     $('#projectTujuanId').prop('required', true);
-                    $('#namaTransaksi').val('Penjualan Barang ke Project');
+                    $('#namaTransaksi').val('Penjualan Barang');
                 } else {
                     $('#projectTujuanContainer').hide();
                     $('#projectTujuanId').prop('required', false);
