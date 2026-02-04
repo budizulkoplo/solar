@@ -46,7 +46,7 @@ class TokoController extends Controller
                 'project:id,namaproject',
                 'vendor:id,namavendor'
             ])
-            ->where('cashflow', 'out')
+            ->where('cashflow', 'in')
             ->where('type', 'toko')
             ->where('idproject', session('active_project_id'));
 
@@ -117,7 +117,7 @@ class TokoController extends Controller
                 'project:id,namaproject',
                 'vendor:id,namavendor'
             ])
-            ->where('cashflow', 'in')
+            ->where('cashflow', 'out')
             ->where('type', 'toko')
             ->where('idproject', session('active_project_id'));
 

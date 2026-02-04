@@ -12,10 +12,96 @@
                             <small class="text-muted">Unit: {{ $selectedUnit->namaunit }}</small>
                         @endif
                     </div>
-                    <div>
+                    <div class="d-flex gap-2">
                         <button class="btn btn-sm btn-info" onclick="showAllStatusStats()">
                             <i class="bi bi-bar-chart"></i> Lihat Semua Status
                         </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="toggleAlurPenjualan()">
+                            <i class="bi bi-diagram-3"></i> Lihat Alur
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card Alur Penjualan (Hidden by Default) -->
+        <div class="row mb-3 d-none" id="alurPenjualanCard">
+            <div class="col-md-6">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white py-1">
+                        <h6 class="mb-0">
+                            <i class="bi bi-credit-card me-1"></i> Alur Penjualan Kredit
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            @php
+                                $statusKredit = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
+                                $iconsKredit = [
+                                    'booking_unit' => 'bi-handshake',
+                                    'bi_check' => 'bi-file-earmark-check',
+                                    'pemberkasan_bank' => 'bi-folder-check',
+                                    'acc' => 'bi-check-all',
+                                    'akad' => 'bi-file-earmark-text',
+                                    'pencairan' => 'bi-cash-coin',
+                                    'bast' => 'bi-house-check',
+                                    'terjual' => 'bi-currency-dollar'
+                                ];
+                            @endphp
+                            @foreach($statusKredit as $status)
+                                <div class="text-center">
+                                    <div class="mb-1">
+                                        <i class="bi {{ $iconsKredit[$status] ?? 'bi-circle' }} fa-lg text-primary"></i>
+                                    </div>
+                                    <small class="d-block text-truncate" style="max-width: 80px;">
+                                        {{ str_replace('_', ' ', ucfirst($status)) }}
+                                    </small>
+                                    @if(!$loop->last)
+                                        <div class="mt-1">
+                                            <i class="bi bi-arrow-right text-muted"></i>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white py-1">
+                        <h6 class="mb-0">
+                            <i class="bi bi-cash me-1"></i> Alur Penjualan Cash
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            @php
+                                $statusCash = ['booking_unit', 'pemberkasan_notaris', 'akad', 'bast', 'terjual'];
+                                $iconsCash = [
+                                    'booking_unit' => 'bi-handshake',
+                                    'pemberkasan_notaris' => 'bi-file-earmark-check',
+                                    'akad' => 'bi-file-earmark-text',
+                                    'bast' => 'bi-house-check',
+                                    'terjual' => 'bi-currency-dollar'
+                                ];
+                            @endphp
+                            @foreach($statusCash as $status)
+                                <div class="text-center">
+                                    <div class="mb-1">
+                                        <i class="bi {{ $iconsCash[$status] ?? 'bi-circle' }} fa-lg text-success"></i>
+                                    </div>
+                                    <small class="d-block text-truncate" style="max-width: 80px;">
+                                        {{ str_replace('_', ' ', ucfirst($status)) }}
+                                    </small>
+                                    @if(!$loop->last)
+                                        <div class="mt-1">
+                                            <i class="bi bi-arrow-right text-muted"></i>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>
@@ -49,14 +135,15 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3 col-sm-6">
+                    <div class="col-md-2 col-sm-6">
                         <label class="form-label small mb-1">Status</label>
                         <select class="form-select form-select-sm" name="status" id="filterStatus">
                             <option value="">Semua Status</option>
                             <option value="tersedia" {{ request('status') == 'tersedia' ? 'selected' : '' }}>Tersedia</option>
-                            <option value="booking_unit" {{ request('status') == 'booking_unit' ? 'selected' : '' }}>Booking Unit</option>
+                            <option value="booking_unit" {{ request('status') == 'booking_unit' ? 'selected' : '' }}>Booking</option>
                             <option value="bi_check" {{ request('status') == 'bi_check' ? 'selected' : '' }}>BI Check</option>
                             <option value="pemberkasan_bank" {{ request('status') == 'pemberkasan_bank' ? 'selected' : '' }}>Pemberkasan Bank</option>
+                            <option value="pemberkasan_notaris" {{ request('status') == 'pemberkasan_notaris' ? 'selected' : '' }}>Pemberkasan Notaris</option>
                             <option value="acc" {{ request('status') == 'acc' ? 'selected' : '' }}>ACC</option>
                             <option value="tidak_acc" {{ request('status') == 'tidak_acc' ? 'selected' : '' }}>Tidak ACC</option>
                             <option value="akad" {{ request('status') == 'akad' ? 'selected' : '' }}>Akad</option>
@@ -65,7 +152,15 @@
                             <option value="terjual" {{ request('status') == 'terjual' ? 'selected' : '' }}>Terjual</option>
                         </select>
                     </div>
-                    <div class="col-md-3 col-sm-6">
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label small mb-1">Tipe Penjualan</label>
+                        <select class="form-select form-select-sm" name="tipe_penjualan" id="filterTipePenjualan">
+                            <option value="">Semua Tipe</option>
+                            <option value="kredit" {{ request('tipe_penjualan') == 'kredit' ? 'selected' : '' }}>Kredit</option>
+                            <option value="cash" {{ request('tipe_penjualan') == 'cash' ? 'selected' : '' }}>Cash</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-sm-12">
                         <label class="form-label small mb-1">&nbsp;</label>
                         <div class="d-flex gap-1">
                             <button type="submit" class="btn btn-sm btn-primary flex-fill">
@@ -82,9 +177,8 @@
 
         <!-- Statistics Cards -->
         <div class="row mb-3 align-items-stretch" id="statsCards">
-
             <!-- Total Unit -->
-            <div class="col-md-3 col-sm-6 mb-2">
+            <div class="col-md-2 col-sm-6 mb-2">
                 <div class="card border-0 bg-light shadow-sm h-100">
                     <div class="card-body py-2 d-flex align-items-center">
                         <div class="d-flex justify-content-between align-items-center w-100">
@@ -102,7 +196,7 @@
             </div>
 
             <!-- Tersedia -->
-            <div class="col-md-3 col-sm-6 mb-2">
+            <div class="col-md-2 col-sm-6 mb-2">
                 <div class="card border-0 bg-success bg-opacity-10 shadow-sm h-100">
                     <div class="card-body py-2 d-flex align-items-center">
                         <div class="d-flex justify-content-between align-items-center w-100">
@@ -123,7 +217,7 @@
             </div>
 
             <!-- Booking -->
-            <div class="col-md-3 col-sm-6 mb-2">
+            <div class="col-md-2 col-sm-6 mb-2">
                 <div class="card border-0 bg-warning bg-opacity-10 shadow-sm h-100">
                     <div class="card-body py-2 d-flex align-items-center">
                         <div class="d-flex justify-content-between align-items-center w-100">
@@ -144,7 +238,7 @@
             </div>
 
             <!-- Terjual -->
-            <div class="col-md-3 col-sm-6 mb-2">
+            <div class="col-md-2 col-sm-6 mb-2">
                 <div class="card border-0 bg-danger bg-opacity-10 shadow-sm h-100">
                     <div class="card-body py-2 d-flex align-items-center">
                         <div class="d-flex justify-content-between align-items-center w-100">
@@ -164,6 +258,41 @@
                 </div>
             </div>
 
+            <!-- Cash -->
+            <div class="col-md-2 col-sm-6 mb-2">
+                <div class="card border-0 bg-success shadow-sm h-100">
+                    <div class="card-body py-2 d-flex align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <div>
+                                <h6 class="mb-0">Penjualan Cash</h6>
+                                <h4 class="mb-0 text-white" id="cashCount">0</h4>
+                            </div>
+                            <div class="bg-white text-success rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:42px; height:42px;">
+                                <i class="bi bi-cash-stack fs-5"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kredit -->
+            <div class="col-md-2 col-sm-6 mb-2">
+                <div class="card border-0 bg-primary shadow-sm h-100">
+                    <div class="card-body py-2 d-flex align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <div>
+                                <h6 class="mb-0">Penjualan Kredit</h6>
+                                <h4 class="mb-0 text-white" id="kreditCount">0</h4>
+                            </div>
+                            <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center"
+                                style="width:42px; height:42px;">
+                                <i class="bi bi-credit-card fs-5"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Unit Cards Grid -->
@@ -173,102 +302,61 @@
                     @foreach($project->units as $unit)
                         @if(!request('unit_id') || request('unit_id') == $unit->id)
                             @foreach($unit->details as $detail)
-                                @if(!request('status') || request('status') == $detail->status)
+                                @php
+                                    $showCard = true;
+                                    // Filter by status if set
+                                    if (request('status') && request('status') != $detail->status) {
+                                        $showCard = false;
+                                    }
+                                    // Filter by tipe_penjualan if set
+                                    if (request('tipe_penjualan') && $detail->tipe_penjualan && request('tipe_penjualan') != $detail->tipe_penjualan) {
+                                        $showCard = false;
+                                    }
+                                @endphp
+                                
+                                @if($showCard)
                                     <div class="col unit-card" 
                                          data-project="{{ $project->id }}"
                                          data-unit="{{ $unit->id }}"
                                          data-detail="{{ $detail->id }}"
-                                         data-status="{{ $detail->status }}">
+                                         data-status="{{ $detail->status }}"
+                                         data-tipe-penjualan="{{ $detail->tipe_penjualan ?? '' }}">
                                         <div class="card h-100 shadow-sm hover-shadow">
                                             <!-- Header dengan warna status -->
                                             <div class="card-header py-1 px-2 
                                                 @if($detail->status === 'tersedia') bg-success text-white
-                                                @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'akad', 'pencairan'])) bg-warning text-dark
+                                                @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) bg-warning text-dark
                                                 @elseif($detail->status === 'acc') bg-info text-white
                                                 @elseif($detail->status === 'bast') bg-primary text-white
                                                 @elseif($detail->status === 'terjual') bg-danger text-white
+                                                @elseif($detail->status === 'tidak_acc') bg-danger text-white
                                                 @else bg-secondary text-white @endif">
                                                 <div class="d-flex justify-content-between align-items-center">
-                                                    <small class="fw-bold text-truncate">
-                                                        {{ $project->namaproject }}
-                                                    </small>
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <small class="fw-bold text-truncate">
+                                                            {{ $project->namaproject }}
+                                                        </small>
+                                                        @if($detail->tipe_penjualan)
+                                                            <span class="badge 
+                                                                @if($detail->tipe_penjualan === 'cash') bg-success
+                                                                @elseif($detail->tipe_penjualan === 'kredit') bg-primary
+                                                                @else bg-secondary @endif">
+                                                                {{ strtoupper($detail->tipe_penjualan) }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
                                                     <div class="dropdown">
                                                         <button class="btn btn-sm p-0 dropdown-toggle " type="button" 
                                                                 data-bs-toggle="dropdown" aria-expanded="false">
-                                                            <i class="bi bi-three-dots-vertical text-white"></i>
+                                                            <i class="bi bi-three-dots-vertical 
+                                                                @if(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) text-dark
+                                                                @else text-white @endif"></i>
                                                         </button>
                                                         <ul class="dropdown-menu dropdown-menu-end overflow-auto" style="max-height:300px;">
-
                                                             <li><h6 class="dropdown-header">Ubah Status</h6></li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="tersedia">
-                                                                    <i class="bi bi-check-circle text-success me-2"></i>Tersedia
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="booking_unit">
-                                                                    <i class="bi bi-calendar-check text-warning me-2"></i>Booking Unit
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="bi_check">
-                                                                    <i class="bi bi-file-earmark-check text-info me-2"></i>BI Check
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="pemberkasan_bank">
-                                                                    <i class="bi bi-folder-check text-primary me-2"></i>Pemberkasan Bank
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="acc">
-                                                                    <i class="bi bi-check-all text-success me-2"></i>ACC
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="tidak_acc">
-                                                                    <i class="bi bi-x-circle text-danger me-2"></i>Tidak ACC
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="akad">
-                                                                    <i class="bi bi-file-earmark-text text-info me-2"></i>Akad
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="pencairan">
-                                                                    <i class="bi bi-cash-coin text-primary me-2"></i>Pencairan
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="bast">
-                                                                    <i class="bi bi-house-check text-success me-2"></i>BAST
-                                                                </button>
-                                                            </li>
-                                                            <li>
-                                                                <button class="dropdown-item change-status" 
-                                                                        data-id="{{ $detail->id }}" 
-                                                                        data-status="terjual">
-                                                                    <i class="bi bi-currency-dollar text-danger me-2"></i>Terjual
-                                                                </button>
+                                                            <!-- Status options akan di-update via JavaScript berdasarkan tipe penjualan -->
+                                                            <li id="status-options-{{ $detail->id }}">
+                                                                <!-- Options akan diisi oleh JavaScript -->
                                                             </li>
                                                             <li><hr class="dropdown-divider"></li>
                                                             <li>
@@ -295,15 +383,15 @@
                                                     <h6 class="card-title mb-0 text-truncate" title="{{ $unit->namaunit }}">
                                                         <i class="fas fa-home me-1 
                                                             @if($detail->status === 'tersedia') text-success
-                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'akad', 'pencairan'])) text-warning
+                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) text-warning
                                                             @elseif($detail->status === 'acc') text-info
                                                             @elseif($detail->status === 'bast') text-primary
                                                             @elseif($detail->status === 'terjual') text-danger
+                                                            @elseif($detail->status === 'tidak_acc') text-danger
                                                             @else text-secondary @endif
                                                         "></i>
                                                         {{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}
                                                     </h6>
-                                                    <h6>&nbsp;</h6>
                                                 </div>
                                                 
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
@@ -320,7 +408,7 @@
                                                         <span>Status:</span>
                                                         <span class="fw-semibold badge 
                                                             @if($detail->status === 'tersedia') bg-success
-                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'akad', 'pencairan'])) bg-warning text-dark
+                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) bg-warning text-dark
                                                             @elseif($detail->status === 'acc') bg-info
                                                             @elseif($detail->status === 'bast') bg-primary
                                                             @elseif($detail->status === 'terjual') bg-danger
@@ -330,56 +418,79 @@
                                                     </div>
                                                     
                                                     <!-- Tampilkan alur status jika dalam proses -->
-                                                    @if(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast']))
+                                                    @if(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'acc', 'akad', 'pencairan', 'bast']))
                                                     <div class="mt-1">
                                                         <small class="text-muted">Proses:</small>
                                                         <div class="progress" style="height: 5px;">
                                                             @php
-                                                                $statusOrder = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
+                                                                // Tentukan alur berdasarkan tipe penjualan
+                                                                if ($detail->tipe_penjualan === 'cash') {
+                                                                    $statusOrder = ['booking_unit', 'pemberkasan_notaris', 'akad', 'bast', 'terjual'];
+                                                                } else {
+                                                                    // Default kredit
+                                                                    $statusOrder = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
+                                                                }
                                                                 $currentIndex = array_search($detail->status, $statusOrder);
                                                                 $progress = $currentIndex !== false ? (($currentIndex + 1) / count($statusOrder)) * 100 : 0;
                                                             @endphp
-                                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                            <div class="progress-bar 
+                                                                @if($detail->tipe_penjualan === 'cash') bg-success
+                                                                @else bg-primary @endif" 
+                                                                role="progressbar" 
                                                                 style="width: {{ $progress }}%" 
                                                                 aria-valuenow="{{ $progress }}" 
                                                                 aria-valuemin="0" 
                                                                 aria-valuemax="100"></div>
                                                         </div>
                                                         <small class="text-muted">
-                                                            @if($detail->status === 'booking_unit')
-                                                                Booking →
-                                                                <span class="badge bg-success">Booking</span>
-                                                                → BI Check → Pemberkasan → ACC → Akad → Pencairan → BAST → Terjual
-
-                                                            @elseif($detail->status === 'bi_check')
-                                                                Booking →
-                                                                <span class="badge bg-success">BI Check</span>
-                                                                → Pemberkasan → ACC → Akad → Pencairan → BAST → Terjual
-
-                                                            @elseif($detail->status === 'pemberkasan_bank')
-                                                                Booking → BI Check →
-                                                                <span class="badge bg-success">Pemberkasan</span>
-                                                                → ACC → Akad → Pencairan → BAST → Terjual
-
-                                                            @elseif($detail->status === 'acc')
-                                                                Booking → BI Check → Pemberkasan →
-                                                                <span class="badge bg-success">ACC</span>
-                                                                → Akad → Pencairan → BAST → Terjual
-
-                                                            @elseif($detail->status === 'akad')
-                                                                Booking → BI Check → Pemberkasan → ACC →
-                                                                <span class="badge bg-success">Akad</span>
-                                                                → Pencairan → BAST → Terjual
-
-                                                            @elseif($detail->status === 'pencairan')
-                                                                Booking → BI Check → Pemberkasan → ACC → Akad →
-                                                                <span class="badge bg-success">Pencairan</span>
-                                                                → BAST → Terjual
-
-                                                            @elseif($detail->status === 'bast')
-                                                                Booking → BI Check → Pemberkasan → ACC → Akad → Pencairan →
-                                                                <span class="badge bg-success">BAST</span>
-                                                                → Terjual
+                                                            @if($detail->tipe_penjualan === 'cash')
+                                                                <!-- Alur Cash -->
+                                                                @if($detail->status === 'booking_unit')
+                                                                    <span class="badge bg-success">Booking</span>
+                                                                    → Pemberkasan Notaris → Akad → BAST → Terjual
+                                                                @elseif($detail->status === 'pemberkasan_notaris')
+                                                                    Booking →
+                                                                    <span class="badge bg-success">Pemberkasan Notaris</span>
+                                                                    → Akad → BAST → Terjual
+                                                                @elseif($detail->status === 'akad')
+                                                                    Booking → Pemberkasan Notaris →
+                                                                    <span class="badge bg-success">Akad</span>
+                                                                    → BAST → Terjual
+                                                                @elseif($detail->status === 'bast')
+                                                                    Booking → Pemberkasan Notaris → Akad →
+                                                                    <span class="badge bg-success">BAST</span>
+                                                                    → Terjual
+                                                                @endif
+                                                            @else
+                                                                <!-- Alur Kredit -->
+                                                                @if($detail->status === 'booking_unit')
+                                                                    <span class="badge bg-primary">Booking</span>
+                                                                    → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'bi_check')
+                                                                    Booking →
+                                                                    <span class="badge bg-primary">BI Check</span>
+                                                                    → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'pemberkasan_bank')
+                                                                    Booking → BI Check →
+                                                                    <span class="badge bg-primary">Pemberkasan Bank</span>
+                                                                    → ACC → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'acc')
+                                                                    Booking → BI Check → Pemberkasan Bank →
+                                                                    <span class="badge bg-primary">ACC</span>
+                                                                    → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'akad')
+                                                                    Booking → BI Check → Pemberkasan Bank → ACC →
+                                                                    <span class="badge bg-primary">Akad</span>
+                                                                    → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'pencairan')
+                                                                    Booking → BI Check → Pemberkasan Bank → ACC → Akad →
+                                                                    <span class="badge bg-primary">Pencairan</span>
+                                                                    → BAST → Terjual
+                                                                @elseif($detail->status === 'bast')
+                                                                    Booking → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan →
+                                                                    <span class="badge bg-primary">BAST</span>
+                                                                    → Terjual
+                                                                @endif
                                                             @endif
                                                         </small>
                                                     </div>
@@ -453,6 +564,43 @@
         </div>
     </div>
 
+    <!-- Modal untuk Form Booking (Pemilihan Tipe Penjualan) -->
+    <div class="modal fade" id="modalBookingType" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Pilih Tipe Penjualan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="bookingDetailId">
+                    <input type="hidden" id="bookingNewStatus" value="booking_unit">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card text-center h-100 border-primary" style="cursor: pointer;" onclick="selectPenjualanType('kredit')">
+                                <div class="card-body">
+                                    <i class="bi bi-credit-card fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Kredit</h5>
+                                    <p class="card-text small">Booking → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card text-center h-100 border-success" style="cursor: pointer;" onclick="selectPenjualanType('cash')">
+                                <div class="card-body">
+                                    <i class="bi bi-cash-stack fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Cash</h5>
+                                    <p class="card-text small">Booking → Pemberkasan Notaris → Akad → BAST → Terjual</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal untuk Form Customer (Booking) -->
     <div class="modal fade" id="modalCustomer" tabindex="-1">
         <div class="modal-dialog modal-lg">
@@ -461,9 +609,13 @@
                     @csrf
                     <input type="hidden" name="detail_id" id="detailId">
                     <input type="hidden" name="status" id="statusChange">
+                    <input type="hidden" name="booking_data[tipe_penjualan]" id="tipePenjualan">
                     
                     <div class="modal-header">
-                        <h5 class="modal-title">Form Customer untuk Booking</h5>
+                        <h5 class="modal-title">
+                            Form Customer untuk Booking - 
+                            <span id="modalTipePenjualan" class="badge bg-primary">Kredit</span>
+                        </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     
@@ -574,7 +726,7 @@
                             </div>
                             
                             <div class="col-md-4">
-                                <label class="form-label">DP Awal (Rp) <span class="text-danger">*</span></label>
+                                <label class="form-label">Booking (Rp) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control form-control-sm" name="dp_awal" required>
                             </div>
                             
@@ -616,6 +768,7 @@
                 <form id="frmPenjualan">
                     @csrf
                     <input type="hidden" name="detail_id" id="penjualanDetailId">
+                    <input type="hidden" name="status" value="terjual">
                     
                     <div class="modal-header">
                         <h5 class="modal-title">Form Penjualan Unit</h5>
@@ -630,7 +783,7 @@
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="form-label">DP Awal (Rp)</label>
+                                <label class="form-label">Booking (Rp)</label>
                                 <input type="number" class="form-control form-control-sm" name="dp_awal">
                             </div>
                             
@@ -702,6 +855,14 @@
                 // Load initial statistics
                 loadStatistics();
                 
+                // Inisialisasi dropdown status options
+                initStatusOptions();
+                
+                // Toggle alur penjualan
+                window.toggleAlurPenjualan = function() {
+                    $('#alurPenjualanCard').toggleClass('d-none');
+                }
+                
                 // Fungsi untuk menampilkan pesan sukses
                 function showSuccess(message) {
                     Swal.fire({
@@ -738,18 +899,101 @@
                     $('#frmPenjualan input[name="tanggal_akad"]').val(today);
                 }
                 
+                // Inisialisasi status options di dropdown
+                function initStatusOptions() {
+                    $('.unit-card').each(function() {
+                        const detailId = $(this).data('detail');
+                        const currentStatus = $(this).attr('data-status');
+                        const tipePenjualan = $(this).attr('data-tipe-penjualan');
+                        
+                        updateStatusDropdown(detailId, currentStatus, tipePenjualan);
+                    });
+                }
+                
+                // Update dropdown status berdasarkan status saat ini dan tipe penjualan
+                function updateStatusDropdown(detailId, currentStatus, tipePenjualan) {
+                    const dropdownContainer = $('#status-options-' + detailId);
+                    if (!dropdownContainer.length) return;
+                    
+                    let validStatuses = [];
+                    
+                    // Tentukan status berikutnya yang valid berdasarkan tipe penjualan
+                    if (tipePenjualan === 'cash') {
+                        // Alur penjualan Cash
+                        const cashFlow = {
+                            'tersedia': ['booking_unit'],
+                            'booking_unit': ['tersedia', 'pemberkasan_notaris', 'tidak_acc'],
+                            'pemberkasan_notaris': ['booking_unit', 'akad', 'tidak_acc'],
+                            'tidak_acc': ['tersedia'],
+                            'akad': ['pemberkasan_notaris', 'bast'],
+                            'bast': ['akad', 'terjual'],
+                            'terjual': []
+                        };
+                        validStatuses = cashFlow[currentStatus] || [];
+                    } else {
+                        // Default: Alur penjualan Kredit
+                        const kreditFlow = {
+                            'tersedia': ['booking_unit'],
+                            'booking_unit': ['tersedia', 'bi_check', 'tidak_acc'],
+                            'bi_check': ['booking_unit', 'pemberkasan_bank', 'tidak_acc'],
+                            'pemberkasan_bank': ['bi_check', 'acc', 'tidak_acc'],
+                            'acc': ['pemberkasan_bank', 'akad'],
+                            'tidak_acc': ['tersedia'],
+                            'akad': ['acc', 'pencairan'],
+                            'pencairan': ['akad', 'bast'],
+                            'bast': ['pencairan', 'terjual'],
+                            'terjual': []
+                        };
+                        validStatuses = kreditFlow[currentStatus] || [];
+                    }
+                    
+                    // Icon dan warna untuk setiap status
+                    const statusConfig = {
+                        'tersedia': { icon: 'bi-check-circle', color: 'success', text: 'Tersedia' },
+                        'booking_unit': { icon: 'bi-calendar-check', color: 'warning', text: 'Booking Unit' },
+                        'bi_check': { icon: 'bi-file-earmark-check', color: 'info', text: 'BI Check' },
+                        'pemberkasan_bank': { icon: 'bi-folder-check', color: 'primary', text: 'Pemberkasan Bank' },
+                        'pemberkasan_notaris': { icon: 'bi-file-earmark-check', color: 'primary', text: 'Pemberkasan Notaris' },
+                        'acc': { icon: 'bi-check-all', color: 'success', text: 'ACC' },
+                        'tidak_acc': { icon: 'bi-x-circle', color: 'danger', text: 'Tidak ACC' },
+                        'akad': { icon: 'bi-file-earmark-text', color: 'info', text: 'Akad' },
+                        'pencairan': { icon: 'bi-cash-coin', color: 'primary', text: 'Pencairan' },
+                        'bast': { icon: 'bi-house-check', color: 'success', text: 'BAST' },
+                        'terjual': { icon: 'bi-currency-dollar', color: 'danger', text: 'Terjual' }
+                    };
+                    
+                    // Kosongkan container
+                    dropdownContainer.empty();
+                    
+                    // Tambahkan opsi untuk setiap status yang valid
+                    validStatuses.forEach(status => {
+                        const config = statusConfig[status] || { icon: 'bi-circle', color: 'secondary', text: status };
+                        
+                        const option = `
+                            <button class="dropdown-item change-status" 
+                                    data-id="${detailId}" 
+                                    data-status="${status}">
+                                <i class="bi ${config.icon} text-${config.color} me-2"></i>${config.text}
+                            </button>
+                        `;
+                        dropdownContainer.append(option);
+                    });
+                }
+                
                 // Load statistics function
                 function loadStatistics() {
                     // Ambil nilai filter
                     const projectId = $('#filterProject').val();
                     const unitId = $('#filterUnit').val();
                     const status = $('#filterStatus').val();
+                    const tipePenjualan = $('#filterTipePenjualan').val();
                     
                     // Buat parameter URL
                     let params = new URLSearchParams();
                     if (projectId) params.append('project_id', projectId);
                     if (unitId) params.append('unit_id', unitId);
                     if (status) params.append('status', status);
+                    if (tipePenjualan) params.append('tipe_penjualan', tipePenjualan);
                     
                     // Gunakan URL langsung untuk menghindari error route
                     const url = '/units/details/statistics?' + params.toString();
@@ -764,6 +1008,8 @@
                         $('#tersediaCount').text(response.tersedia);
                         $('#bookingCount').text(response.booking);
                         $('#terjualCount').text(response.terjual);
+                        $('#cashCount').text(response.cash_count || 0);
+                        $('#kreditCount').text(response.kredit_count || 0);
                         $('#tersediaPercent').text(response.tersedia_percent);
                         $('#bookingPercent').text(response.booking_percent);
                         $('#terjualPercent').text(response.terjual_percent);
@@ -774,46 +1020,48 @@
                 
                 // Show all status statistics
                 window.showAllStatusStats = function() {
-                    Swal.fire({
-                        title: 'Statistik Semua Status',
-                        html: `
-                            <div class="text-start">
-                                <p><strong>Total Unit:</strong> <span id="swalTotal">0</span></p>
-                                <p><strong>Tersedia:</strong> <span id="swalTersedia">0</span> (<span id="swalTersediaPercent">0</span>%)</p>
-                                <p><strong>Booking:</strong> <span id="swalBooking">0</span> (<span id="swalBookingPercent">0</span>%)</p>
-                                <p><strong>BI Check:</strong> <span id="swalBiCheck">0</span></p>
-                                <p><strong>Pemberkasan Bank:</strong> <span id="swalPemberkasan">0</span></p>
-                                <p><strong>ACC:</strong> <span id="swalAcc">0</span></p>
-                                <p><strong>Tidak ACC:</strong> <span id="swalTidakAcc">0</span></p>
-                                <p><strong>Akad:</strong> <span id="swalAkad">0</span></p>
-                                <p><strong>Pencairan:</strong> <span id="swalPencairan">0</span></p>
-                                <p><strong>BAST:</strong> <span id="swalBast">0</span></p>
-                                <p><strong>Terjual:</strong> <span id="swalTerjual">0</span> (<span id="swalTerjualPercent">0</span>%)</p>
-                            </div>
-                        `,
-                        showConfirmButton: true,
-                        confirmButtonText: 'Tutup'
-                    });
+                    // Ambil nilai filter
+                    const projectId = $('#filterProject').val();
+                    const unitId = $('#filterUnit').val();
+                    const tipePenjualan = $('#filterTipePenjualan').val();
                     
-                    // Load detailed statistics
-                    const url = '/units/details/statistics?detailed=true';
+                    // Buat parameter URL
+                    let params = new URLSearchParams();
+                    if (projectId) params.append('project_id', projectId);
+                    if (unitId) params.append('unit_id', unitId);
+                    if (tipePenjualan) params.append('tipe_penjualan', tipePenjualan);
+                    
+                    const url = '/units/details/statistics?' + params.toString();
+                    
                     $.get(url, function(response) {
                         if (response.error) return;
                         
-                        $('#swalTotal').text(response.total);
-                        $('#swalTersedia').text(response.tersedia);
-                        $('#swalTersediaPercent').text(response.tersedia_percent);
-                        $('#swalBooking').text(response.booking);
-                        $('#swalBookingPercent').text(response.booking_percent);
-                        $('#swalBiCheck').text(response.bi_check);
-                        $('#swalPemberkasan').text(response.pemberkasan_bank);
-                        $('#swalAcc').text(response.acc);
-                        $('#swalTidakAcc').text(response.tidak_acc);
-                        $('#swalAkad').text(response.akad);
-                        $('#swalPencairan').text(response.pencairan);
-                        $('#swalBast').text(response.bast);
-                        $('#swalTerjual').text(response.terjual);
-                        $('#swalTerjualPercent').text(response.terjual_percent);
+                        Swal.fire({
+                            title: 'Statistik Semua Status',
+                            html: `
+                                <div class="text-start">
+                                    <p><strong>Total Unit:</strong> ${response.total}</p>
+                                    <p><strong>Tersedia:</strong> ${response.tersedia} (${response.tersedia_percent}%)</p>
+                                    <p><strong>Booking:</strong> ${response.booking} (${response.booking_percent}%)</p>
+                                    <p><strong>BI Check:</strong> ${response.bi_check}</p>
+                                    <p><strong>Pemberkasan Bank:</strong> ${response.pemberkasan_bank}</p>
+                                    <p><strong>Pemberkasan Notaris:</strong> ${response.pemberkasan_notaris || 0}</p>
+                                    <p><strong>ACC:</strong> ${response.acc}</p>
+                                    <p><strong>Tidak ACC:</strong> ${response.tidak_acc}</p>
+                                    <p><strong>Akad:</strong> ${response.akad}</p>
+                                    <p><strong>Pencairan:</strong> ${response.pencairan}</p>
+                                    <p><strong>BAST:</strong> ${response.bast}</p>
+                                    <p><strong>Terjual:</strong> ${response.terjual} (${response.terjual_percent}%)</p>
+                                    <hr>
+                                    <p><strong>Penjualan Cash:</strong> ${response.cash_count || 0}</p>
+                                    <p><strong>Penjualan Kredit:</strong> ${response.kredit_count || 0}</p>
+                                    <p><strong>Belum Ditentukan:</strong> ${response.belum_ditentukan || 0}</p>
+                                </div>
+                            `,
+                            showConfirmButton: true,
+                            confirmButtonText: 'Tutup',
+                            width: '600px'
+                        });
                     });
                 }
                 
@@ -842,6 +1090,12 @@
                     filterCards();
                 });
                 
+                // Change tipe penjualan filter
+                $('#filterTipePenjualan').change(function() {
+                    loadStatistics();
+                    filterCards();
+                });
+                
                 // Change status via dropdown
                 $(document).on('click', '.change-status', function() {
                     const detailId = $(this).data('id');
@@ -850,28 +1104,36 @@
                     // DAPATKAN STATUS TERKINI DARI DATA ATTRIBUTE
                     const card = $(this).closest('.unit-card');
                     const currentStatus = card.attr('data-status'); // Gunakan attr() bukan data()
+                    const tipePenjualan = card.attr('data-tipe-penjualan');
                     
                     // Validasi alur status
-                    if (!validateStatusFlow(currentStatus, newStatus)) {
+                    if (!validateStatusFlow(currentStatus, newStatus, tipePenjualan)) {
                         showError(`Tidak bisa mengubah status dari ${formatStatus(currentStatus)} ke ${formatStatus(newStatus)}`);
                         return;
                     }
                     
-                    // Jika status booking, tampilkan modal form customer
+                    // Jika status booking, tampilkan modal pemilihan tipe penjualan
                     if (newStatus === 'booking_unit') {
-                        $('#detailId').val(detailId);
-                        $('#statusChange').val(newStatus);
-                        setDefaultDates();
-                        $('#modalCustomer').modal('show');
+                        $('#bookingDetailId').val(detailId);
+                        $('#modalBookingType').modal('show');
                         return;
                     }
                     
                     // Jika status terjual, cek dulu apakah sudah melalui semua tahap
                     if (newStatus === 'terjual') {
-                        // Pastikan status sebelumnya adalah BAST
-                        if (currentStatus !== 'bast') {
-                            showError('Unit harus dalam status BAST sebelum bisa dijual');
-                            return;
+                        // Validasi berdasarkan tipe penjualan
+                        if (tipePenjualan === 'cash') {
+                            // Untuk cash, harus dari BAST
+                            if (currentStatus !== 'bast') {
+                                showError('Unit harus dalam status BAST sebelum bisa dijual (Cash)');
+                                return;
+                            }
+                        } else {
+                            // Untuk kredit, harus dari BAST
+                            if (currentStatus !== 'bast') {
+                                showError('Unit harus dalam status BAST sebelum bisa dijual (Kredit)');
+                                return;
+                            }
                         }
                         
                         $('#penjualanDetailId').val(detailId);
@@ -905,30 +1167,63 @@
                             cancelButtonText: 'Batal'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                updateStatusDirect(detailId, newStatus, card);
+                                updateStatusDirect(detailId, newStatus, card, tipePenjualan);
                             }
                         });
                         return;
                     }
                     
                     // Untuk status lainnya langsung update
-                    updateStatusDirect(detailId, newStatus, card);
+                    updateStatusDirect(detailId, newStatus, card, tipePenjualan);
                 });
 
-                // Fungsi validasi alur status
-                function validateStatusFlow(currentStatus, newStatus) {
-                    const validFlows = {
-                        'tersedia': ['booking_unit'],
-                        'booking_unit': ['tersedia', 'bi_check', 'tidak_acc'],
-                        'bi_check': ['booking_unit', 'pemberkasan_bank', 'tidak_acc'],
-                        'pemberkasan_bank': ['bi_check', 'acc', 'tidak_acc'],
-                        'acc': ['pemberkasan_bank', 'akad'],
-                        'tidak_acc': ['tersedia'], // Kembali ke tersedia
-                        'akad': ['acc', 'pencairan'],
-                        'pencairan': ['akad', 'bast'],
-                        'bast': ['pencairan', 'terjual'],
-                        'terjual': [] // Tidak bisa diubah lagi setelah terjual
-                    };
+                // Fungsi untuk memilih tipe penjualan
+                window.selectPenjualanType = function(tipe) {
+                    const detailId = $('#bookingDetailId').val();
+                    $('#modalBookingType').modal('hide');
+                    
+                    $('#detailId').val(detailId);
+                    $('#statusChange').val('booking_unit');
+                    $('#tipePenjualan').val(tipe);
+                    
+                    // Update badge di modal
+                    const badgeClass = tipe === 'cash' ? 'bg-success' : 'bg-primary';
+                    const badgeText = tipe === 'cash' ? 'CASH' : 'KREDIT';
+                    $('#modalTipePenjualan').removeClass('bg-primary bg-success').addClass(badgeClass).text(badgeText);
+                    
+                    $('#modalCustomer').modal('show');
+                }
+
+                // Fungsi validasi alur status berdasarkan tipe penjualan
+                function validateStatusFlow(currentStatus, newStatus, tipePenjualan) {
+                    let validFlows;
+                    
+                    if (tipePenjualan === 'cash') {
+                        // Alur penjualan Cash
+                        validFlows = {
+                            'tersedia': ['booking_unit'],
+                            'booking_unit': ['tersedia', 'pemberkasan_notaris', 'tidak_acc'],
+                            'pemberkasan_notaris': ['booking_unit', 'akad', 'tidak_acc'],
+                            'tidak_acc': ['tersedia'],
+                            'akad': ['pemberkasan_notaris', 'bast'],
+                            'bast': ['akad', 'terjual'],
+                            'terjual': []
+                        };
+                    } else {
+                        // Default: Alur penjualan Kredit
+                        validFlows = {
+                            'tersedia': ['booking_unit'],
+                            'booking_unit': ['tersedia', 'bi_check', 'tidak_acc'],
+                            'bi_check': ['booking_unit', 'pemberkasan_bank', 'tidak_acc'],
+                            'pemberkasan_bank': ['bi_check', 'acc', 'tidak_acc'],
+                            'acc': ['pemberkasan_bank', 'akad'],
+                            'tidak_acc': ['tersedia'],
+                            'akad': ['acc', 'pencairan'],
+                            'pencairan': ['akad', 'bast'],
+                            'bast': ['pencairan', 'terjual'],
+                            'terjual': []
+                        };
+                    }
                     
                     // Jika sudah terjual, tidak bisa diubah ke status lain
                     if (currentStatus === 'terjual') {
@@ -946,6 +1241,7 @@
                         'booking_unit': 'Booking Unit',
                         'bi_check': 'BI Check',
                         'pemberkasan_bank': 'Pemberkasan Bank',
+                        'pemberkasan_notaris': 'Pemberkasan Notaris',
                         'acc': 'ACC',
                         'tidak_acc': 'Tidak ACC',
                         'akad': 'Akad',
@@ -955,43 +1251,6 @@
                     };
                     return statusMap[status] || status;
                 }
-
-                // Update dropdown berdasarkan status saat ini
-                function updateDropdownByStatus(card, currentStatus) {
-                    const dropdown = card.find('.dropdown-menu');
-                    const statusItems = dropdown.find('.change-status');
-                    
-                    // Sembunyikan semua item dulu
-                    statusItems.hide();
-                    
-                    // Tampilkan hanya yang sesuai dengan alur
-                    const validNextStatus = getValidNextStatus(currentStatus);
-                    
-                    statusItems.each(function() {
-                        const status = $(this).data('status');
-                        if (validNextStatus.includes(status)) {
-                            $(this).show();
-                        }
-                    });
-                }
-
-                // Fungsi untuk mendapatkan status berikutnya yang valid
-                function getValidNextStatus(currentStatus) {
-                    const flowMap = {
-                        'tersedia': ['booking_unit'],
-                        'booking_unit': ['tersedia', 'bi_check', 'tidak_acc'],
-                        'bi_check': ['booking_unit', 'pemberkasan_bank', 'tidak_acc'],
-                        'pemberkasan_bank': ['bi_check', 'acc', 'tidak_acc'],
-                        'acc': ['pemberkasan_bank', 'akad'],
-                        'tidak_acc': ['tersedia'],
-                        'akad': ['acc', 'pencairan'],
-                        'pencairan': ['akad', 'bast'],
-                        'bast': ['pencairan', 'terjual'],
-                        'terjual': []
-                    };
-                    
-                    return flowMap[currentStatus] || [];
-                }
                 
                 // Submit form customer (booking)
                 $('#frmCustomer').submit(function(e) {
@@ -999,6 +1258,7 @@
                     
                     const detailId = $('#detailId').val();
                     const newStatus = $('#statusChange').val();
+                    const tipePenjualan = $('#tipePenjualan').val();
                     const formData = $(this).serializeArray();
                     
                     // Validasi NIK
@@ -1012,12 +1272,14 @@
                     const requestData = {
                         status: newStatus,
                         customer_data: {},
-                        booking_data: {}
+                        booking_data: {
+                            tipe_penjualan: tipePenjualan
+                        }
                     };
                     
                     // Pisahkan data customer dan booking
                     formData.forEach(function(item) {
-                        if (['_token', 'detail_id', 'status'].includes(item.name)) {
+                        if (['_token', 'detail_id', 'status', 'booking_data[tipe_penjualan]'].includes(item.name)) {
                             return;
                         }
 
@@ -1046,7 +1308,9 @@
                             item.name === 'metode_pembayaran_dp' ||
                             item.name === 'keterangan'
                         ) {
-                            requestData.booking_data[item.name] = item.value;
+                            // Remove 'booking_data[]' prefix jika ada
+                            const key = item.name.replace('booking_data[', '').replace(']', '');
+                            requestData.booking_data[key] = item.value;
                         }
                     });
 
@@ -1075,10 +1339,26 @@
                                 // Update card
                                 const card = $('.unit-card[data-detail="' + detailId + '"]');
                                 
-                                // PERBAIKAN: UPDATE DATA ATTRIBUTE STATUS
+                                // Update data attributes
                                 card.attr('data-status', newStatus);
+                                card.attr('data-tipe-penjualan', tipePenjualan);
                                 
-                                updateCardStatus(card, newStatus);
+                                updateCardStatus(card, newStatus, tipePenjualan);
+                                updateStatusDropdown(detailId, newStatus, tipePenjualan);
+                                
+                                // Update badge tipe penjualan di header
+                                const header = card.find('.card-header');
+                                const existingBadge = header.find('.badge');
+                                if (existingBadge.length) {
+                                    existingBadge.remove();
+                                }
+                                
+                                const badgeClass = tipePenjualan === 'cash' ? 'bg-success' : 'bg-primary';
+                                header.find('.text-truncate').after(`
+                                    <span class="badge ${badgeClass} ms-1">
+                                        ${tipePenjualan.toUpperCase()}
+                                    </span>
+                                `);
                                 
                                 // Update customer info in card
                                 if (response.data.customer) {
@@ -1091,6 +1371,9 @@
                                             </div>
                                         </div>
                                     `;
+                                    
+                                    // Hapus customer info lama jika ada
+                                    card.find('.card-body .border-top').remove();
                                     card.find('.card-body').append(customerInfo);
                                 }
                                 
@@ -1098,18 +1381,25 @@
                                 loadStatistics();
                                 filterCards();
                             } else {
-                                showError(response.message);
+                                // TAMPILKAN ERROR YANG SESUAI DARI RESPONSE
+                                showError(response.message || 'Terjadi kesalahan');
                             }
                         },
                         error: function(xhr) {
                             submitBtn.prop('disabled', false).html(originalText);
-                            if (xhr.status === 422) {
+                            
+                            // TAMPILKAN ERROR YANG SESUAI DARI RESPONSE
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                showError(xhr.responseJSON.message);
+                            } else if (xhr.status === 422) {
                                 const errors = xhr.responseJSON.errors;
-                                let errorMessage = '';
+                                let errorMessage = 'Validasi gagal:\n';
                                 for (const key in errors) {
-                                    errorMessage += errors[key][0] + '\n';
+                                    errorMessage += `• ${errors[key][0]}\n`;
                                 }
                                 showError(errorMessage);
+                            } else if (xhr.status === 500) {
+                                showError('Terjadi kesalahan server. Silakan coba lagi nanti.');
                             } else {
                                 showError('Terjadi kesalahan saat menyimpan data');
                             }
@@ -1143,7 +1433,7 @@
                     };
                     
                     formData.forEach(function(item) {
-                        if (item.name !== '_token' && item.name !== 'detail_id') {
+                        if (item.name !== '_token' && item.name !== 'detail_id' && item.name !== 'status') {
                             requestData.penjualan_data[item.name] = item.value;
                         }
                     });
@@ -1172,22 +1462,40 @@
                                 
                                 // Update card
                                 const card = $('.unit-card[data-detail="' + detailId + '"]');
+                                const tipePenjualan = card.attr('data-tipe-penjualan');
                                 
-                                // PERBAIKAN: UPDATE DATA ATTRIBUTE STATUS
+                                // Update data attributes
                                 card.attr('data-status', 'terjual');
                                 
-                                updateCardStatus(card, 'terjual');
+                                updateCardStatus(card, 'terjual', tipePenjualan);
+                                updateStatusDropdown(detailId, 'terjual', tipePenjualan);
                                 
                                 // Reload statistics
                                 loadStatistics();
                                 filterCards();
                             } else {
-                                showError(response.message);
+                                // TAMPILKAN ERROR YANG SESUAI DARI RESPONSE
+                                showError(response.message || 'Terjadi kesalahan');
                             }
                         },
                         error: function(xhr) {
                             submitBtn.prop('disabled', false).html(originalText);
-                            showError('Terjadi kesalahan saat menyimpan data');
+                            
+                            // TAMPILKAN ERROR YANG SESUAI DARI RESPONSE
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                showError(xhr.responseJSON.message);
+                            } else if (xhr.status === 422) {
+                                const errors = xhr.responseJSON.errors;
+                                let errorMessage = 'Validasi gagal:\n';
+                                for (const key in errors) {
+                                    errorMessage += `• ${errors[key][0]}\n`;
+                                }
+                                showError(errorMessage);
+                            } else if (xhr.status === 500) {
+                                showError('Terjadi kesalahan server. Silakan coba lagi nanti.');
+                            } else {
+                                showError('Terjadi kesalahan saat menyimpan data');
+                            }
                         }
                     });
                 });
@@ -1229,6 +1537,7 @@
                                         <h6>Status & Detail</h6>
                                         <p><strong>No Unit:</strong> ${detail.id}</p>
                                         <p><strong>Status:</strong> <span class="badge ${getStatusBadgeClass(detail.status)}">${detail.status.replace('_', ' ').toUpperCase()}</span></p>
+                                        <p><strong>Tipe Penjualan:</strong> <span class="badge ${detail.tipe_penjualan === 'cash' ? 'bg-success' : 'bg-primary'}">${detail.tipe_penjualan ? detail.tipe_penjualan.toUpperCase() : 'Belum ditentukan'}</span></p>
                                         <p><strong>Dibuat:</strong> ${new Date(detail.created_at).toLocaleDateString('id-ID')}</p>
                             `;
                             
@@ -1247,7 +1556,8 @@
                                     <hr>
                                     <h6>Informasi Booking</h6>
                                     <p><strong>Kode Booking:</strong> ${data.booking.kode_booking}</p>
-                                    <p><strong>DP Awal:</strong> Rp ${data.booking.dp_awal.toLocaleString('id-ID')}</p>
+                                    <p><strong>Tipe Penjualan:</strong> ${data.booking.tipe_penjualan || '-'}</p>
+                                    <p><strong>Booking:</strong> Rp ${data.booking.dp_awal.toLocaleString('id-ID')}</p>
                                     <p><strong>Tanggal Booking:</strong> ${new Date(data.booking.tanggal_booking).toLocaleDateString('id-ID')}</p>
                                 `;
                             }
@@ -1257,6 +1567,7 @@
                                     <hr>
                                     <h6>Informasi Penjualan</h6>
                                     <p><strong>Kode Penjualan:</strong> ${data.penjualan.kode_penjualan}</p>
+                                    <p><strong>Tipe Penjualan:</strong> ${data.penjualan.tipe_penjualan || '-'}</p>
                                     <p><strong>Harga Jual:</strong> Rp ${data.penjualan.harga_jual.toLocaleString('id-ID')}</p>
                                     <p><strong>Metode Pembayaran:</strong> ${data.penjualan.metode_pembayaran}</p>
                                 `;
@@ -1322,8 +1633,7 @@
                     });
                 });
                 
-                // Fungsi untuk update status langsung (tanpa modal)
-                function updateStatusDirect(detailId, newStatus, card) {
+                function updateStatusDirect(detailId, newStatus, card, tipePenjualan) {
                     Swal.fire({
                         title: 'Ubah Status?',
                         text: `Apakah Anda yakin ingin mengubah status unit menjadi ${newStatus.replace('_', ' ')}?`,
@@ -1351,11 +1661,25 @@
                                     if (response.success) {
                                         showSuccess(response.message);
                                         
-                                        // PERBAIKAN: UPDATE DATA ATTRIBUTE STATUS
+                                        // Update data attributes
                                         card.attr('data-status', newStatus);
                                         
                                         // Update card appearance
-                                        updateCardStatus(card, newStatus);
+                                        updateCardStatus(card, newStatus, tipePenjualan);
+                                        updateStatusDropdown(detailId, newStatus, tipePenjualan);
+                                        
+                                        // Jika status menjadi tidak_acc, otomatis kembali ke tersedia
+                                        if (newStatus === 'tidak_acc') {
+                                            setTimeout(() => {
+                                                card.attr('data-status', 'tersedia');
+                                                updateCardStatus(card, 'tersedia', '');
+                                                updateStatusDropdown(detailId, 'tersedia', '');
+                                                // Hapus data tipe_penjualan karena kembali ke tersedia
+                                                card.attr('data-tipe-penjualan', '');
+                                                // Hapus badge tipe penjualan
+                                                card.find('.card-header .badge.bg-success, .card-header .badge.bg-primary').remove();
+                                            }, 100);
+                                        }
                                         
                                         // Reload statistics
                                         loadStatistics();
@@ -1363,12 +1687,28 @@
                                         // Re-filter cards jika ada filter status aktif
                                         filterCards();
                                     } else {
-                                        showError(response.message);
+                                        // TAMPILKAN ERROR YANG SESUAI DARI RESPONSE
+                                        showError(response.message || 'Terjadi kesalahan');
                                     }
                                 },
                                 error: function(xhr) {
                                     Swal.close();
-                                    showError('Terjadi kesalahan saat mengubah status');
+                                    
+                                    // TAMPILKAN ERROR YANG SESUAI DARI RESPONSE JSON
+                                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                                        showError(xhr.responseJSON.message);
+                                    } else if (xhr.status === 422) {
+                                        const errors = xhr.responseJSON.errors;
+                                        let errorMessage = 'Validasi gagal:\n';
+                                        for (const key in errors) {
+                                            errorMessage += `• ${errors[key][0]}\n`;
+                                        }
+                                        showError(errorMessage);
+                                    } else if (xhr.status === 500) {
+                                        showError('Terjadi kesalahan server. Silakan coba lagi nanti.');
+                                    } else {
+                                        showError('Terjadi kesalahan saat mengubah status');
+                                    }
                                 }
                             });
                         }
@@ -1380,6 +1720,7 @@
                     const projectId = $('#filterProject').val();
                     const unitId = $('#filterUnit').val();
                     const status = $('#filterStatus').val();
+                    const tipePenjualan = $('#filterTipePenjualan').val();
                     let visibleCount = 0;
                     
                     $('.unit-card').each(function() {
@@ -1389,13 +1730,15 @@
                         
                         // PERBAIKAN: GUNAKAN ATTR() UNTUK MENDAPATKAN STATUS TERKINI
                         const cardStatus = card.attr('data-status') || card.data('status');
+                        const cardTipePenjualan = card.attr('data-tipe-penjualan') || '';
                         
                         // Check filters
                         const projectMatch = !projectId || cardProject == projectId;
                         const unitMatch = !unitId || cardUnit == unitId;
                         const statusMatch = !status || cardStatus == status;
+                        const tipeMatch = !tipePenjualan || cardTipePenjualan == tipePenjualan;
                         
-                        if (projectMatch && unitMatch && statusMatch) {
+                        if (projectMatch && unitMatch && statusMatch && tipeMatch) {
                             card.show();
                             visibleCount++;
                         } else {
@@ -1412,14 +1755,14 @@
                 }
                 
                 // Update card status appearance dengan semua status
-                function updateCardStatus(card, newStatus) {
+                function updateCardStatus(card, newStatus, tipePenjualan) {
                     const header = card.find('.card-header');
                     header.removeClass('bg-success bg-warning bg-danger bg-info bg-primary bg-secondary text-white text-dark');
                     
                     // Tentukan warna berdasarkan status
                     if (newStatus === 'tersedia') {
                         header.addClass('bg-success text-white');
-                    } else if (['booking_unit', 'bi_check', 'pemberkasan_bank', 'akad', 'pencairan'].includes(newStatus)) {
+                    } else if (['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'].includes(newStatus)) {
                         header.addClass('bg-warning text-dark');
                     } else if (newStatus === 'acc') {
                         header.addClass('bg-info text-white');
@@ -1446,7 +1789,7 @@
                     icon.removeClass('text-success text-warning text-danger text-info text-primary text-secondary');
                     if (newStatus === 'tersedia') {
                         icon.addClass('text-success');
-                    } else if (['booking_unit', 'bi_check', 'pemberkasan_bank', 'akad', 'pencairan'].includes(newStatus)) {
+                    } else if (['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'].includes(newStatus)) {
                         icon.addClass('text-warning');
                     } else if (newStatus === 'acc') {
                         icon.addClass('text-info');
@@ -1459,12 +1802,68 @@
                     } else {
                         icon.addClass('text-secondary');
                     }
+                    
+                    // Update progress bar dan alur status text
+                    const progressContainer = card.find('.progress');
+                    const progressBar = card.find('.progress-bar');
+                    const alurText = card.find('.card-body small.text-muted');
+                    
+                    if (progressContainer.length && tipePenjualan) {
+                        // Tentukan alur berdasarkan tipe penjualan
+                        let statusOrder;
+                        if (tipePenjualan === 'cash') {
+                            statusOrder = ['booking_unit', 'pemberkasan_notaris', 'akad', 'bast', 'terjual'];
+                        } else {
+                            statusOrder = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
+                        }
+                        
+                        const currentIndex = statusOrder.indexOf(newStatus);
+                        const progress = currentIndex !== -1 ? ((currentIndex + 1) / statusOrder.length) * 100 : 0;
+                        
+                        // Update progress bar
+                        progressBar.css('width', progress + '%');
+                        progressBar.attr('aria-valuenow', progress);
+                        
+                        // Update warna progress bar berdasarkan tipe
+                        progressBar.removeClass('bg-success bg-primary');
+                        progressBar.addClass(tipePenjualan === 'cash' ? 'bg-success' : 'bg-primary');
+                        
+                        // Update teks alur
+                        if (alurText.length) {
+                            let alurHtml = '';
+                            
+                            if (tipePenjualan === 'cash') {
+                                const cashSteps = {
+                                    'booking_unit': '<span class="badge bg-success">Booking</span> → Pemberkasan Notaris → Akad → BAST → Terjual',
+                                    'pemberkasan_notaris': 'Booking → <span class="badge bg-success">Pemberkasan Notaris</span> → Akad → BAST → Terjual',
+                                    'akad': 'Booking → Pemberkasan Notaris → <span class="badge bg-success">Akad</span> → BAST → Terjual',
+                                    'bast': 'Booking → Pemberkasan Notaris → Akad → <span class="badge bg-success">BAST</span> → Terjual'
+                                };
+                                alurHtml = cashSteps[newStatus] || '';
+                            } else {
+                                const kreditSteps = {
+                                    'booking_unit': '<span class="badge bg-primary">Booking</span> → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual',
+                                    'bi_check': 'Booking → <span class="badge bg-primary">BI Check</span> → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual',
+                                    'pemberkasan_bank': 'Booking → BI Check → <span class="badge bg-primary">Pemberkasan Bank</span> → ACC → Akad → Pencairan → BAST → Terjual',
+                                    'acc': 'Booking → BI Check → Pemberkasan Bank → <span class="badge bg-primary">ACC</span> → Akad → Pencairan → BAST → Terjual',
+                                    'akad': 'Booking → BI Check → Pemberkasan Bank → ACC → <span class="badge bg-primary">Akad</span> → Pencairan → BAST → Terjual',
+                                    'pencairan': 'Booking → BI Check → Pemberkasan Bank → ACC → Akad → <span class="badge bg-primary">Pencairan</span> → BAST → Terjual',
+                                    'bast': 'Booking → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan → <span class="badge bg-primary">BAST</span> → Terjual'
+                                };
+                                alurHtml = kreditSteps[newStatus] || '';
+                            }
+                            
+                            if (alurHtml) {
+                                alurText.html(alurHtml);
+                            }
+                        }
+                    }
                 }
                 
                 // Helper function untuk mendapatkan class badge berdasarkan status
                 function getStatusBadgeClass(status) {
                     if (status === 'tersedia') return 'bg-success';
-                    if (['booking_unit', 'bi_check', 'pemberkasan_bank', 'akad', 'pencairan'].includes(status)) return 'bg-warning text-dark';
+                    if (['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'].includes(status)) return 'bg-warning text-dark';
                     if (status === 'acc') return 'bg-info';
                     if (status === 'bast') return 'bg-primary';
                     if (status === 'terjual') return 'bg-danger';
