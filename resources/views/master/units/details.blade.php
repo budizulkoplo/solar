@@ -1557,7 +1557,11 @@
                                     <h6>Informasi Booking</h6>
                                     <p><strong>Kode Booking:</strong> ${data.booking.kode_booking}</p>
                                     <p><strong>Tipe Penjualan:</strong> ${data.booking.tipe_penjualan || '-'}</p>
+<<<<<<< HEAD
                                     <p><strong>Booking:</strong> Rp ${data.booking.dp_awal.toLocaleString('id-ID')}</p>
+=======
+                                    <p><strong>DP Awal:</strong> Rp ${data.booking.dp_awal.toLocaleString('id-ID')}</p>
+>>>>>>> 8819a3e43fcb44f2707daef5e1b8d584491b26b6
                                     <p><strong>Tanggal Booking:</strong> ${new Date(data.booking.tanggal_booking).toLocaleDateString('id-ID')}</p>
                                 `;
                             }
