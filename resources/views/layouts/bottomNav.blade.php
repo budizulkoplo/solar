@@ -244,7 +244,7 @@
         {{-- Contoh dua item, satu lokal dan satu eksternal --}}
         
         {{-- Item 1: Link eksternal ke Project Management --}}
-        <a href="https://pm.mentarimultitrada.com/external/{{ $token }}" 
+        <a href="https://pm.mysolarsystem.web.id/external/{{ $token }}" 
            style="all: unset; display: contents; cursor: pointer;" 
            target="_blank">
             <div class="item">
