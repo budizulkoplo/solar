@@ -378,168 +378,154 @@
                                             
                                             <!-- Card Body -->
                                             <div class="card-body p-2">
-    <!-- Nama Unit dan Tipe -->
-    <div class="mb-1">
-        <h6 class="card-title mb-1">
-            <i class="fas fa-home me-1 
-                @if($detail->status === 'tersedia') text-success
-                @elseif(in_array($detail->status, ['booking_unit','bi_check','pemberkasan_bank','pemberkasan_notaris','akad','pencairan'])) text-warning
-                @elseif($detail->status === 'acc') text-info
-                @elseif($detail->status === 'bast') text-primary
-                @elseif($detail->status === 'terjual') text-danger
-                @elseif($detail->status === 'tidak_acc') text-danger
-                @else text-secondary @endif
-            "></i>
-            {{ $unit->namaunit }}
-        </h6>
-        <div class="text-muted small">Tipe: {{ $unit->tipe }}</div>
-    </div>
-    
-    <!-- Informasi Unit -->
-    <div class="small mb-2">
-        <div class="row">
-            <div class="col-6">
-                <div class="mb-1">
-                    <span class="text-muted">Blok:</span><br>
-                    <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="mb-1">
-                    <span class="text-muted">Jenis:</span><br>
-                    <span class="fw-semibold">{{ $unit->jenisUnit->jenisunit ?? '-' }}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="mb-2">
-            <span class="text-muted">Status:</span><br>
-            <span class="fw-semibold badge 
-                @if($detail->status === 'tersedia') bg-success
-                @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) bg-warning text-dark
-                @elseif($detail->status === 'acc') bg-info
-                @elseif($detail->status === 'bast') bg-primary
-                @elseif($detail->status === 'terjual') bg-danger
-                @elseif($detail->status === 'tidak_acc') bg-danger
-                @else bg-secondary @endif
-            ">{{ str_replace('_', ' ', ucfirst($detail->status)) }}</span>
-        </div>
-        
-        <!-- Tampilkan alur status jika dalam proses -->
-        @if(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'acc', 'akad', 'pencairan', 'bast']))
-        <div class="mt-2 pt-2 border-top">
-            <small class="text-muted d-block mb-1">Proses Penjualan:</small>
-            <div class="progress mb-1" style="height: 5px;">
-                @php
-                    // Tentukan alur berdasarkan tipe penjualan
-                    if ($detail->tipe_penjualan === 'cash') {
-                        $statusOrder = ['booking_unit', 'pemberkasan_notaris', 'akad', 'bast', 'terjual'];
-                    } else {
-                        // Default kredit
-                        $statusOrder = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
-                    }
-                    $currentIndex = array_search($detail->status, $statusOrder);
-                    $progress = $currentIndex !== false ? (($currentIndex + 1) / count($statusOrder)) * 100 : 0;
-                @endphp
-                <div class="progress-bar 
-                    @if($detail->tipe_penjualan === 'cash') bg-success
-                    @else bg-primary @endif" 
-                    role="progressbar" 
-                    style="width: {{ $progress }}%" 
-                    aria-valuenow="{{ $progress }}" 
-                    aria-valuemin="0" 
-                    aria-valuemax="100"></div>
-            </div>
-            <small class="text-muted">
-                @if($detail->tipe_penjualan === 'cash')
-                    <!-- Alur Cash -->
-                    @if($detail->status === 'booking_unit')
-                        <span class="badge bg-success">Booking</span>
-                        → Pemberkasan Notaris → Akad → BAST → Terjual
-                    @elseif($detail->status === 'pemberkasan_notaris')
-                        Booking →
-                        <span class="badge bg-success">Pemberkasan Notaris</span>
-                        → Akad → BAST → Terjual
-                    @elseif($detail->status === 'akad')
-                        Booking → Pemberkasan Notaris →
-                        <span class="badge bg-success">Akad</span>
-                        → BAST → Terjual
-                    @elseif($detail->status === 'bast')
-                        Booking → Pemberkasan Notaris → Akad →
-                        <span class="badge bg-success">BAST</span>
-                        → Terjual
-                    @endif
-                @else
-                    <!-- Alur Kredit -->
-                    @if($detail->status === 'booking_unit')
-                        <span class="badge bg-primary">Booking</span>
-                        → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual
-                    @elseif($detail->status === 'bi_check')
-                        Booking →
-                        <span class="badge bg-primary">BI Check</span>
-                        → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual
-                    @elseif($detail->status === 'pemberkasan_bank')
-                        Booking → BI Check →
-                        <span class="badge bg-primary">Pemberkasan Bank</span>
-                        → ACC → Akad → Pencairan → BAST → Terjual
-                    @elseif($detail->status === 'acc')
-                        Booking → BI Check → Pemberkasan Bank →
-                        <span class="badge bg-primary">ACC</span>
-                        → Akad → Pencairan → BAST → Terjual
-                    @elseif($detail->status === 'akad')
-                        Booking → BI Check → Pemberkasan Bank → ACC →
-                        <span class="badge bg-primary">Akad</span>
-                        → Pencairan → BAST → Terjual
-                    @elseif($detail->status === 'pencairan')
-                        Booking → BI Check → Pemberkasan Bank → ACC → Akad →
-                        <span class="badge bg-primary">Pencairan</span>
-                        → BAST → Terjual
-                    @elseif($detail->status === 'bast')
-                        Booking → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan →
-                        <span class="badge bg-primary">BAST</span>
-                        → Terjual
-                    @endif
-                @endif
-            </small>
-        </div>
-        @endif
-    </div>
-    
-    <!-- No Unit -->
-    <div class="text-center my-2">
-        <div class="bg-light rounded p-2">
-            <small class="text-muted d-block">No Rumah</small>
-            <strong class="text-primary fs-5">{{ $detail->no_rumah }}</strong>
-        </div>
-    </div>
-    
-    <!-- Luas -->
-    @if($unit->luastanah || $unit->luasbangunan)
-    <div class="small text-center mb-2">
-        <span class="badge bg-info text-dark">
-            <i class="bi bi-rulers"></i>
-            Tanah: {{ $unit->luastanah ?? '0' }} m² / Bangunan: {{ $unit->luasbangunan ?? '0' }} m²
-        </span>
-    </div>
-    @endif
-    
-    <!-- Customer Info jika ada -->
-    @if($detail->customer_id && $detail->customer)
-    <div class="small border-top pt-2 mt-2">
-        <small class="text-muted d-block mb-1">Customer:</small>
-        <div class="d-flex align-items-center">
-            <i class="bi bi-person me-2"></i>
-            <span class="text-truncate">{{ $detail->customer->nama_lengkap }}</span>
-        </div>
-        @if($detail->customer->no_hp)
-        <div class="d-flex align-items-center mt-1">
-            <i class="bi bi-telephone me-2"></i>
-            <span class="small">{{ $detail->customer->no_hp }}</span>
-        </div>
-        @endif
-    </div>
-    @endif
-</div>
+                                                <!-- Nama Unit dan Tipe -->
+                                                <div class="mb-1">
+                                                    <h6 class="card-title mb-1">
+                                                        <i class="fas fa-home me-1 
+                                                            @if($detail->status === 'tersedia') text-success
+                                                            @elseif(in_array($detail->status, ['booking_unit','bi_check','pemberkasan_bank','pemberkasan_notaris','akad','pencairan'])) text-warning
+                                                            @elseif($detail->status === 'acc') text-info
+                                                            @elseif($detail->status === 'bast') text-primary
+                                                            @elseif($detail->status === 'terjual') text-danger
+                                                            @elseif($detail->status === 'tidak_acc') text-danger
+                                                            @else text-secondary @endif
+                                                        "></i>
+                                                        {{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}
+                                                    </h6>
+                                                </div>
+                                                
+                                                <!-- Tambahkan di card untuk menunjukkan alur status -->
+                                                <div class="small mb-2 d-block">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Blok:</span>
+                                                        <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Jenis:</span>
+                                                        <span class="fw-semibold">{{ $unit->jenisUnit->jenisunit ?? '-' }}</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Status:</span>
+                                                        <span class="fw-semibold badge 
+                                                            @if($detail->status === 'tersedia') bg-success
+                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) bg-warning text-dark
+                                                            @elseif($detail->status === 'acc') bg-info
+                                                            @elseif($detail->status === 'bast') bg-primary
+                                                            @elseif($detail->status === 'terjual') bg-danger
+                                                            @elseif($detail->status === 'tidak_acc') bg-danger
+                                                            @else bg-secondary @endif
+                                                        ">{{ str_replace('_', ' ', ucfirst($detail->status)) }}</span>
+                                                    </div>
+                                                    
+                                                    <!-- Tampilkan alur status jika dalam proses -->
+                                                    @if(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'acc', 'akad', 'pencairan', 'bast']))
+                                                    <div class="mt-1">
+                                                        <small class="text-muted">Proses:</small>
+                                                        <div class="progress" style="height: 5px;">
+                                                            @php
+                                                                // Tentukan alur berdasarkan tipe penjualan
+                                                                if ($detail->tipe_penjualan === 'cash') {
+                                                                    $statusOrder = ['booking_unit', 'pemberkasan_notaris', 'akad', 'bast', 'terjual'];
+                                                                } else {
+                                                                    // Default kredit
+                                                                    $statusOrder = ['booking_unit', 'bi_check', 'pemberkasan_bank', 'acc', 'akad', 'pencairan', 'bast', 'terjual'];
+                                                                }
+                                                                $currentIndex = array_search($detail->status, $statusOrder);
+                                                                $progress = $currentIndex !== false ? (($currentIndex + 1) / count($statusOrder)) * 100 : 0;
+                                                            @endphp
+                                                            <div class="progress-bar 
+                                                                @if($detail->tipe_penjualan === 'cash') bg-success
+                                                                @else bg-primary @endif" 
+                                                                role="progressbar" 
+                                                                style="width: {{ $progress }}%" 
+                                                                aria-valuenow="{{ $progress }}" 
+                                                                aria-valuemin="0" 
+                                                                aria-valuemax="100"></div>
+                                                        </div>
+                                                        <span class="text-muted">
+                                                            @if($detail->tipe_penjualan === 'cash')
+                                                                <!-- Alur Cash -->
+                                                                @if($detail->status === 'booking_unit')
+                                                                    <span class="badge bg-success">Booking</span>
+                                                                    → Pemberkasan Notaris → Akad → BAST → Terjual
+                                                                @elseif($detail->status === 'pemberkasan_notaris')
+                                                                    Booking →
+                                                                    <span class="badge bg-success">Pemberkasan Notaris</span>
+                                                                    → Akad → BAST → Terjual
+                                                                @elseif($detail->status === 'akad')
+                                                                    Booking → Pemberkasan Notaris →
+                                                                    <span class="badge bg-success">Akad</span>
+                                                                    → BAST → Terjual
+                                                                @elseif($detail->status === 'bast')
+                                                                    Booking → Pemberkasan Notaris → Akad →
+                                                                    <span class="badge bg-success">BAST</span>
+                                                                    → Terjual
+                                                                @endif
+                                                            @else
+                                                                <!-- Alur Kredit -->
+                                                                @if($detail->status === 'booking_unit')
+                                                                    <span class="badge bg-primary">Booking</span>
+                                                                    → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'bi_check')
+                                                                    Booking →
+                                                                    <span class="badge bg-primary">BI Check</span>
+                                                                    → Pemberkasan Bank → ACC → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'pemberkasan_bank')
+                                                                    Booking → BI Check →
+                                                                    <span class="badge bg-primary">Pemberkasan Bank</span>
+                                                                    → ACC → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'acc')
+                                                                    Booking → BI Check → Pemberkasan Bank →
+                                                                    <span class="badge bg-primary">ACC</span>
+                                                                    → Akad → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'akad')
+                                                                    Booking → BI Check → Pemberkasan Bank → ACC →
+                                                                    <span class="badge bg-primary">Akad</span>
+                                                                    → Pencairan → BAST → Terjual
+                                                                @elseif($detail->status === 'pencairan')
+                                                                    Booking → BI Check → Pemberkasan Bank → ACC → Akad →
+                                                                    <span class="badge bg-primary">Pencairan</span>
+                                                                    → BAST → Terjual
+                                                                @elseif($detail->status === 'bast')
+                                                                    Booking → BI Check → Pemberkasan Bank → ACC → Akad → Pencairan →
+                                                                    <span class="badge bg-primary">BAST</span>
+                                                                    → Terjual
+                                                                @endif
+                                                            @endif
+</span>
+                                                    </div>
+                                                    @endif
+                                                </div>
+                                                
+                                                <!-- No Unit -->
+                                                <div class="text-center my-2">
+                                                    <div class="bg-light rounded p-2">
+                                                        <small class="text-muted d-block">No Rumah</small>
+                                                        <strong class="text-primary fs-5">{{ $detail->no_rumah }}</strong>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Luas -->
+                                                <div class="small text-center mb-2">
+                                                    @if($unit->luastanah || $unit->luasbangunan)
+                                                        <span class="badge bg-info text-dark">
+                                                            <i class="bi bi-rulers"></i>
+                                                            {{ $unit->luastanah ?? '0' }}/{{ $unit->luasbangunan ?? '0' }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                
+                                                <!-- Customer Info jika ada -->
+                                                @if($detail->customer_id && $detail->customer)
+                                                <div class="small border-top pt-1 mt-1">
+                                                    <small class="text-muted d-block">Customer:</small>
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-person me-1"></i>
+                                                        <span class="text-truncate">{{ $detail->customer->nama_lengkap }}</span>
+                                                    </div>
+                                                </div>
+                                                @endif
+                                            </div>
                                             
                                             <!-- Footer dengan Harga -->
                                             <div class="card-footer py-1 px-2 bg-transparent border-top">
