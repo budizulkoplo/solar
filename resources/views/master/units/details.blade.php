@@ -397,7 +397,7 @@
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
                                                 <div class="small mb-2 d-block">
                                                     <div class="d-flex justify-content-between">
-                                                        <span>Blok:</span>
+                                                        <span>Bloks:</span>
                                                         <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between">
