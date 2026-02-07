@@ -380,10 +380,10 @@
                                             <div class="card-body p-2">
                                                 <!-- Nama Unit dan Tipe -->
                                                 <div class="mb-1">
-                                                    <h6 class="card-title mb-1">
+                                                    <h6 class="card-title mb-0 text-truncate" title="{{ $unit->namaunit }}">
                                                         <i class="fas fa-home me-1 
                                                             @if($detail->status === 'tersedia') text-success
-                                                            @elseif(in_array($detail->status, ['booking_unit','bi_check','pemberkasan_bank','pemberkasan_notaris','akad','pencairan'])) text-warning
+                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) text-warning
                                                             @elseif($detail->status === 'acc') text-info
                                                             @elseif($detail->status === 'bast') text-primary
                                                             @elseif($detail->status === 'terjual') text-danger
@@ -395,7 +395,7 @@
                                                 </div>
                                                 
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
-                                                <div class="small mb-2 d-block">
+                                                <div class="small mb-2">
                                                     <div class="d-flex justify-content-between">
                                                         <span>Blok:</span>
                                                         <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
@@ -442,7 +442,7 @@
                                                                 aria-valuemin="0" 
                                                                 aria-valuemax="100"></div>
                                                         </div>
-                                                        <span class="text-muted">
+                                                        <small class="text-muted">
                                                             @if($detail->tipe_penjualan === 'cash')
                                                                 <!-- Alur Cash -->
                                                                 @if($detail->status === 'booking_unit')
@@ -492,7 +492,7 @@
                                                                     → Terjual
                                                                 @endif
                                                             @endif
-</span>
+                                                        </small>
                                                     </div>
                                                     @endif
                                                 </div>
