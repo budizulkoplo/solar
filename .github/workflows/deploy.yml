@@ -20,6 +20,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd ${{ secrets.VPS_PATH }}
+            cd /var/www/solar
             git pull origin main
             php artisan optimize:clear
