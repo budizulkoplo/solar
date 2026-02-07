@@ -393,15 +393,16 @@
                                                         {{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}
                                                     </h6>
                                                 </div>
+                                                <hr>
                                                 
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
                                                 <div class="small mb-2 d-block">
                                                     <div class="d-flex justify-content-between">
-                                                        <span>Bloks:</span>
+                                                        <span>Blok:</span>
                                                         <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between">
-                                                        <span>Jenis nya:</span>
+                                                        <span>Jenis:</span>
                                                         <span class="fw-semibold">{{ $unit->jenisUnit->jenisunit ?? '-' }}</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between">
