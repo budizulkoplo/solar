@@ -7,7 +7,7 @@
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h4 class="mb-0">Daftar Semua Unit Details</h4>
+                        <h4 class="mb-0">Daftar Unit Details</h4>
                         @if($selectedUnit)
                             <small class="text-muted">Unit: {{ $selectedUnit->namaunit }}</small>
                         @endif
@@ -398,7 +398,7 @@
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
                                                 <div class="small mb-2">
                                                     <div class="d-flex justify-content-between">
-                                                        <span>Bloks:</span>
+                                                        <span>Blok:</span>
                                                         <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between">
