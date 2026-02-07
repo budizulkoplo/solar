@@ -401,7 +401,7 @@
                                                         <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between">
-                                                        <span>Jenis:</span>
+                                                        <span>Jenis nya:</span>
                                                         <span class="fw-semibold">{{ $unit->jenisUnit->jenisunit ?? '-' }}</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between">
