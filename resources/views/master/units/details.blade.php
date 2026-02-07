@@ -380,19 +380,20 @@
                                             <div class="card-body p-2">
                                                 <!-- Nama Unit dan Tipe -->
                                                 <div class="mb-1">
-                                                    <h6 class="card-title mb-0 text-truncate" title="{{ $unit->namaunit }}">
-                                                        <i class="fas fa-home me-1 
-                                                            @if($detail->status === 'tersedia') text-success
-                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) text-warning
-                                                            @elseif($detail->status === 'acc') text-info
-                                                            @elseif($detail->status === 'bast') text-primary
-                                                            @elseif($detail->status === 'terjual') text-danger
-                                                            @elseif($detail->status === 'tidak_acc') text-danger
-                                                            @else text-secondary @endif
-                                                        "></i>
-                                                        {{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}
-                                                    </h6>
-                                                </div>
+    <h6 class="mb-0" title="{{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}" 
+        style="font-size: clamp(0.75rem, 2.5vw, 0.875rem);">
+        <i class="fas fa-home me-1 
+            @if($detail->status === 'tersedia') text-success
+            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) text-warning
+            @elseif($detail->status === 'acc') text-info
+            @elseif($detail->status === 'bast') text-primary
+            @elseif($detail->status === 'terjual') text-danger
+            @elseif($detail->status === 'tidak_acc') text-danger
+            @else text-secondary @endif
+        "></i>
+        {{ $unit->namaunit }} - Tipe: {{ $unit->tipe }}
+    </h6>
+</div>
                                                 
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
                                                 <div class="small mb-2">
