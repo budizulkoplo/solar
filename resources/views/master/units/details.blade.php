@@ -380,10 +380,10 @@
                                             <div class="card-body p-2">
                                                 <!-- Nama Unit dan Tipe -->
                                                 <div class="mb-1">
-                                                    <h6 class="card-title mb-0 text-truncate" title="{{ $unit->namaunit }}">
+                                                    <h6 class="card-title mb-1">
                                                         <i class="fas fa-home me-1 
                                                             @if($detail->status === 'tersedia') text-success
-                                                            @elseif(in_array($detail->status, ['booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan'])) text-warning
+                                                            @elseif(in_array($detail->status, ['booking_unit','bi_check','pemberkasan_bank','pemberkasan_notaris','akad','pencairan'])) text-warning
                                                             @elseif($detail->status === 'acc') text-info
                                                             @elseif($detail->status === 'bast') text-primary
                                                             @elseif($detail->status === 'terjual') text-danger
@@ -395,7 +395,7 @@
                                                 </div>
                                                 
                                                 <!-- Tambahkan di card untuk menunjukkan alur status -->
-                                                <div class="small mb-2">
+                                                <div class="small mb-2 d-block">
                                                     <div class="d-flex justify-content-between">
                                                         <span>Blok:</span>
                                                         <span class="fw-semibold">{{ $unit->blok ?? '-' }}</span>
