@@ -1,6 +1,6 @@
 <p align="center">
   <a href="public/logopt/1757574327_solar.png" target="_blank">
-    <img src="ublic/logopt/1757574327_solar.png" width="400" alt="Solar ERP Logo">
+    <img src="/public/logopt/1757574327_solar.png" width="400" alt="Solar ERP Logo">
   </a>
 </p>
 
