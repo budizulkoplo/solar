@@ -264,10 +264,7 @@
                         },
                         { 
                             data: 'jenis_kelamin', 
-                            name: 'jenis_kelamin',
-                            render: function(data) {
-                                return data === 'L' ? 'Laki-laki' : 'Perempuan';
-                            }
+                            name: 'jenis_kelamin'
                         },
                         { 
                             data: 'pekerjaan', 
