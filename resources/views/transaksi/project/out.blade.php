@@ -1325,6 +1325,420 @@
                 return `<span class="badge ${badge[status]}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
             }
 
+            let activeNominalInput = null;
+
+    // Format angka ke Rupiah dengan pemisah ribuan
+    function formatRupiah(angka, isInput = false) {
+        if (angka === null || angka === undefined || angka === '') {
+            return isInput ? '' : 'Rp 0';
+        }
+        
+        let num = parseFloat(angka);
+        if (isNaN(num)) {
+            return isInput ? '' : 'Rp 0';
+        }
+        
+        if (isInput) {
+            // Untuk input field, hanya format angka tanpa "Rp"
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(num);
+        } else {
+            // Untuk display, tambahkan "Rp"
+            return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(num);
+        }
+    }
+
+    // Parse nilai dari format dengan pemisah ribuan
+    function parseNumber(value) {
+        if (!value && value !== 0) return 0;
+        
+        // Hapus semua karakter non-digit kecuali titik
+        if (typeof value === 'string') {
+            // Hapus "Rp", spasi, dan titik pemisah ribuan
+            value = value.replace(/[^\d]/g, '');
+        }
+        
+        let num = parseFloat(value);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // Reset form ke kondisi default
+    function resetForm() {
+        // ... kode reset sebelumnya (tetap sama)
+        
+        // Reset tracking input aktif
+        activeNominalInput = null;
+    }
+
+    // Handle input di kolom nominal dengan auto-format
+    $(document).on('focus', '.nominal', function() {
+        // Hapus highlight dari input sebelumnya
+        if (activeNominalInput) {
+            activeNominalInput.removeClass('input-active');
+        }
+        
+        // Set input aktif baru
+        activeNominalInput = $(this);
+        activeNominalInput.addClass('input-active');
+        
+        // Jika nilai 0, kosongkan untuk input baru
+        let currentVal = parseNumber(activeNominalInput.val());
+        if (currentVal === 0) {
+            activeNominalInput.val('');
+        } else {
+            // Format dengan pemisah ribuan tanpa "Rp"
+            activeNominalInput.val(formatRupiah(currentVal, true));
+        }
+    });
+
+    $(document).on('blur', '.nominal', function() {
+        // Format saat keluar dari input
+        let value = $(this).val();
+        let numericValue = parseNumber(value);
+        
+        // Jika kosong, set ke 0
+        if (value === '') {
+            $(this).val('0');
+            numericValue = 0;
+        } else {
+            // Format dengan pemisah ribuan tanpa "Rp"
+            $(this).val(formatRupiah(numericValue, true));
+        }
+        
+        // Hapus styling aktif
+        $(this).removeClass('input-active');
+        
+        // Trigger perhitungan
+        $(this).trigger('input');
+    });
+
+    // Handle input real-time di kolom nominal
+    $(document).on('input', '.nominal', function() {
+        let input = $(this);
+        let value = input.val();
+        
+        // Hapus semua karakter non-digit
+        let digitsOnly = value.replace(/[^\d]/g, '');
+        
+        // Parse ke angka
+        let numericValue = parseFloat(digitsOnly) || 0;
+        
+        // Update nilai (dalam format untuk kalkulasi)
+        input.data('numeric-value', numericValue);
+        
+        // Format dengan pemisah ribuan saat mengetik
+        if (value !== '') {
+            input.val(formatRupiah(numericValue, true));
+            
+            // Tempatkan kursor di akhir setelah formatting
+            setTimeout(function() {
+                input[0].setSelectionRange(input.val().length, input.val().length);
+            }, 0);
+        }
+        
+        // Trigger perhitungan
+        let row = input.closest('tr');
+        let jml = parseNumber(row.find('.jml').val());
+        let total = jml * numericValue;
+        row.find('.total').val(total);
+        
+        calculateSubtotal();
+    });
+
+    // Handle input di kolom jumlah
+    $(document).on('input', '.jml', function() {
+        let row = $(this).closest('tr');
+        let jml = parseNumber($(this).val());
+        let nominal = parseNumber(row.find('.nominal').val());
+        let total = jml * nominal;
+        row.find('.total').val(total);
+        
+        calculateSubtotal();
+    });
+
+    // Hitung total per row
+    function calculateRowTotal(row) {
+        let jml = parseNumber(row.find('.jml').val());
+        let nominal = parseNumber(row.find('.nominal').val());
+        let total = jml * nominal;
+        
+        // Format display total
+        row.find('.total').val(formatRupiah(total, true));
+        
+        return total;
+    }
+
+    // Hitung subtotal
+    function calculateSubtotal() {
+        let subtotal = 0;
+        $('#tblDetail tbody tr').each(function() {
+            let total = parseNumber($(this).find('.total').val());
+            subtotal += total;
+        });
+        
+        // Update display subtotal dengan format Rupiah
+        $('#subtotal').val(formatRupiah(subtotal, true));
+        
+        // Setelah subtotal berubah, hitung grand total
+        calculateGrandTotal();
+    }
+
+    // Hitung grand total
+    function calculateGrandTotal() {
+        let subtotal = parseNumber($('#subtotal').val());
+        let ppnAmount = parseNumber($('#ppnAmount').val());
+        let diskonType = $('#diskonType').val();
+        let diskonValue = parseNumber($('#diskonValue').val());
+        
+        // Hitung Diskon
+        let diskonAmount = 0;
+        if (diskonType === 'persen' && diskonValue > 0) {
+            diskonAmount = subtotal * (diskonValue / 100);
+        } else if (diskonType === 'nominal' && diskonValue > 0) {
+            diskonAmount = diskonValue;
+        }
+        
+        // Update display PPN dan Diskon dengan format
+        $('#ppnDisplay').val(formatRupiah(ppnAmount, true));
+        $('#diskonDisplay').val(formatRupiah(diskonAmount, true));
+        
+        // Hitung Grand Total
+        let grandTotal = (subtotal - diskonAmount) + ppnAmount;
+        if (grandTotal < 0) grandTotal = 0;
+        
+        $('#grandTotal').val(formatRupiah(grandTotal, true));
+        
+        // Cek saldo
+        checkSaldoCukup();
+    }
+
+    // Handle input PPN
+    $(document).on('input', '#ppnAmount', function() {
+        // Format saat input
+        let value = $(this).val();
+        let digitsOnly = value.replace(/[^\d]/g, '');
+        let numericValue = parseFloat(digitsOnly) || 0;
+        
+        // Update nilai
+        $(this).val(formatRupiah(numericValue, true));
+        $(this).data('numeric-value', numericValue);
+        
+        calculateGrandTotal();
+    });
+
+    $(document).on('focus', '#ppnAmount', function() {
+        let currentVal = parseNumber($(this).val());
+        if (currentVal === 0) {
+            $(this).val('');
+        } else {
+            $(this).val(formatRupiah(currentVal, true));
+        }
+    });
+
+    $(document).on('blur', '#ppnAmount', function() {
+        let value = $(this).val();
+        let numericValue = parseNumber(value);
+        
+        if (value === '') {
+            $(this).val('0');
+            numericValue = 0;
+        } else {
+            $(this).val(formatRupiah(numericValue, true));
+        }
+        
+        calculateGrandTotal();
+    });
+
+    // Handle input Diskon Value
+    $(document).on('input', '#diskonValue', function() {
+        // Format saat input
+        let value = $(this).val();
+        let digitsOnly = value.replace(/[^\d]/g, '');
+        let numericValue = parseFloat(digitsOnly) || 0;
+        
+        // Update nilai
+        $(this).val(formatRupiah(numericValue, true));
+        $(this).data('numeric-value', numericValue);
+        
+        calculateGrandTotal();
+    });
+
+    $(document).on('focus', '#diskonValue', function() {
+        let currentVal = parseNumber($(this).val());
+        if (currentVal === 0) {
+            $(this).val('');
+        } else {
+            $(this).val(formatRupiah(currentVal, true));
+        }
+    });
+
+    $(document).on('blur', '#diskonValue', function() {
+        let value = $(this).val();
+        let numericValue = parseNumber(value);
+        
+        if (value === '') {
+            $(this).val('0');
+            numericValue = 0;
+        } else {
+            $(this).val(formatRupiah(numericValue, true));
+        }
+        
+        calculateGrandTotal();
+    });
+
+    // Tampilkan modal view
+    $(document).on('click', '.view-btn', function() {
+        let notaId = $(this).data('id');
+        
+        $.get("/transaksi/project/" + notaId, function(res) {
+            if (res.success) {
+                let nota = res.data;
+                
+                // Isi data header
+                $('#viewNotaNo').text(nota.nota_no);
+                $('#viewTanggal').text(new Date(nota.tanggal).toLocaleDateString('id-ID'));
+                $('#viewNamaTransaksi').text(nota.namatransaksi);
+                $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
+                $('#viewVendor').text(nota.vendor ? nota.vendor.namavendor : '-');
+                $('#viewUser').text(nota.namauser || '-');
+                $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
+                $('#viewTglTempo').text(nota.tgl_tempo ? new Date(nota.tgl_tempo).toLocaleDateString('id-ID') : '-');
+                $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
+                $('#viewTotal').text(formatRupiah(nota.total));
+                $('#viewStatus').html(getStatusBadge(nota.status));
+                
+                // Format nilai dengan pemisah ribuan
+                let subtotal = nota.subtotal || 0;
+                let ppn = nota.ppn || 0;
+                let diskon = nota.diskon || 0;
+                
+                $('#viewSubtotal').text(formatRupiah(subtotal));
+                $('#viewPpn').text(formatRupiah(ppn));
+                $('#viewDiskon').text(formatRupiah(diskon));
+                $('#viewGrandTotal').text(formatRupiah(nota.total));
+                
+                // Isi detail transaksi dengan formatting
+                let detailHtml = '';
+                if (nota.transactions && nota.transactions.length > 0) {
+                    nota.transactions.forEach(function(transaction) {
+                        detailHtml += `
+                            <tr>
+                                <td>${transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-'}</td>
+                                <td>${transaction.description}</td>
+                                <td class="text-center">${transaction.jml}</td>
+                                <td class="text-end">${formatRupiah(transaction.nominal)}</td>
+                                <td class="text-end">${formatRupiah(transaction.total)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                $('#tblViewDetail tbody').html(detailHtml);
+                
+                // ... kode lainnya tetap sama
+                
+                $('#modalViewNota').modal('show');
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        });
+    });
+
+    // Tambahkan CSS untuk styling input aktif
+    $('head').append(`
+        <style>
+            .input-active {
+                border-color: #007bff !important;
+                box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+                background-color: #fff !important;
+                z-index: 1;
+                position: relative;
+            }
+            
+            .nominal, #ppnAmount, #diskonValue {
+                text-align: right !important;
+                font-family: 'Courier New', monospace;
+            }
+            
+            /* Highlight row yang sedang aktif */
+            .input-active-row {
+                background-color: rgba(0, 123, 255, 0.05) !important;
+            }
+        </style>
+    `);
+
+    // Tambahkan event untuk highlight row saat input aktif
+    $(document).on('focus', '.nominal, .jml', function() {
+        $(this).closest('tr').addClass('input-active-row');
+    });
+
+    $(document).on('blur', '.nominal, .jml', function() {
+        $(this).closest('tr').removeClass('input-active-row');
+    });
+
+    // Event saat submit form - konversi nilai sebelum submit
+    $('#frmNota').submit(function(e) {
+        e.preventDefault();
+        
+        // Konversi semua nilai formatted ke numeric sebelum submit
+        $('.nominal').each(function() {
+            let numericValue = parseNumber($(this).val());
+            $(this).val(numericValue.toFixed(2));
+        });
+        
+        $('#ppnAmount').each(function() {
+            let numericValue = parseNumber($(this).val());
+            $(this).val(numericValue.toFixed(2));
+        });
+        
+        $('#diskonValue').each(function() {
+            let numericValue = parseNumber($(this).val());
+            $(this).val(numericValue.toFixed(2));
+        });
+        
+        $('.total').each(function() {
+            let numericValue = parseNumber($(this).val());
+            $(this).val(numericValue.toFixed(2));
+        });
+        
+        // Konversi juga nilai-nilai display
+        $('#subtotal').val(parseNumber($('#subtotal').val()).toFixed(2));
+        $('#grandTotal').val(parseNumber($('#grandTotal').val()).toFixed(2));
+        
+        // Lanjutkan dengan proses form submission
+        processFormSubmission(this);
+    });
+
+    // Fungsi untuk menampilkan nominal dalam format saat edit
+    function formatAllNumericsOnLoad() {
+        $('.nominal').each(function() {
+            let value = $(this).val();
+            let numericValue = parseNumber(value);
+            if (numericValue > 0) {
+                $(this).val(formatRupiah(numericValue, true));
+            }
+        });
+        
+        $('.total').each(function() {
+            let value = $(this).val();
+            let numericValue = parseNumber(value);
+            if (numericValue > 0) {
+                $(this).val(formatRupiah(numericValue, true));
+            }
+        });
+    }
+
+    // Panggil formatting saat edit
+    $(document).on('click', '.edit-btn', function() {
+        setTimeout(function() {
+            formatAllNumericsOnLoad();
+        }, 500);
+    });
+
             // Initialize select2 saat pertama kali load
             initializeSelect2();
             setDefaultDate();
@@ -1332,6 +1746,7 @@
             
             // Hitung awal
             calculateTotals();
+            
         });
         </script>
     </x-slot>

@@ -378,13 +378,8 @@
                     { 
                         data: 'tanggal', 
                         name: 'tanggal',
-                        className: 'text-center',
-                        render: function(data) {
-                            if (data) {
-                                return new Date(data).toLocaleDateString('id-ID');
-                            }
-                            return '-';
-                        }
+                        className: 'text-center'
+                        
                     },
                     { 
                         data: 'total', 
