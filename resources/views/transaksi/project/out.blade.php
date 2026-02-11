@@ -459,13 +459,7 @@
                     { 
                         data: 'total', 
                         name: 'total',
-                        className: 'text-end',
-                        render: function(data, type, row) {
-                            if (type === 'display' || type === 'filter') {
-                                return formatRupiahDisplay(data);
-                            }
-                            return data;
-                        }
+                        className: 'text-end'
                     },
                     { 
                         data: 'paymen_method', 
