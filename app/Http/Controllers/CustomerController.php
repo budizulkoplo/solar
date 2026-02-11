@@ -47,7 +47,15 @@ class CustomerController extends Controller
                     return $row->penghasilan_bulanan ? 'Rp ' . number_format($row->penghasilan_bulanan, 0, ',', '.') : '-';
                 })
                 ->editColumn('jenis_kelamin', function($row) {
-                    return $row->jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan';
+                    $jk = strtoupper(trim($row->jenis_kelamin));
+
+                    if ($jk === 'L') {
+                        return 'Laki-laki';
+                    } elseif ($jk === 'P') {
+                        return 'Perempuan';
+                    }
+
+                    return '-';
                 })
                 ->rawColumns(['action'])
                 ->make(true);
