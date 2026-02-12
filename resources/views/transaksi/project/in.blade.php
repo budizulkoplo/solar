@@ -113,9 +113,9 @@
                                         <input type="date" class="form-control form-control-sm" name="tgl_tempo" id="tglTempo">
                                     </div>
 
-                                    {{-- Bukti Nota (Tidak Wajib) --}}
+                                    {{-- Bukti Nota --}}
                                     <div class="col-md-6">
-                                        <label class="form-label">Bukti Nota <span class="text-muted">(Optional)</span></label>
+                                        <label class="form-label">Bukti Nota <span class="text-muted">(Opsional)</span></label>
                                         <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
                                                accept=".jpg,.jpeg,.png,.pdf">
                                         <small class="text-muted">Format: JPG, PNG, PDF (Max: 8MB)</small>
@@ -165,8 +165,8 @@
                                                 </select>
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0" step="0.01"></td>
+                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0"></td>
                                             <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
@@ -174,8 +174,7 @@
                                     <tfoot>
                                         <tr>
                                             <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
-                                            <td colspan="2"><input type="hidden" class="form-control form-control-sm text-end" id="subtotal" value="Rp 0" readonly>
-                                            <input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="Rp 0" readonly></td>
+                                            <td colspan="2"><input type="text" class="form-control form-control-sm text-end fw-bold" id="grandTotal" value="Rp 0" readonly></td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
@@ -296,20 +295,8 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
-                                        <td colspan="2" class="text-end" id="viewSubtotal">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="3" class="text-end"><strong>PPN:</strong></td>
-                                        <td colspan="2" class="text-end" id="viewPpn">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="3" class="text-end"><strong>Diskon:</strong></td>
-                                        <td colspan="2" class="text-end" id="viewDiskon">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
-                                        <td colspan="2" class="text-end fw-bold" id="viewGrandTotal">-</td>
+                                        <td colspan="4" class="text-end"><strong>Grand Total:</strong></td>
+                                        <td class="text-end fw-bold" id="viewGrandTotal">-</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -345,151 +332,401 @@
 
     <x-slot name="jscustom">
         <style>
+            /* ============= PERBAIKAN MODAL SCROLL ============= */
             .modal-xxl {
-                max-width: 80% !important;
+                max-width: 90% !important;
+                margin: 1.75rem auto;
             }
             
-            /* Hapus warna biru untuk input readonly */
+            .modal-content {
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .modal-body {
+                overflow-y: auto;
+                overflow-x: hidden;
+                flex: 1 1 auto;
+                padding: 1rem;
+                max-height: calc(90vh - 120px);
+            }
+            
+            /* Kolom kanan log */
+            .col-md-3.border-start {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .col-md-3.border-start .modal-body {
+                height: calc(90vh - 120px) !important;
+                overflow-y: auto;
+                padding: 0.5rem;
+            }
+            
+            /* Form rows spacing */
+            .row.g-2 {
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Fix untuk select2 di modal */
+            .select2-container {
+                width: 100% !important;
+                z-index: 1060;
+            }
+            
+            .select2-dropdown {
+                z-index: 1061;
+            }
+            
+            /* Fix untuk table di modal */
+            #tblDetail {
+                width: 100%;
+                table-layout: fixed;
+            }
+            
+            #tblDetail th, 
+            #tblDetail td {
+                vertical-align: middle;
+                padding: 0.3rem;
+            }
+            
+            #tblDetail td:first-child {
+                width: 20%;
+            }
+            
+            #tblDetail td:nth-child(2) {
+                width: 25%;
+            }
+            
+            #tblDetail td:nth-child(3) {
+                width: 8%;
+            }
+            
+            #tblDetail td:nth-child(4) {
+                width: 15%;
+            }
+            
+            #tblDetail td:nth-child(5) {
+                width: 15%;
+            }
+            
+            #tblDetail td:last-child {
+                width: 5%;
+            }
+            
+            /* Input styling */
+            .auto-numeric-input,
+            input[type="text"].form-control-sm,
+            input[type="number"].form-control-sm,
+            select.form-select-sm {
+                font-size: 0.875rem;
+                padding: 0.25rem 0.5rem;
+                height: auto;
+            }
+            
+            /* Hilangkan spinner */
+            input[type=number]::-webkit-inner-spin-button, 
+            input[type=number]::-webkit-outer-spin-button { 
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            input[type=number] {
+                -moz-appearance: textfield;
+            }
+            
+            /* Readonly style */
             input[readonly],
             textarea[readonly],
             select[readonly] {
-                background-color: #f8f9fa !important;
+                background-color: #f8f9fc !important;
+                border-color: #d1d9e6 !important;
+                color: #1e2a44 !important;
                 cursor: not-allowed;
+            }
+            
+            /* Fix untuk row yang dihapus */
+            .btn-group .btn {
+                margin: 0 2px;
             }
         </style>
 
+        <!-- AutoNumeric JS -->
+        <script src="https://cdn.jsdelivr.net/npm/autonumeric@4.6.0/dist/autoNumeric.min.js"></script>
+
         <script>
         $(document).ready(function() {
-            // DataTable
+            // ============= DATA TABLE INIT =============
             let tbNotas = $('#tbNotas').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('transaksi.project.getdata', 'in') }}",
+                ajax: {
+                    url: "{{ route('transaksi.project.getdata', 'in') }}",
+                    type: 'GET',
+                    error: function(xhr, error, thrown) {
+                        console.error('DataTable error:', error);
+                    }
+                },
                 columns: [
                     { 
                         data: 'DT_RowIndex', 
                         name: 'DT_RowIndex', 
                         orderable: false, 
                         searchable: false,
-                        className: 'text-center'
+                        className: 'text-center',
+                        width: '5%'
                     },
-                    { data: 'nota_no', name: 'nota_no' },
-                    { data: 'namatransaksi', name: 'namatransaksi' },
+                    { 
+                        data: 'nota_no', 
+                        name: 'nota_no',
+                        width: '12%'
+                    },
+                    { 
+                        data: 'namatransaksi', 
+                        name: 'namatransaksi',
+                        width: '18%'
+                    },
                     { 
                         data: 'tanggal', 
                         name: 'tanggal',
-                        className: 'text-center'
-                        
+                        className: 'text-center',
+                        width: '8%',
+                        render: function(data) {
+                            if (data) {
+                                let date = new Date(data);
+                                return date.toLocaleDateString('id-ID');
+                            }
+                            return '-';
+                        }
                     },
                     { 
                         data: 'total', 
                         name: 'total',
                         className: 'text-end',
-                        render: function(data, type, row) {
-                            if (type === 'display' || type === 'filter') {
-                                let num = parseFloat(data);
-                                if (!isNaN(num)) {
-                                    return 'Rp ' + new Intl.NumberFormat('id-ID', {
-                                        minimumFractionDigits: 0,
-                                        maximumFractionDigits: 0
-                                    }).format(num);
-                                }
-                                return data;
-                            }
-                            return data;
-                        }
+                        width: '12%'
                     },
                     { 
                         data: 'paymen_method', 
                         name: 'paymen_method',
                         className: 'text-center',
+                        width: '8%',
                         render: function(data) {
-                            if (data === 'cash') return 'Cash';
-                            if (data === 'tempo') return 'Tempo';
-                            return data;
+                            if (data === 'cash') return '<span class="badge bg-success">Cash</span>';
+                            if (data === 'tempo') return '<span class="badge bg-warning">Tempo</span>';
+                            return '-';
                         }
                     },
                     { 
-                        data: 'status', 
+                        data: 'status',
                         name: 'status',
-                        className: 'text-center'
+                        className: 'text-center',
+                        width: '8%'
                     },
                     { 
                         data: 'namauser', 
                         name: 'namauser',
-                        className: 'text-center'
+                        className: 'text-center',
+                        width: '10%'
                     },
                     { 
                         data: 'action', 
                         orderable: false, 
                         searchable: false,
-                        className: 'text-center'
+                        className: 'text-center',
+                        width: '10%'
                     }
                 ],
-                columnDefs: [
-                    { width: "5%", targets: 0 },
-                    { width: "12%", targets: 1 },
-                    { width: "18%", targets: 2 },
-                    { width: "8%", targets: 3 },
-                    { width: "12%", targets: 4 },
-                    { width: "8%", targets: 5 },
-                    { width: "8%", targets: 6 },
-                    { width: "10%", targets: 7 },
-                    { width: "10%", targets: 8 }
-                ]
+                order: [[3, 'desc']],
+                pageLength: 50
             });
 
-            // Generate nomor nota otomatis untuk IN
+            // ============= FUNGSI DASAR =============
             function generateNotaNo() {
                 let projectId = "{{ session('active_project_id') }}";
-                let tgl = $('#tanggalNota').val().replaceAll('-','');
+                let tgl = $('#tanggalNota').val();
+                if (!tgl) {
+                    tgl = new Date().toISOString().split('T')[0];
+                    $('#tanggalNota').val(tgl);
+                }
+                tgl = tgl.replaceAll('-', '');
                 let urut = Math.floor(Math.random() * 90000) + 10000;
                 return 'IN-' + projectId + '-' + tgl + '-' + urut;
             }
 
-            // Set tanggal default ke hari ini
             function setDefaultDate() {
                 let today = new Date().toISOString().split('T')[0];
                 $('#tanggalNota').val(today);
             }
 
-            // Set nomor nota otomatis
             function setAutoNotaNo() {
                 if (!$('#chkManualNo').is(':checked')) {
                     $('#notaNo').val(generateNotaNo());
                 }
             }
 
-            // Format angka ke Rupiah
-            function formatRupiah(angka) {
-                if (angka === null || angka === undefined || angka === '' || isNaN(angka)) {
-                    return 'Rp 0';
+            // ============= AUTO NUMERIC CONFIG =============
+            const autoNumericOptions = {
+                digitGroupSeparator: '.',
+                decimalCharacter: ',',
+                decimalPlaces: 0,
+                currencySymbol: '',
+                currencySymbolPlacement: 'p',
+                roundingMethod: 'U',
+                minimumValue: '0',
+                maximumValue: '999999999999',
+                allowDecimalPadding: false,
+                modifyValueOnWheel: false,
+                selectOnFocus: true,
+                unformatOnSubmit: true,
+                outputFormat: 'number',
+                showWarnings: false
+            };
+
+            const autoNumericOptionsDisplay = {
+                digitGroupSeparator: '.',
+                decimalCharacter: ',',
+                decimalPlaces: 0,
+                currencySymbol: 'Rp ',
+                currencySymbolPlacement: 'p',
+                roundingMethod: 'U',
+                minimumValue: '0',
+                maximumValue: '999999999999',
+                allowDecimalPadding: false,
+                modifyValueOnWheel: false,
+                selectOnFocus: false,
+                unformatOnSubmit: false,
+                readOnly: true,
+                showWarnings: false
+            };
+
+            let autoNumericInstances = [];
+
+            // ============= INIT AUTO NUMERIC =============
+            function initAutoNumeric() {
+                // Destroy existing instances
+                autoNumericInstances.forEach(instance => {
+                    if (instance && typeof instance.destroy === 'function') {
+                        try { instance.destroy(); } catch(e) {}
+                    }
+                });
+                autoNumericInstances = [];
+
+                // Nominal fields
+                $('.nominal').each(function() {
+                    if ($(this).length) {
+                        try {
+                            $(this).attr('type', 'text');
+                            if (!$(this).hasClass('auto-numeric-initialized')) {
+                                let instance = new AutoNumeric(this, autoNumericOptions);
+                                autoNumericInstances.push(instance);
+                                $(this).addClass('auto-numeric-initialized auto-numeric-input');
+                            }
+                        } catch (e) {
+                            console.error('Error init nominal:', e);
+                        }
+                    }
+                });
+
+                // Grand Total display
+                if ($('#grandTotal').length && !$('#grandTotal').hasClass('auto-numeric-initialized')) {
+                    try {
+                        $('#grandTotal').attr('type', 'text');
+                        let instance = new AutoNumeric('#grandTotal', autoNumericOptionsDisplay);
+                        autoNumericInstances.push(instance);
+                        $('#grandTotal').addClass('auto-numeric-initialized');
+                    } catch (e) {
+                        console.error('Error init grandTotal:', e);
+                    }
                 }
-                
-                let num = parseFloat(angka);
-                if (isNaN(num)) {
-                    return 'Rp 0';
-                }
-                
-                return 'Rp ' + new Intl.NumberFormat('id-ID', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                }).format(num);
             }
 
-            // Parse nilai dari format Rupiah atau angka biasa
+            // ============= FORMAT & PARSE =============
+            function formatRupiah(angka) {
+                if (!angka && angka !== 0) return 'Rp 0';
+                let num = parseFloat(angka) || 0;
+                return 'Rp ' + Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
             function parseNumber(value) {
                 if (!value && value !== 0) return 0;
                 
-                if (typeof value === 'string') {
-                    value = value.replace(/[^\d.-]/g, '');
+                try {
+                    if (value && value.jquery) {
+                        if (value.hasClass('auto-numeric-initialized')) {
+                            let instance = AutoNumeric.getAutoNumericElement(value[0]);
+                            if (instance && typeof instance.getNumber === 'function') {
+                                let num = instance.getNumber();
+                                return !isNaN(num) && num !== null ? num : 0;
+                            }
+                        }
+                        value = value.val();
+                    }
+                    
+                    if (typeof value === 'string') {
+                        value = value.replace(/[^\d,-]/g, '');
+                        value = value.replace(',', '.');
+                    }
+                    
+                    let num = parseFloat(value);
+                    return !isNaN(num) ? num : 0;
+                } catch (e) {
+                    return 0;
                 }
-                
-                let num = parseFloat(value);
-                return isNaN(num) ? 0 : num;
             }
 
-            // Reset form ke kondisi default
+            // ============= FUNGSI PERHITUNGAN =============
+            function calculateSubtotal() {
+                let subtotal = 0;
+                $('.total').each(function() {
+                    let val = $(this).val() || '0';
+                    val = val.toString().replace(/[^\d.-]/g, '');
+                    subtotal += parseFloat(val) || 0;
+                });
+                
+                let grandTotalInstance = AutoNumeric.getAutoNumericElement($('#grandTotal')[0]);
+                if (grandTotalInstance) {
+                    grandTotalInstance.set(subtotal);
+                }
+                
+                checkSaldoCukup();
+            }
+
+            function updateSaldoDisplay() {
+                $('#availableBalance').text(formatRupiah(currentSaldo));
+            }
+
+            function checkSaldoCukup() {
+                // Untuk transaksi masuk, tidak ada warning saldo
+                $('#saldoInfo').addClass('text-primary').removeClass('text-danger');
+            }
+
+            // ============= VARIABEL GLOBAL =============
+            let currentSaldo = 0;
+            let oldRekening = null;
+            let oldGrandTotal = 0;
+            let rowIndex = 1;
+
+            // ============= SELECT2 =============
+            function initializeSelect2() {
+                if (typeof $.fn.select2 !== 'undefined') {
+                    setTimeout(() => {
+                        $('.select2').each(function() {
+                            let $this = $(this);
+                            if ($this.hasClass('select2-hidden-accessible')) {
+                                $this.select2('destroy');
+                            }
+                            $this.select2({
+                                dropdownParent: $('#modalNota'),
+                                width: '100%',
+                                minimumResultsForSearch: 10
+                            });
+                        });
+                    }, 200);
+                }
+            }
+
+            // ============= RESET FORM =============
             function resetForm() {
                 $('#frmNota')[0].reset();
                 $('#idNota').val('');
@@ -498,13 +735,16 @@
                 $('#buktiPreview').hide();
                 $('#tglTempoContainer').hide();
                 $('#tglTempo').prop('required', false);
-                $('.select2').val(null).trigger('change');
                 $('#modalNotaTitle').text('Form Nota Masuk');
                 
-                // Bukti nota TIDAK wajib untuk transaksi masuk
+                $('.select2').each(function() {
+                    if ($(this).hasClass('select2-hidden-accessible')) {
+                        $(this).select2('destroy');
+                    }
+                });
+                
                 $('#buktiNota').prop('required', false);
                 
-                // Reset detail transaksi ke 1 row
                 $('#tblDetail tbody').html(`
                     <tr>
                         <td>
@@ -518,269 +758,36 @@
                             </select>
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                        <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0" step="0.01"></td>
+                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1"></td>
+                        <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0"></td>
                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
                 `);
                 
-                // Reset perhitungan
-                $('#subtotal').val('Rp 0');
-                $('#ppnAmount').val('0');
-                $('#ppnDisplay').val('Rp 0');
-                $('#diskonDisplay').val('Rp 0');
-                $('#grandTotal').val('Rp 0');
+                $('#grandTotal').val('0');
                 
-                // Reset Diskon
-                $('#diskonType').val('');
-                $('#diskonValue').hide().val('');
-                
-                // Reset saldo
                 currentSaldo = 0;
                 oldRekening = null;
                 oldGrandTotal = 0;
                 
-                // Update tampilan saldo
                 updateSaldoDisplay();
-                
-                // Set default values
                 setDefaultDate();
                 setAutoNotaNo();
                 
-                // Re-initialize select2
-                initializeSelect2();
-                
-                // Enable manual input checkbox
                 $('#chkManualNo').prop('checked', false);
                 $('#notaNo').prop('readonly', true);
                 
-                // Reset log
                 $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
                 
-                // Hitung ulang setelah reset
-                calculateTotals();
+                setTimeout(() => {
+                    initAutoNumeric();
+                    initializeSelect2();
+                    rowIndex = 1;
+                }, 300);
             }
 
-            // Initialize select2
-            function initializeSelect2() {
-                $('.select2').select2({ 
-                    dropdownParent: $('#modalNota'),
-                    width: '100%'
-                });
-            }
-
-            // Toggle input manual nomor nota
-            $('#chkManualNo').change(function() {
-                if ($(this).is(':checked')) {
-                    $('#notaNo').prop('readonly', false).val('');
-                } else {
-                    $('#notaNo').prop('readonly', true);
-                    setAutoNotaNo();
-                }
-            });
-
-            // Update nomor nota ketika tanggal berubah
-            $('#tanggalNota').change(function() {
-                if (!$('#chkManualNo').is(':checked')) {
-                    setAutoNotaNo();
-                }
-                $('#tglTempo').attr('min', $(this).val());
-            });
-
-            // Tampilkan tanggal tempo jika payment method = tempo
-            $('#paymenMethod').change(function() {
-                if ($(this).val() === 'tempo') {
-                    $('#tglTempoContainer').show();
-                    $('#tglTempo').prop('required', true);
-                } else {
-                    $('#tglTempoContainer').hide();
-                    $('#tglTempo').prop('required', false);
-                }
-            });
-
-            // Preview image sebelum upload
-            $('#buktiNota').change(function() {
-                const file = this.files[0];
-                if (file) {
-                    if (file.type.startsWith('image/')) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            $('#previewImage').attr('src', e.target.result);
-                            $('#buktiPreview').show();
-                        }
-                        reader.readAsDataURL(file);
-                    } else {
-                        $('#buktiPreview').hide();
-                    }
-                } else {
-                    $('#buktiPreview').hide();
-                }
-            });
-
-            // Ambil saldo rekening saat rekening dipilih
-            let currentSaldo = 0;
-            let oldRekening = null;
-            let oldGrandTotal = 0;
-            
-            $('#idRekening').change(function() {
-                let id = $(this).val();
-                let selectedOption = $(this).find('option:selected');
-                
-                if (id) {
-                    if (!oldRekening && $('#idNota').val()) {
-                        oldRekening = $('#oldRekening').val() || id;
-                        $('#oldRekening').val(oldRekening);
-                    }
-                    
-                    let grandTotal = parseNumber($('#grandTotal').val());
-                    if (grandTotal > 0) {
-                        oldGrandTotal = grandTotal;
-                        $('#oldGrandTotal').val(oldGrandTotal);
-                    }
-                    
-                    currentSaldo = selectedOption.data('saldo') || 0;
-                    updateSaldoDisplay();
-                    
-                    let url = "{{ route('transaksi.project.rekening.saldo', ['id' => ':id']) }}";
-                    url = url.replace(':id', id);
-                    
-                    $.get(url, function(res) {
-                        currentSaldo = res.saldo || 0;
-                        updateSaldoDisplay();
-                    }).fail(function(xhr) {
-                        console.error('Error mengambil saldo:', xhr);
-                    });
-                } else {
-                    currentSaldo = 0;
-                    updateSaldoDisplay();
-                }
-            });
-
-            // Update tampilan saldo
-            function updateSaldoDisplay() {
-                $('#availableBalance').text(formatRupiah(currentSaldo));
-            }
-
-            // Hitung total per row
-            $(document).on('input', '.jml, .nominal', function() {
-                let row = $(this).closest('tr');
-                let jml = parseNumber(row.find('.jml').val());
-                let nominal = parseNumber(row.find('.nominal').val());
-                let total = jml * nominal;
-                row.find('.total').val(total);
-                
-                calculateSubtotal();
-            });
-
-            // Hitung input PPN
-            $(document).on('input', '#ppnAmount', function() {
-                calculateGrandTotal();
-            });
-
-            // Handle Diskon selection
-            $('#diskonType').change(function() {
-                let val = $(this).val();
-                if (val) {
-                    $('#diskonValue').show();
-                    $('#diskonValue').val('');
-                } else {
-                    $('#diskonValue').hide().val('');
-                    $('#diskonDisplay').val('Rp 0');
-                }
-                calculateGrandTotal();
-            });
-
-            // Handle Diskon value input
-            $(document).on('input', '#diskonValue', function() {
-                calculateGrandTotal();
-            });
-
-            // Fungsi untuk menghitung subtotal saja (tanpa PPN dan diskon)
-            function calculateSubtotal() {
-                let subtotal = 0;
-                $('.total').each(function() {
-                    let val = parseNumber($(this).val());
-                    subtotal += val;
-                });
-                
-                $('#subtotal').val(parseNumber(subtotal));
-                
-                calculateGrandTotal();
-            }
-
-            // Fungsi untuk menghitung grand total (termasuk PPN dan diskon)
-            function calculateGrandTotal() {
-                // Ambil subtotal yang sudah dihitung
-                let subtotal = parseNumber($('#subtotal').val());
-                
-                // Hitung PPN
-                let ppnAmount = parseNumber($('#ppnAmount').val());
-                $('#ppnDisplay').val(parseNumber(ppnAmount));
-                
-                // Hitung Diskon
-                let diskonAmount = 0;
-                let diskonType = $('#diskonType').val();
-                let diskonValue = parseNumber($('#diskonValue').val());
-                
-                if (diskonType === 'persen' && diskonValue > 0) {
-                    diskonAmount = subtotal * (diskonValue / 100);
-                } else if (diskonType === 'nominal' && diskonValue > 0) {
-                    diskonAmount = diskonValue;
-                }
-                
-                $('#diskonDisplay').val(parseNumber(diskonAmount));
-                
-                // Hitung Grand Total = subtotal + ppn - diskon
-                let grandTotal = (subtotal-diskonAmount)+ppnAmount;
-                
-                if (grandTotal < 0) grandTotal = 0;
-                
-                $('#grandTotal').val(parseNumber(grandTotal));
-            }
-
-            // Fungsi utama untuk menghitung semua
-            function calculateTotals() {
-                calculateSubtotal();
-                calculateGrandTotal();
-            }
-
-            // Tambah row detail
-            let rowIndex = 1;
-            $('#addRow').click(function() {
-                let html = `<tr>
-                    <td>
-                        <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[${rowIndex}][idkodetransaksi]" style="width:100%;" required>
-                            <option value="">-- Pilih Kode Transaksi --</option>
-                            @foreach(\App\Models\KodeTransaksi::all() as $kt)
-                                <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
-                                    {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </td>
-                    <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
-                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0" step="0.01"></td>
-                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" value="0" readonly></td>
-                    <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                </tr>`;
-                $('#tblDetail tbody').append(html);
-                initializeSelect2();
-                rowIndex++;
-            });
-
-            // Hapus row detail
-            $(document).on('click', '.removeRow', function() {
-                if ($('#tblDetail tbody tr').length > 1) {
-                    $(this).closest('tr').remove();
-                    calculateSubtotal();
-                } else {
-                    Swal.fire('Peringatan', 'Minimal harus ada 1 item transaksi', 'warning');
-                }
-            });
-
-            // Load update log untuk nota tertentu
+            // ============= LOAD UPDATE LOG =============
             function loadUpdateLog(notaId) {
                 if (!notaId) {
                     $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
@@ -791,7 +798,13 @@
                     if (res.success && res.data.length > 0) {
                         let logHtml = '';
                         res.data.forEach(function(log, index) {
-                            let waktu = new Date(log.created_at).toLocaleString('id-ID');
+                            let waktu = new Date(log.created_at).toLocaleString('id-ID', {
+                                day: '2-digit',
+                                month: '2-digit', 
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
                             let bgClass = index % 2 === 0 ? 'bg-light' : 'bg-white';
                             logHtml += `
                                 <div class="mb-2 pb-2 border-bottom ${bgClass} p-2 rounded">
@@ -811,144 +824,450 @@
                 });
             }
 
-            // Load update log untuk view modal
-            function loadViewUpdateLog(notaId) {
-                if (!notaId) {
-                    $('#viewLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
-                    return;
-                }
-                
-                $.get(`/transaksi/project/${notaId}/logs`, function(res) {
-                    if (res.success && res.data.length > 0) {
-                        let logHtml = '';
-                        res.data.forEach(function(log, index) {
-                            let waktu = new Date(log.created_at).toLocaleString('id-ID');
-                            let bgClass = index % 2 === 0 ? 'bg-light' : 'bg-white';
-                            logHtml += `
-                                <div class="mb-2 pb-2 border-bottom ${bgClass} p-2 rounded">
-                                    <small class="text-muted d-block mb-1">
-                                        <i class="bi bi-clock"></i> ${waktu}
-                                    </small>
-                                    <p class="mb-0 small">${log.update_log}</p>
-                                </div>
-                            `;
-                        });
-                        $('#viewLogContainer').html(logHtml);
-                    } else {
-                        $('#viewLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
-                    }
-                });
-            }
-
-            // Tombol tambah nota - reset form dan buka modal
-            $('#btnTambahNota').click(function() {
-                resetForm();
-                $('#modalNota').modal('show');
-            });
-
-            // View nota
+            // ============= VIEW NOTA =============
             $(document).on('click', '.view-btn', function() {
                 let notaId = $(this).data('id');
                 
-                $.get("/transaksi/project/" + notaId, function(res) {
-                    if (res.success) {
-                        let nota = res.data;
-                        
-                        // Isi data header
-                        $('#viewNotaNo').text(nota.nota_no);
-                        $('#viewTanggal').text(new Date(nota.tanggal).toLocaleDateString('id-ID'));
-                        $('#viewNamaTransaksi').text(nota.namatransaksi);
-                        $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
-                        $('#viewUser').text(nota.namauser || '-');
-                        $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
-                        $('#viewTglTempo').text(nota.tgl_tempo ? new Date(nota.tgl_tempo).toLocaleDateString('id-ID') : '-');
-                        $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
-                        $('#viewTotal').text(formatRupiah(nota.total));
-                        $('#viewStatus').html(getStatusBadge(nota.status));
-                        
-                        let subtotal = nota.subtotal || 0;
-                        let ppn = nota.ppn || 0;
-                        let diskon = nota.diskon || 0;
-                        
-                        $('#viewSubtotal').text(formatRupiah(subtotal));
-                        $('#viewPpn').text(formatRupiah(ppn));
-                        $('#viewDiskon').text(formatRupiah(diskon));
-                        $('#viewGrandTotal').text(formatRupiah(nota.total));
-                        
-                        // Isi detail transaksi
-                        let detailHtml = '';
-                        if (nota.transactions && nota.transactions.length > 0) {
-                            nota.transactions.forEach(function(transaction) {
-                                detailHtml += `
-                                    <tr>
-                                        <td>${transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-'}</td>
-                                        <td>${transaction.description}</td>
-                                        <td class="text-center">${transaction.jml}</td>
-                                        <td class="text-end">${formatRupiah(transaction.nominal)}</td>
-                                        <td class="text-end">${formatRupiah(transaction.total)}</td>
-                                    </tr>
-                                `;
-                            });
-                        }
-                        $('#tblViewDetail tbody').html(detailHtml);
-                        
-                        // Load update log
-                        loadViewUpdateLog(notaId);
-                        
-                        // Tampilkan bukti nota jika ada
-                        $('#buktiContainer').empty();
-                        $('#viewBuktiNota').hide();
-                        if (nota.bukti_nota) {
-                            let fileUrl = '/storage/' + nota.bukti_nota;
-                            let fileExt = fileUrl.split('.').pop().toLowerCase();
-                            
-                            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
-                                $('#buktiContainer').html(`
-                                    <div class="text-center">
-                                        <a href="#" class="bukti-preview-link" data-url="${fileUrl}">
-                                            <img src="${fileUrl}" class="img-thumbnail" style="max-height: 200px; cursor: pointer;" 
-                                                alt="Bukti Nota" title="Klik untuk melihat lebih besar">
-                                            <div class="small text-muted mt-1">Klik gambar untuk memperbesar</div>
-                                        </a>
-                                    </div>
-                                `);
-                            } else if (fileExt === 'pdf') {
-                                $('#buktiContainer').html(`
-                                    <div class="ratio ratio-16x9">
-                                        <iframe src="${fileUrl}" class="border-0"></iframe>
-                                    </div>
-                                    <div class="mt-2">
-                                        <a href="${fileUrl}" target="_blank" class="btn btn-primary btn-sm">
-                                            <i class="bi bi-download"></i> Buka PDF di Tab Baru
-                                        </a>
-                                    </div>
-                                `);
-                            } else {
-                                $('#buktiContainer').html(`
-                                    <a href="${fileUrl}" target="_blank" class="btn btn-primary btn-sm">
-                                        <i class="bi bi-download"></i> Download File
-                                    </a>
-                                `);
+                $.ajax({
+                    url: "/transaksi/project/" + notaId,
+                    type: 'GET',
+                    beforeSend: function() {
+                        Swal.fire({
+                            title: 'Loading...',
+                            text: 'Mengambil data nota',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
                             }
-                            $('#viewBuktiNota').show();
+                        });
+                    },
+                    success: function(res) {
+                        Swal.close();
+                        if (res.success) {
+                            let nota = res.data;
+                            
+                            $('#viewNotaNo').text(nota.nota_no || '-');
+                            $('#viewTanggal').text(nota.tanggal ? new Date(nota.tanggal).toLocaleDateString('id-ID') : '-');
+                            $('#viewNamaTransaksi').text(nota.namatransaksi || '-');
+                            $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
+                            $('#viewUser').text(nota.namauser || '-');
+                            $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
+                            $('#viewTglTempo').text(nota.tgl_tempo ? new Date(nota.tgl_tempo).toLocaleDateString('id-ID') : '-');
+                            $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
+                            $('#viewTotal').text(formatRupiah(nota.total));
+                            
+                            let statusBadge = {
+                                'open': 'bg-warning',
+                                'paid': 'bg-success',
+                                'partial': 'bg-info',
+                                'cancel': 'bg-danger'
+                            };
+                            let status = nota.status || 'open';
+                            $('#viewStatus').html(`<span class="badge ${statusBadge[status]}">${status.toUpperCase()}</span>`);
+                            
+                            $('#viewGrandTotal').text(formatRupiah(nota.total || 0));
+                            
+                            let detailHtml = '';
+                            if (nota.transactions && nota.transactions.length > 0) {
+                                nota.transactions.forEach(function(transaction) {
+                                    let kode = transaction.kode_transaksi ? transaction.kode_transaksi.kodetransaksi : '-';
+                                    let desc = transaction.description || '-';
+                                    let qty = transaction.jml || 0;
+                                    let nominal = transaction.nominal || 0;
+                                    let total = transaction.total || 0;
+                                    
+                                    detailHtml += `
+                                        <tr>
+                                            <td>${kode}</td>
+                                            <td>${desc}</td>
+                                            <td class="text-center">${qty}</td>
+                                            <td class="text-end">${formatRupiah(nominal)}</td>
+                                            <td class="text-end">${formatRupiah(total)}</td>
+                                        </tr>
+                                    `;
+                                });
+                            } else {
+                                detailHtml = '<tr><td colspan="5" class="text-center">Tidak ada detail transaksi</td></tr>';
+                            }
+                            $('#tblViewDetail tbody').html(detailHtml);
+                            
+                            // Load logs
+                            $.get(`/transaksi/project/${notaId}/logs`, function(logRes) {
+                                if (logRes.success && logRes.data.length > 0) {
+                                    let logHtml = '';
+                                    logRes.data.forEach(function(log, index) {
+                                        let waktu = new Date(log.created_at).toLocaleString('id-ID');
+                                        let bgClass = index % 2 === 0 ? 'bg-light' : 'bg-white';
+                                        logHtml += `
+                                            <div class="mb-2 pb-2 border-bottom ${bgClass} p-2 rounded">
+                                                <small class="text-muted d-block mb-1">
+                                                    <i class="bi bi-clock"></i> ${waktu}
+                                                </small>
+                                                <p class="mb-0 small">${log.update_log}</p>
+                                            </div>
+                                        `;
+                                    });
+                                    $('#viewLogContainer').html(logHtml);
+                                } else {
+                                    $('#viewLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+                                }
+                            });
+                            
+                            // Bukti nota
+                            $('#buktiContainer').empty();
+                            $('#viewBuktiNota').hide();
+                            if (nota.bukti_nota) {
+                                let fileUrl = '/storage/' + nota.bukti_nota;
+                                let fileExt = nota.bukti_nota.split('.').pop().toLowerCase();
+                                
+                                if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                                    $('#buktiContainer').html(`
+                                        <div class="text-center">
+                                            <a href="#" class="bukti-preview-link" data-url="${fileUrl}">
+                                                <img src="${fileUrl}" class="img-thumbnail" style="max-height: 200px; cursor: pointer;" alt="Bukti Nota">
+                                                <div class="small text-muted mt-1">Klik untuk memperbesar</div>
+                                            </a>
+                                        </div>
+                                    `);
+                                } else if (fileExt === 'pdf') {
+                                    $('#buktiContainer').html(`
+                                        <div class="ratio ratio-16x9">
+                                            <iframe src="${fileUrl}" class="border-0"></iframe>
+                                        </div>
+                                        <div class="mt-2">
+                                            <a href="${fileUrl}" target="_blank" class="btn btn-primary btn-sm">
+                                                <i class="bi bi-download"></i> Buka PDF
+                                            </a>
+                                        </div>
+                                    `);
+                                } else {
+                                    $('#buktiContainer').html(`
+                                        <a href="${fileUrl}" target="_blank" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-download"></i> Download File
+                                        </a>
+                                    `);
+                                }
+                                $('#viewBuktiNota').show();
+                            }
+                            
+                            $('#modalViewNota').modal('show');
+                        } else {
+                            Swal.fire('Error', res.message || 'Gagal memuat data', 'error');
                         }
-                        
-                        $('#modalViewNota').modal('show');
-                    } else {
-                        Swal.fire('Error', res.message, 'error');
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire('Error', 'Gagal memuat data nota', 'error');
+                        console.error('View error:', xhr);
                     }
-                }).fail(function(xhr) {
-                    Swal.fire('Error', 'Gagal memuat data nota', 'error');
                 });
             });
 
-            // Preview gambar yang diklik
+            // ============= EDIT NOTA =============
+            $(document).on('click', '.edit-btn', function() {
+                let notaId = $(this).data('id');
+                
+                $.ajax({
+                    url: "/transaksi/project/" + notaId + "/edit",
+                    type: 'GET',
+                    beforeSend: function() {
+                        Swal.fire({
+                            title: 'Loading...',
+                            text: 'Mengambil data untuk edit',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                    },
+                    success: function(res) {
+                        Swal.close();
+                        if (res.success) {
+                            resetForm();
+                            
+                            let nota = res.data.nota;
+                            let transactions = res.data.transactions || [];
+                            
+                            $('#idNota').val(nota.id);
+                            $('#oldRekening').val(nota.idrek);
+                            $('#oldGrandTotal').val(nota.total);
+                            
+                            $('#notaNo').val(nota.nota_no);
+                            $('#namatransaksi').val(nota.namatransaksi);
+                            $('#paymenMethod').val(nota.paymen_method).trigger('change');
+                            $('#tanggalNota').val(nota.tanggal);
+                            
+                            if (nota.idrek) {
+                                oldRekening = nota.idrek;
+                                $('#idRekening').val(nota.idrek).trigger('change');
+                            }
+                            
+                            if (nota.paymen_method === 'tempo' && nota.tgl_tempo) {
+                                $('#tglTempoContainer').show();
+                                $('#tglTempo').val(nota.tgl_tempo).prop('required', true);
+                            }
+                            
+                            $('#chkManualNo').prop('checked', true);
+                            $('#notaNo').prop('readonly', false);
+                            
+                            // Hapus semua row
+                            $('#tblDetail tbody').empty();
+                            
+                            if (transactions.length > 0) {
+                                transactions.forEach(function(transaction, index) {
+                                    let html = `
+                                        <tr>
+                                            <td>
+                                                <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[${index}][idkodetransaksi]" style="width:100%;" required>
+                                                    <option value="">-- Pilih Kode Transaksi --</option>
+                                                    @foreach(\App\Models\KodeTransaksi::all() as $kt)
+                                                        <option value="{{ $kt->id }}" ${transaction.idkodetransaksi == {{ $kt->id }} ? 'selected' : ''}>
+                                                            {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td><input type="text" class="form-control form-control-sm" name="transactions[${index}][description]" value="${transaction.description || ''}" required></td>
+                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${transaction.jml || 1}" min="1"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${index}][nominal]" value="${transaction.nominal || 0}"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${transaction.total || 0}" readonly></td>
+                                            <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
+                                        </tr>
+                                    `;
+                                    $('#tblDetail tbody').append(html);
+                                });
+                            }
+                            
+                            setTimeout(() => {
+                                calculateSubtotal();
+                            }, 300);
+                            
+                            rowIndex = transactions.length || 1;
+                            $('#modalNotaTitle').text('Edit Nota Masuk');
+                            
+                            loadUpdateLog(notaId);
+                            
+                            $('#modalNota').modal('show');
+                            
+                            setTimeout(() => {
+                                initAutoNumeric();
+                                initializeSelect2();
+                            }, 500);
+                            
+                        } else {
+                            Swal.fire('Error', res.message || 'Gagal memuat data', 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire('Error', 'Gagal memuat data untuk edit', 'error');
+                        console.error('Edit error:', xhr);
+                    }
+                });
+            });
+
+            // ============= DELETE NOTA =============
+            $(document).on('click', '.delete-btn', function() {
+                let notaId = $(this).data('id');
+                
+                Swal.fire({
+                    title: 'Konfirmasi Hapus',
+                    text: "Apakah Anda yakin ingin menghapus transaksi ini?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: "/transaksi/project/" + notaId,
+                            type: 'DELETE',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            beforeSend: function() {
+                                Swal.fire({
+                                    title: 'Menghapus...',
+                                    text: 'Mohon tunggu',
+                                    allowOutsideClick: false,
+                                    didOpen: () => {
+                                        Swal.showLoading();
+                                    }
+                                });
+                            },
+                            success: function(res) {
+                                Swal.close();
+                                if (res.success) {
+                                    tbNotas.ajax.reload(null, false);
+                                    Swal.fire('Berhasil!', res.message, 'success');
+                                } else {
+                                    Swal.fire('Error!', res.message, 'error');
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.close();
+                                let msg = xhr.responseJSON?.message || 'Terjadi kesalahan';
+                                Swal.fire('Error!', msg, 'error');
+                                console.error('Delete error:', xhr);
+                            }
+                        });
+                    }
+                });
+            });
+
+            // ============= TAMBAH ROW =============
+            $('#addRow').click(function() {
+                let currentRowCount = $('#tblDetail tbody tr').length;
+                let html = `<tr>
+                    <td>
+                        <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[${currentRowCount}][idkodetransaksi]" style="width:100%;" required>
+                            <option value="">-- Pilih Kode Transaksi --</option>
+                            @foreach(\App\Models\KodeTransaksi::all() as $kt)
+                                <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
+                                    {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </td>
+                    <td><input type="text" class="form-control form-control-sm" name="transactions[${currentRowCount}][description]" required></td>
+                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${currentRowCount}][jml]" value="1" min="1"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${currentRowCount}][nominal]" value="0"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${currentRowCount}][total]" value="0" readonly></td>
+                    <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
+                </tr>`;
+                
+                $('#tblDetail tbody').append(html);
+                
+                let newNominal = $('#tblDetail tbody tr:last-child .nominal');
+                newNominal.attr('type', 'text');
+                try {
+                    let instance = new AutoNumeric(newNominal[0], autoNumericOptions);
+                    autoNumericInstances.push(instance);
+                    newNominal.addClass('auto-numeric-initialized auto-numeric-input');
+                } catch(e) {
+                    console.error('Error init new nominal:', e);
+                }
+                
+                setTimeout(() => {
+                    initializeSelect2();
+                }, 200);
+            });
+
+            // ============= HAPUS ROW =============
+            $(document).on('click', '.removeRow', function() {
+                if ($('#tblDetail tbody tr').length > 1) {
+                    $(this).closest('tr').remove();
+                    calculateSubtotal();
+                } else {
+                    Swal.fire('Peringatan', 'Minimal harus ada 1 item transaksi', 'warning');
+                }
+            });
+
+            // ============= EVENT LISTENERS =============
+            $(document).on('input', '.nominal', function() {
+                let row = $(this).closest('tr');
+                let jml = row.find('.jml').val() || 1;
+                let nominal = parseNumber($(this));
+                let total = jml * nominal;
+                row.find('.total').val(total);
+                calculateSubtotal();
+            });
+
+            $(document).on('input', '.jml', function() {
+                let row = $(this).closest('tr');
+                let jml = $(this).val() || 1;
+                let nominal = parseNumber(row.find('.nominal'));
+                let total = jml * nominal;
+                row.find('.total').val(total);
+                calculateSubtotal();
+            });
+
+            $('#chkManualNo').change(function() {
+                if ($(this).is(':checked')) {
+                    $('#notaNo').prop('readonly', false).val('');
+                } else {
+                    $('#notaNo').prop('readonly', true);
+                    setAutoNotaNo();
+                }
+            });
+
+            $('#tanggalNota').change(function() {
+                if (!$('#chkManualNo').is(':checked')) {
+                    setAutoNotaNo();
+                }
+                $('#tglTempo').attr('min', $(this).val());
+            });
+
+            $('#paymenMethod').change(function() {
+                if ($(this).val() === 'tempo') {
+                    $('#tglTempoContainer').show();
+                    $('#tglTempo').prop('required', true);
+                } else {
+                    $('#tglTempoContainer').hide();
+                    $('#tglTempo').prop('required', false);
+                }
+            });
+
+            $('#buktiNota').change(function() {
+                const file = this.files[0];
+                if (file) {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            $('#previewImage').attr('src', e.target.result);
+                            $('#buktiPreview').show();
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        $('#buktiPreview').hide();
+                    }
+                } else {
+                    $('#buktiPreview').hide();
+                }
+            });
+
+            $('#idRekening').change(function() {
+                let id = $(this).val();
+                let selectedOption = $(this).find('option:selected');
+                
+                if (id) {
+                    if (!oldRekening && $('#idNota').val()) {
+                        oldRekening = $('#oldRekening').val() || id;
+                        $('#oldRekening').val(oldRekening);
+                    }
+                    
+                    let grandTotal = parseNumber($('#grandTotal'));
+                    if (grandTotal > 0) {
+                        oldGrandTotal = grandTotal;
+                        $('#oldGrandTotal').val(oldGrandTotal);
+                    }
+                    
+                    currentSaldo = selectedOption.data('saldo') || 0;
+                    updateSaldoDisplay();
+                    
+                    let url = "{{ route('transaksi.project.rekening.saldo', ['id' => ':id']) }}";
+                    url = url.replace(':id', id);
+                    
+                    $.get(url, function(res) {
+                        currentSaldo = res.saldo || 0;
+                        updateSaldoDisplay();
+                    });
+                } else {
+                    currentSaldo = 0;
+                    updateSaldoDisplay();
+                }
+            });
+
+            // ============= PREVIEW GAMBAR =============
             $(document).on('click', '.bukti-preview-link', function(e) {
                 e.preventDefault();
                 let imageUrl = $(this).data('url');
                 
                 let modalHtml = `
-                    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal fade" id="imagePreviewModal" tabindex="-1">
                         <div class="modal-dialog modal-dialog-centered modal-lg">
                             <div class="modal-content">
                                 <div class="modal-header">
@@ -974,157 +1293,19 @@
                 $('#imagePreviewModal').modal('show');
             });
 
-            // Edit nota
-            $(document).on('click', '.edit-btn', function() {
-                let notaId = $(this).data('id');
-                
-                $.get("/transaksi/project/" + notaId + "/edit", function(res) {
-                    if (res.success) {
-                        let nota = res.data.nota;
-                        let transactions = res.data.transactions;
-                        
-                        // Isi form dengan data existing
-                        resetForm();
-                        $('#idNota').val(nota.id);
-                        $('#oldRekening').val(nota.idrek);
-                        $('#notaNo').val(nota.nota_no);
-                        $('#namatransaksi').val(nota.namatransaksi);
-                        $('#paymenMethod').val(nota.paymen_method).trigger('change');
-                        $('#tanggalNota').val(nota.tanggal);
-                        
-                        // Isi PPN
-                        $('#ppnAmount').val(nota.ppn || 0);
-                        
-                        if (nota.idrek) {
-                            oldRekening = nota.idrek;
-                            $('#idRekening').val(nota.idrek).trigger('change');
-                        }
-                        
-                        if (nota.paymen_method === 'tempo' && nota.tgl_tempo) {
-                            $('#tglTempoContainer').show();
-                            $('#tglTempo').val(nota.tgl_tempo).prop('required', true);
-                        }
-                        
-                        // Enable manual input untuk edit
-                        $('#chkManualNo').prop('checked', true);
-                        $('#notaNo').prop('readonly', false);
-                        
-                        // Isi detail transaksi
-                        $('#tblDetail tbody').empty();
-                        let newRowIndex = 0;
-                        
-                        if (transactions && transactions.length > 0) {
-                            transactions.forEach(function(transaction) {
-                                let html = `
-                                    <tr>
-                                        <td>
-                                            <select class="form-select form-select-sm kode-transaksi" name="transactions[${newRowIndex}][idkodetransaksi]" required>
-                                                <option value="">-- Pilih Kode Transaksi --</option>
-                                `;
-                                
-                                @foreach(\App\Models\KodeTransaksi::all() as $kt)
-                                    html += `<option value="{{ $kt->id }}" ${transaction.idkodetransaksi == {{ $kt->id }} ? 'selected' : '' }>{{ $kt->kodetransaksi }} - {{ $kt->transaksi }}</option>`;
-                                @endforeach
-                                
-                                html += `
-                                            </select>
-                                        </td>
-                                        <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
-                                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" ></td>
-                                        <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0" step="0.01"></td>
-                                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
-                                        <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                                    </tr>
-                                `;
-                                
-                                $('#tblDetail tbody').append(html);
-                                newRowIndex++;
-                            });
-                        }
-                        
-                        // Load Diskon jika ada
-                        if (nota.diskon > 0) {
-                            $('#diskonType').val('nominal');
-                            $('#diskonValue').show().val(nota.diskon);
-                        }
-                        
-                        calculateTotals();
-                        rowIndex = newRowIndex;
-                        
-                        // Update modal title
-                        $('#modalNotaTitle').text('Edit Nota Masuk');
-                        
-                        // Load update log
-                        loadUpdateLog(notaId);
-                        
-                        // Tampilkan modal
-                        $('#modalNota').modal('show');
-                        
-                        // Initialize select2 setelah modal ditampilkan
-                        setTimeout(() => {
-                            initializeSelect2();
-                        }, 300);
-                        
-                    } else {
-                        Swal.fire('Error', res.message, 'error');
-                    }
-                }).fail(function(xhr) {
-                    Swal.fire('Error', 'Gagal memuat data untuk edit: ' + (xhr.responseJSON?.message || 'Terjadi kesalahan'), 'error');
-                });
-            });
-
-            // Delete nota
-            $(document).on('click', '.delete-btn', function() {
-                let notaId = $(this).data('id');
-                
-                Swal.fire({
-                    title: 'Apakah Anda yakin?',
-                    text: "Transaksi ini akan dihapus permanen!",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, Hapus!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: "/transaksi/project/" + notaId,
-                            type: 'DELETE',
-                            data: {
-                                _token: '{{ csrf_token() }}'
-                            },
-                            success: function(res) {
-                                if (res.success) {
-                                    tbNotas.ajax.reload();
-                                    Swal.fire('Berhasil!', res.message, 'success');
-                                } else {
-                                    Swal.fire('Error!', res.message, 'error');
-                                }
-                            },
-                            error: function(xhr) {
-                                Swal.fire('Error!', xhr.responseJSON?.message || 'Terjadi kesalahan', 'error');
-                            }
-                        });
-                    }
-                });
-            });
-
-            // Submit form
+            // ============= SUBMIT FORM =============
             $('#frmNota').submit(function(e) {
                 e.preventDefault();
                 processFormSubmission(this);
             });
 
             function processFormSubmission(formElement) {
-                // Validasi grand total
-                let grandTotal = parseNumber($('#grandTotal').val());
+                let grandTotal = parseNumber($('#grandTotal'));
                 if (grandTotal <= 0) {
                     Swal.fire('Peringatan', 'Total transaksi harus lebih dari 0', 'warning');
                     return;
                 }
 
-                // Validasi tanggal tempo jika payment method = tempo
                 if ($('#paymenMethod').val() === 'tempo' && !$('#tglTempo').val()) {
                     Swal.fire('Peringatan', 'Tanggal tempo harus diisi untuk payment method tempo', 'warning');
                     return;
@@ -1142,25 +1323,37 @@
                     formData.append('_method', 'PUT');
                 }
 
-                // Ambil nilai PPN dan Diskon
-                let ppnAmount = parseNumber($('#ppnAmount').val());
-                let diskonAmount = parseNumber($('#diskonDisplay').val());
-                let subtotal = parseNumber($('#subtotal').val());
-                
-                // Tambahkan subtotal ke form data
+                let subtotal = parseNumber($('#grandTotal'));
                 formData.append('subtotal', subtotal.toFixed(2));
-                
-                if (ppnAmount > 0) {
-                    formData.append('ppn', ppnAmount.toFixed(2));
-                    formData.append('ppn_kode', '3001');
-                }
-                
-                if (diskonAmount > 0) {
-                    formData.append('diskon', diskonAmount.toFixed(2));
-                    formData.append('diskon_kode', '5001');
-                }
 
-                // Tampilkan loading
+                formData.delete('transactions');
+                
+                let isValid = true;
+                $('#tblDetail tbody tr').each(function(index) {
+                    let kodeTransaksi = $(this).find('select[name^="transactions"][name$="[idkodetransaksi]"]').val();
+                    let description = $(this).find('input[name^="transactions"][name$="[description]"]').val();
+                    let jml = $(this).find('.jml').val() || 1;
+                    let nominal = parseNumber($(this).find('.nominal'));
+                    
+                    if (!kodeTransaksi) {
+                        isValid = false;
+                        Swal.fire('Error', 'Kode transaksi harus dipilih', 'error');
+                        return false;
+                    }
+                    if (!description) {
+                        isValid = false;
+                        Swal.fire('Error', 'Deskripsi harus diisi', 'error');
+                        return false;
+                    }
+                    
+                    formData.append(`transactions[${index}][idkodetransaksi]`, kodeTransaksi);
+                    formData.append(`transactions[${index}][description]`, description);
+                    formData.append(`transactions[${index}][jml]`, jml);
+                    formData.append(`transactions[${index}][nominal]`, nominal.toFixed(2));
+                });
+                
+                if (!isValid) return;
+
                 $('#btnSubmit').prop('disabled', true);
                 $('.submit-text').hide();
                 $('.loading-text').show();
@@ -1178,7 +1371,7 @@
                         
                         if (res.success) {
                             $('#modalNota').modal('hide');
-                            tbNotas.ajax.reload();
+                            tbNotas.ajax.reload(null, false);
                             Swal.fire('Berhasil!', res.message, 'success');
                         } else {
                             Swal.fire('Error!', res.message, 'error');
@@ -1193,35 +1386,46 @@
                         let errorMsg = xhr.responseJSON?.message || 'Terjadi kesalahan saat menyimpan data';
                         
                         if (errors) {
-                            errorMsg = '';
-                            $.each(errors, function(key, value) {
-                                errorMsg += value[0] + '\n';
-                            });
+                            errorMsg = Object.values(errors).flat().join('\n');
                         }
                         
                         Swal.fire('Error!', errorMsg, 'error');
+                        console.error('Submit error:', xhr);
                     }
                 });
             }
 
-            // Helper function untuk status badge
-            function getStatusBadge(status) {
-                const badge = {
-                    'open': 'bg-warning',
-                    'paid': 'bg-success', 
-                    'partial': 'bg-info',
-                    'cancel': 'bg-danger'
-                };
-                return `<span class="badge ${badge[status]}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
-            }
+            // ============= INITIALIZATION =============
+            $('#btnTambahNota').click(function() {
+                resetForm();
+                $('#modalNota').modal('show');
+            });
 
-            // Initialize select2 saat pertama kali load
-            initializeSelect2();
+            $('#modalNota').on('shown.bs.modal', function() {
+                setTimeout(() => {
+                    initAutoNumeric();
+                    initializeSelect2();
+                }, 300);
+            });
+
+            $('#modalNota').on('hidden.bs.modal', function() {
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+            });
+
+            $('#modalViewNota').on('hidden.bs.modal', function() {
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+            });
+
+            // INIT
             setDefaultDate();
             setAutoNotaNo();
-            
-            // Hitung awal
-            calculateTotals();
+            setTimeout(() => {
+                initAutoNumeric();
+                initializeSelect2();
+            }, 500);
+
         });
         </script>
     </x-slot>
