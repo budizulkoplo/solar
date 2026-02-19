@@ -177,7 +177,7 @@
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                                             <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                                            <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0" step="0.01"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end nominal nominal-currency" name="transactions[0][nominal]" value="0" inputmode="numeric"></td>
                                             <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
@@ -192,8 +192,8 @@
                                             <td colspan="2">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text">PPN</span>
-                                                    <input type="number"  class="form-control form-control-sm text-end" 
-                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" min="0" value="0" step="0.01">
+                                                    <input type="text" class="form-control form-control-sm text-end nominal-currency" 
+                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" value="0" inputmode="numeric">
                                                 </div>
                                             </td>
                                             <td class="text-end"><strong>PPN:</strong></td>
@@ -210,8 +210,8 @@
                                                 </select>
                                             </td>
                                             <td>
-                                                <input type="number"  class="form-control form-control-sm" 
-                                                       id="diskonValue" placeholder="Nilai" style="display:none;">
+                                                <input type="text" class="form-control form-control-sm text-end" 
+                                                       id="diskonValue" placeholder="Nilai" style="display:none;" inputmode="numeric">
                                             </td>
                                             <td class="text-end"><strong>Diskon:</strong></td>
                                             <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="diskonDisplay" value="Rp 0" readonly></td>
@@ -528,15 +528,25 @@
                 }).format(num);
             }
 
-            // Parse nilai dari format Rupiah atau angka biasa
+            // Parse nilai dari format Rupiah/ID (1.000 / 1.000,50) atau angka biasa
             function parseNumber(value) {
                 if (!value && value !== 0) return 0;
-                
-                // Jika sudah format Rupiah, hilangkan simbol
+
                 if (typeof value === 'string') {
-                    value = value.replace(/[^\d.-]/g, '');
+                    // Sisakan angka, titik, koma, minus
+                    value = value.replace(/[^\d,.-]/g, '');
+
+                    // Format Indonesia: titik ribuan, koma desimal
+                    // contoh: 1.234.567 -> 1234567
+                    // contoh: 1.234.567,89 -> 1234567.89
+                    const hasComma = value.includes(',');
+                    if (hasComma) {
+                        value = value.replace(/\./g, '').replace(',', '.');
+                    } else {
+                        value = value.replace(/\./g, '');
+                    }
                 }
-                
+
                 let num = parseFloat(value);
                 return isNaN(num) ? 0 : num;
             }
@@ -573,7 +583,7 @@
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                         <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0" step="0.01"></td>
+                        <td><input type="text" class="form-control form-control-sm text-end nominal nominal-currency" name="transactions[0][nominal]" value="0" inputmode="numeric"></td>
                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
@@ -737,6 +747,18 @@
                 }
             }
 
+            // === AUTO FORMAT NOMINAL (input ribuan: 1.000, 100.000.000) ===
+            function formatInputNominal(value) {
+                if (value === null || value === undefined) return '0';
+
+                const cleaned = value.toString().replace(/[^\d]/g, '');
+                if (!cleaned) return '0';
+
+                return new Intl.NumberFormat('id-ID', {
+                    maximumFractionDigits: 0
+                }).format(parseInt(cleaned, 10));
+            }
+
             // Hitung total per row
             $(document).on('input', '.jml, .nominal', function() {
                 let row = $(this).closest('tr');
@@ -747,6 +769,10 @@
                 
                 // Update subtotal saja (tidak menghitung grand total)
                 calculateSubtotal();
+            });
+
+            $(document).on('input', '.nominal-currency', function() {
+                $(this).val(formatInputNominal($(this).val()));
             });
 
             // Hitung input PPN
@@ -769,6 +795,9 @@
 
             // Handle Diskon value input
             $(document).on('input', '#diskonValue', function() {
+                if ($('#diskonType').val() === 'nominal') {
+                    $(this).val(formatInputNominal($(this).val()));
+                }
                 calculateGrandTotal();
             });
 
@@ -844,7 +873,7 @@
                     </td>
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
                     <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0" step="0.01"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end nominal nominal-currency" name="transactions[${rowIndex}][nominal]" value="0" inputmode="numeric"></td>
                     <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" value="0" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
@@ -1084,7 +1113,7 @@
                         $('#tanggalNota').val(nota.tanggal);
                         
                         // Isi PPN
-                        $('#ppnAmount').val(nota.ppn || 0);
+                        $('#ppnAmount').val(formatInputNominal(nota.ppn || 0));
                         
                         if (nota.vendor_id) {
                             $('#vendorId').val(nota.vendor_id).trigger('change');
@@ -1130,7 +1159,7 @@
                                         </td>
                                         <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
                                         <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" ></td>
-                                        <td><input type="number"  class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0" step="0.01"></td>
+                                        <td><input type="text" class="form-control form-control-sm text-end nominal nominal-currency" name="transactions[${newRowIndex}][nominal]" value="${formatInputNominal(transaction.nominal || 0)}" inputmode="numeric"></td>
                                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
                                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                     </tr>
@@ -1145,7 +1174,7 @@
                         if (nota.diskon > 0) {
                             // Default ke nominal dulu
                             $('#diskonType').val('nominal');
-                            $('#diskonValue').show().val(nota.diskon);
+                            $('#diskonValue').show().val(formatInputNominal(nota.diskon));
                         }
                         
                         calculateTotals();
