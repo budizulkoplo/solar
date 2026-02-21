@@ -389,6 +389,9 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
                 ->name('transaksi.pembiayaan.rekening.saldo');
             Route::get('get-project-session', [PembiayaanController::class,'getProjectFromSession'])
                 ->name('transaksi.pembiayaan.project.session');
+
+            Route::post('{id}/cancel', [PembiayaanController::class, 'cancel'])
+                ->name('transaksi.pembiayaan.cancel');
         });
 
     });

@@ -70,13 +70,13 @@ class PembiayaanController extends Controller
                 $actionBtn .= '<button class="btn btn-sm btn-info view-btn" data-id="'.$row->id.'"><i class="bi bi-eye"></i></button>';
                 
                 // Hanya bisa edit/hapus jika status completed
-                if (in_array($row->status, ['draft', 'rejected'])) {
+               
                     $actionBtn .= '<button class="btn btn-sm btn-warning edit-btn" data-id="'.$row->id.'"><i class="bi bi-pencil"></i></button>';
                     
                     if ($canDelete) {
                         $actionBtn .= '<button class="btn btn-sm btn-danger delete-btn" data-id="'.$row->id.'"><i class="bi bi-trash"></i></button>';
                     }
-                }
+                
                 
                 // Tombol setoran untuk pembiayaan yang status completed
                 if ($row->status === 'completed') {
@@ -362,11 +362,6 @@ class PembiayaanController extends Controller
     {
         try {
             $pembiayaan = Pembiayaan::with(['dokumen'])->findOrFail($id);
-            
-            // Hanya bisa edit jika status draft atau rejected
-            if (!in_array($pembiayaan->status, ['draft', 'rejected'])) {
-                throw new \Exception("Hanya pembiayaan dengan status draft atau rejected yang dapat diedit");
-            }
 
             // Cek jika sudah ada setoran
             $totalSetoran = PembiayaanSetoran::where('pembiayaan_id', $id)->where('status', 'paid')->sum('pokok');
@@ -413,11 +408,7 @@ class PembiayaanController extends Controller
 
             // Cari pembiayaan lama
             $pembiayaan = Pembiayaan::with(['rekening'])->findOrFail($id);
-            
-            // Hanya bisa edit jika status draft atau rejected
-            if (!in_array($pembiayaan->status, ['draft', 'rejected'])) {
-                throw new \Exception("Hanya pembiayaan dengan status draft atau rejected yang dapat diedit");
-            }
+        
 
             // Cek jika sudah ada setoran
             $totalSetoran = PembiayaanSetoran::where('pembiayaan_id', $id)->where('status', 'paid')->sum('pokok');
@@ -548,11 +539,6 @@ class PembiayaanController extends Controller
                     'success' => false,
                     'message' => 'Anda tidak memiliki izin untuk menghapus pembiayaan'
                 ], 403);
-            }
-
-            // Hanya bisa hapus jika status draft atau rejected
-            if (!in_array($pembiayaan->status, ['draft', 'rejected'])) {
-                throw new \Exception("Hanya pembiayaan dengan status draft atau rejected yang dapat dihapus");
             }
 
             // Cek jika sudah ada setoran
