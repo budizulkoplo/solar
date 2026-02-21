@@ -555,14 +555,7 @@
                         data: 'tanggal', 
                         name: 'tanggal',
                         className: 'text-center',
-                        width: '8%',
-                        render: function(data) {
-                            if (data) {
-                                let date = new Date(data);
-                                return date.toLocaleDateString('id-ID');
-                            }
-                            return '-';
-                        }
+                        width: '8%'
                     },
                     { 
                         data: 'total', 
