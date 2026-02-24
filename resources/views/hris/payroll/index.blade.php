@@ -109,32 +109,50 @@
 <script>
 $(function(){
 
-    function formatRupiah(val){ 
-        return 'Rp '+Number(val||0).toLocaleString('id-ID'); 
-    }
+    // ===============================
+    // Fungsi utilitas
+    // ===============================
 
+    // Bersihkan string/angka menjadi number murni
     function cleanNumber(val){ 
-        return Number((val||0).toString().replace(/[^\d]/g,'')); 
+        return parseInt((val||0).toString().replace(/[^\d]/g,'')) || 0; 
     }
 
+    // Alias agar mudah dipanggil
+function parseNumber(val){
+    if(!val) return 0;
+    return parseFloat(val) || 0;
+}
+
+    // Format angka ke Rupiah
+    function formatRupiah(val){
+        val = parseNumber(val); // pastikan angka murni
+        return 'Rp ' + val.toLocaleString('id-ID');
+    }
+    // ===============================
+    // Hitung total per baris
+    // ===============================
     function hitungJumlah(row){
-        let pend = [
-            'gajipokok','pek_tambahan','masakerja','komunikasi',
-            'transportasi','konsumsi','tunj_asuransi','jabatan'
-        ];
+        let pend = ['gajipokok','pek_tambahan','masakerja','komunikasi',
+                    'transportasi','konsumsi','tunj_asuransi','jabatan'];
 
-        let pot = ['cicilan','asuransi','zakat']; // zakat ikut potongan manual
+        let pot = ['cicilan','asuransi','zakat'];
 
-        let totalPend = 0, totalPot = 0;
+        let totalPend = 0;
+        let totalPot = 0;
 
-        pend.forEach(f=> totalPend += cleanNumber(row.find(`[data-field="${f}"]`).text()));
-        pot.forEach(f=> totalPot += cleanNumber(row.find(`[data-field="${f}"]`).text()));
+        pend.forEach(f => totalPend += cleanNumber(row.find(`[data-field="${f}"]`).text()));
+        pot.forEach(f => totalPot += cleanNumber(row.find(`[data-field="${f}"]`).text()));
 
+        // Update kolom total, pakai format Rupiah
         row.find('.totalPendapatan').text(formatRupiah(totalPend));
         row.find('.totalPotongan').text(formatRupiah(totalPot));
         row.find('.jumlah').text(formatRupiah(totalPend - totalPot));
     }
 
+    // ===============================
+    // Update manual ke server
+    // ===============================
     function updatePayroll(nik, field, value, row){
         let dataToSend = {
             _token : "{{ csrf_token() }}",
@@ -149,11 +167,14 @@ $(function(){
             } else {
                 alert("❌ Gagal update data!");
             }
-        }).fail(()=>{
-            alert("⚠️ Gagal terhubung ke server.");
+        }).fail(()=>{ 
+            alert("⚠️ Gagal terhubung ke server."); 
         });
     }
 
+    // ===============================
+    // Tombol Tampilkan Payroll
+    // ===============================
     $('#btnTampil').click(function(){
         let bulan   = $('#bulan').val(),
             tahun   = $('#tahun').val(),
@@ -161,14 +182,23 @@ $(function(){
 
         $('#periode-text').text($('#bulan option:selected').text()+' '+tahun);
 
-        $.get("{{ route('hris.payroll.data') }}",{ bulan, tahun, unit_id },function(res){
-            let rows='';
+        $.get("{{ route('hris.payroll.data') }}", { bulan, tahun, unit_id }, function(res){
+            let rows = '';
 
             res.data.forEach((r,i)=>{
-                let totalPendapatan = r.gajipokok + r.pek_tambahan + r.masakerja + r.komunikasi +
-                                      r.transportasi + r.konsumsi + r.tunj_asuransi + r.jabatan;
+                // Hitung total dengan parseNumber agar angka valid
+                let totalPendapatan = parseNumber(r.gajipokok) + 
+                                    parseNumber(r.pek_tambahan) + 
+                                    parseNumber(r.masakerja) + 
+                                    parseNumber(r.komunikasi) +
+                                    parseNumber(r.transportasi) + 
+                                    parseNumber(r.konsumsi) + 
+                                    parseNumber(r.tunj_asuransi) + 
+                                    parseNumber(r.jabatan);
 
-                let totalPotongan = r.cicilan + r.asuransi + r.zakat;
+                let totalPotongan = parseNumber(r.cicilan) + 
+                                    parseNumber(r.asuransi) + 
+                                    parseNumber(r.zakat);
 
                 rows += `
                 <tr data-nik="${r.nik}">
@@ -192,8 +222,6 @@ $(function(){
 
                     <td contenteditable class="editable potongan" data-field="cicilan">${formatRupiah(r.cicilan)}</td>
                     <td contenteditable class="editable potongan" data-field="asuransi">${formatRupiah(r.asuransi)}</td>
-
-                    <!-- ZAKAT SEKARANG EDITABLE & TIDAK OTOMATIS -->
                     <td contenteditable class="editable potongan" data-field="zakat">${formatRupiah(r.zakat)}</td>
 
                     <td class="totalPendapatan bg-total">${formatRupiah(totalPendapatan)}</td>
@@ -206,25 +234,31 @@ $(function(){
         });
     });
 
+    // ===============================
+    // Editable cell: focus
+    // ===============================
     $(document).on('focus','.editable',function(){
-        let el=$(this);
+        let el = $(this);
         el.text(cleanNumber(el.text()));
 
-        let range=document.createRange();
+        let range = document.createRange();
         range.selectNodeContents(el[0]);
 
-        let sel=window.getSelection();
+        let sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
     });
 
+    // ===============================
+    // Editable cell: blur
+    // ===============================
     $(document).on('blur','.editable',function(){
         let el    = $(this),
             nik   = el.closest('tr').data('nik'),
             field = el.data('field'),
             row   = el.closest('tr');
 
-        let value = cleanNumber(el.text()); 
+        let value = cleanNumber(el.text());
         el.text(formatRupiah(value));
 
         updatePayroll(nik, field, value, row);
