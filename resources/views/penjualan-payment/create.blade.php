@@ -15,6 +15,13 @@
             padding: 0.25rem 0.5rem;
             font-size: 0.75rem;
         }
+        .select2-container {
+            width: 100% !important;
+            z-index: 1060;
+        }
+        .select2-dropdown {
+            z-index: 1061;
+        }
     </style>
 
     <div class="app-content-header">
@@ -317,31 +324,46 @@
                                 <div class="mb-3">
                                     <label class="form-label">Metode Pembayaran *</label>
                                     <select class="form-select" name="metode_pembayaran" id="metode_pembayaran" required 
-                                            onchange="toggleBankFields()">
+                                            onchange="toggleRekeningFields()">
                                         <option value="cash">Cash</option>
                                         <option value="transfer">Transfer Bank</option>
                                     </select>
                                 </div>
                                 
-                                <!-- Fields untuk transfer bank -->
-                                <div id="bankFields" style="display: none;">
-                                    <div class="mb-3">
-                                        <label class="form-label">Bank *</label>
-                                        <input type="text" class="form-control" name="bank" 
-                                               placeholder="Nama bank (contoh: BNI, BCA, BRI)">
+                                <!-- Rekening (Select2) -->
+                                <div class="mb-3" id="rekeningContainer">
+                                    <label class="form-label">Rekening Tujuan *</label>
+                                    <select class="form-select select2" name="idrek" id="idrek" style="width:100%;" required>
+                                        <option value="">-- Pilih Rekening --</option>
+                                        @foreach($rekenings as $rek)
+                                            <option value="{{ $rek->idrek }}" data-saldo="{{ $rek->saldo }}" 
+                                                    data-norek="{{ $rek->norek }}" data-namarek="{{ $rek->namarek }}" 
+                                                    data-bank="{{ $rek->namabank ?? $rek->nama }}">
+                                                {{ $rek->norek }} - {{ $rek->namarek }} ({{ $rek->namabank ?? $rek->nama }}) - Saldo: Rp {{ number_format($rek->saldo, 0, ',', '.') }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                
+                                <!-- Info Saldo Rekening -->
+                                <div class="mb-3" id="saldoInfoContainer" style="display: none;">
+                                    <div class="alert alert-info p-2 mb-0">
+                                        <i class="bi bi-wallet2"></i> 
+                                        Saldo rekening tersedia: <strong id="availableBalance">Rp 0</strong>
                                     </div>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">No. Rekening</label>
-                                        <input type="text" class="form-control" name="no_rekening" 
-                                               placeholder="Masukkan nomor rekening">
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Nama Rekening</label>
-                                        <input type="text" class="form-control" name="nama_rekening" 
-                                               placeholder="Masukkan nama rekening">
-                                    </div>
+                                </div>
+                                
+                                <!-- Fields manual untuk rekening (opsional) -->
+                                <div class="mb-3" id="noRekContainer" style="display: none;">
+                                    <label class="form-label">No. Rekening (Opsional)</label>
+                                    <input type="text" class="form-control" name="no_rekening" id="no_rekening" 
+                                           placeholder="Kosongkan untuk menggunakan norek dari rekening">
+                                </div>
+                                
+                                <div class="mb-3" id="namaRekContainer" style="display: none;">
+                                    <label class="form-label">Nama Rekening (Opsional)</label>
+                                    <input type="text" class="form-control" name="nama_rekening" id="nama_rekening" 
+                                           placeholder="Kosongkan untuk menggunakan nama dari rekening">
                                 </div>
                                 
                                 <div class="mb-3">
@@ -356,7 +378,7 @@
                                         <span class="input-group-text">Rp</span>
                                         <input type="text" class="form-control numeric-input" 
                                                name="nominal" id="nominal" 
-                                               value="{{ number_format($sisaBelumDibayar > $penjualan->dp_awal ? $penjualan->dp_awal : $sisaBelumDibayar, 0, ',', '.') }}" 
+                                               value="{{ number_format($sisaBelumDibayar, 0, ',', '.') }}" 
                                                required>
                                     </div>
                                     <small class="text-muted">
@@ -377,14 +399,9 @@
                                     <small class="text-muted">Format: JPG, PNG, PDF. Maks: 8MB</small>
                                 </div>
                                 
-                                <div class="alert alert-info">
+                                <div class="alert alert-success">
                                     <i class="bi bi-info-circle"></i> 
-                                    @if($penjualan->metode_pembayaran == 'cash')
-                                        Pembayaran cash akan langsung masuk ke status <strong>Realized</strong>.
-                                    @else
-                                        Pembayaran kredit akan masuk ke status <strong>Realized</strong> 
-                                        dan mengurangi sisa pembayaran.
-                                    @endif
+                                    <strong>Informasi Penting:</strong> Pembayaran akan langsung masuk ke status <strong>Realized</strong> dan <strong>menambah saldo rekening</strong> yang dipilih.
                                 </div>
                                 
                                 <div class="d-grid gap-2">
@@ -405,7 +422,41 @@
     </div>
 
     <x-slot name="jscustom">
+        <!-- Select2 -->
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        
+        <!-- AutoNumeric JS -->
+        <script src="https://cdn.jsdelivr.net/npm/autonumeric@4.6.0/dist/autoNumeric.min.js"></script>
+
         <script>
+            // Format Rupiah function
+            function formatRupiah(angka) {
+                if (!angka && angka !== 0) return 'Rp 0';
+                let num = parseFloat(angka) || 0;
+                return 'Rp ' + Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
+            function parseNumber(value) {
+                if (!value && value !== 0) return 0;
+                
+                try {
+                    if (value && value.jquery) {
+                        value = value.val();
+                    }
+                    
+                    if (typeof value === 'string') {
+                        value = value.replace(/[^\d,-]/g, '');
+                        value = value.replace(',', '.');
+                    }
+                    
+                    let num = parseFloat(value);
+                    return !isNaN(num) ? num : 0;
+                } catch (e) {
+                    return 0;
+                }
+            }
+
             function updateJenisPayment() {
                 const jenis = $('#jenis_payment').val();
                 const terminContainer = $('#terminContainer');
@@ -421,18 +472,41 @@
                 }
             }
             
-            function toggleBankFields() {
+            function toggleRekeningFields() {
                 const method = $('#metode_pembayaran').val();
-                const bankFields = $('#bankFields');
+                const rekeningContainer = $('#rekeningContainer');
+                const saldoInfoContainer = $('#saldoInfoContainer');
+                const noRekContainer = $('#noRekContainer');
+                const namaRekContainer = $('#namaRekContainer');
                 
                 if (method === 'transfer') {
-                    bankFields.show();
-                    $('input[name="bank"]').prop('required', true);
+                    rekeningContainer.show();
+                    saldoInfoContainer.show();
+                    noRekContainer.show();
+                    namaRekContainer.show();
+                    $('#idrek').prop('required', true);
                 } else {
-                    bankFields.hide();
-                    $('input[name="bank"]').prop('required', false);
+                    rekeningContainer.hide();
+                    saldoInfoContainer.hide();
+                    noRekContainer.hide();
+                    namaRekContainer.hide();
+                    $('#idrek').prop('required', false);
                 }
             }
+            
+            // Update saldo saat rekening dipilih
+            $('#idrek').change(function() {
+                const selected = $(this).find('option:selected');
+                const saldo = selected.data('saldo') || 0;
+                const norek = selected.data('norek') || '';
+                const namarek = selected.data('namarek') || '';
+                
+                $('#availableBalance').text(formatRupiah(saldo));
+                
+                // Isi field manual dengan data dari rekening
+                $('#no_rekening').val(norek);
+                $('#nama_rekening').val(namarek);
+            });
             
             // Format numeric input
             $('.numeric-input').on('input', function() {
@@ -498,15 +572,19 @@
             
             // Initialize
             $(document).ready(function() {
-                updateJenisPayment();
-                toggleBankFields();
+                // Initialize Select2
+                $('.select2').select2({
+                    width: '100%',
+                    placeholder: '-- Pilih Rekening --'
+                });
                 
-                // Set nilai default untuk bank jika penjualan kredit
+                updateJenisPayment();
+                toggleRekeningFields();
+                
+                // Set nilai default untuk rekening jika penjualan kredit
                 @if($penjualan->metode_pembayaran == 'kredit')
                     $('#metode_pembayaran').val('transfer');
-                    $('#bankFields').show();
-                    $('input[name="bank"]').val("{{ $penjualan->bank_kredit }}");
-                    $('input[name="bank"]').prop('required', true);
+                    toggleRekeningFields();
                 @endif
             });
         </script>

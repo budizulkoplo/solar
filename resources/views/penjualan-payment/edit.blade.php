@@ -43,6 +43,9 @@
                                 @csrf
                                 @method('PUT')
                                 
+                                <input type="hidden" name="old_rekening" id="oldRekening" value="{{ $payment->idrek }}">
+                                <input type="hidden" name="old_grand_total" id="oldGrandTotal" value="{{ $payment->nominal }}">
+                                
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Jenis Pembayaran *</label>
@@ -67,7 +70,7 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Metode Pembayaran *</label>
                                         <select class="form-select" name="metode_pembayaran" id="metode_pembayaran" required
-                                                onchange="toggleBankFields()">
+                                                onchange="toggleRekeningFields()">
                                             <option value="cash" {{ $payment->metode_pembayaran == 'cash' ? 'selected' : '' }}>Cash</option>
                                             <option value="transfer" {{ $payment->metode_pembayaran == 'transfer' ? 'selected' : '' }}>Transfer Bank</option>
                                         </select>
@@ -91,27 +94,44 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- Fields untuk transfer bank -->
-                                    <div class="col-md-6 mb-3" id="bankField" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
-                                        <label class="form-label">Bank {{ $payment->metode_pembayaran == 'transfer' ? '*' : '' }}</label>
-                                        <input type="text" class="form-control" name="bank" 
-                                               value="{{ $payment->bank }}" 
-                                               placeholder="Nama bank"
-                                               {{ $payment->metode_pembayaran == 'transfer' ? 'required' : '' }}>
+                                    <!-- Rekening (Select2) -->
+                                    <div class="col-md-6 mb-3" id="rekeningContainer" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
+                                        <label class="form-label">Rekening Tujuan *</label>
+                                        <select class="form-select select2" name="idrek" id="idrek" style="width:100%;"
+                                                {{ $payment->metode_pembayaran == 'transfer' ? 'required' : '' }}>
+                                            <option value="">-- Pilih Rekening --</option>
+                                            @foreach($rekenings as $rek)
+                                                <option value="{{ $rek->idrek }}" data-saldo="{{ $rek->saldo }}" 
+                                                        data-norek="{{ $rek->norek }}" data-namarek="{{ $rek->namarek }}" 
+                                                        data-bank="{{ $rek->namabank ?? $rek->nama }}"
+                                                        {{ $payment->idrek == $rek->idrek ? 'selected' : '' }}>
+                                                    {{ $rek->norek }} - {{ $rek->namarek }} ({{ $rek->namabank ?? $rek->nama }}) - Saldo: Rp {{ number_format($rek->saldo, 0, ',', '.') }}
+                                                </option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                     
-                                    <div class="col-md-6 mb-3" id="noRekField" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
+                                    <!-- Info Saldo Rekening -->
+                                    <div class="col-md-6 mb-3" id="saldoInfoContainer" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
+                                        <div class="alert alert-info p-2 mb-0">
+                                            <i class="bi bi-wallet2"></i> 
+                                            Saldo rekening tersedia: <strong id="availableBalance">Rp {{ number_format($payment->idrek ? ($rekenings->firstWhere('idrek', $payment->idrek)->saldo ?? 0) : 0, 0, ',', '.') }}</strong>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Fields manual untuk rekening (opsional) -->
+                                    <div class="col-md-6 mb-3" id="noRekContainer" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
                                         <label class="form-label">No. Rekening (Opsional)</label>
-                                        <input type="text" class="form-control" name="no_rekening" 
+                                        <input type="text" class="form-control" name="no_rekening" id="no_rekening" 
                                                value="{{ $payment->no_rekening }}" 
-                                               placeholder="Masukkan nomor rekening">
+                                               placeholder="Kosongkan untuk menggunakan norek dari rekening">
                                     </div>
                                     
-                                    <div class="col-md-6 mb-3" id="namaRekField" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
+                                    <div class="col-md-6 mb-3" id="namaRekContainer" style="{{ $payment->metode_pembayaran == 'transfer' ? '' : 'display: none;' }}">
                                         <label class="form-label">Nama Rekening (Opsional)</label>
-                                        <input type="text" class="form-control" name="nama_rekening" 
+                                        <input type="text" class="form-control" name="nama_rekening" id="nama_rekening" 
                                                value="{{ $payment->nama_rekening }}" 
-                                               placeholder="Masukkan nama rekening">
+                                               placeholder="Kosongkan untuk menggunakan nama dari rekening">
                                     </div>
                                     
                                     <div class="col-md-12 mb-3">
@@ -136,7 +156,8 @@
                                 
                                 <div class="alert alert-warning">
                                     <i class="bi bi-exclamation-triangle"></i> 
-                                    <strong>Perhatian!</strong> Mengubah nominal pembayaran akan mempengaruhi sisa pembayaran penjualan.
+                                    <strong>Perhatian!</strong> Mengubah nominal atau rekening akan mempengaruhi saldo rekening. 
+                                    Perubahan akan melakukan rollback saldo lama dan menambah ke rekening baru.
                                 </div>
                                 
                                 <div class="d-flex justify-content-end gap-2">
@@ -193,6 +214,10 @@
                                     </td>
                                 </tr>
                                 <tr>
+                                    <th>Rekening</th>
+                                    <td>{{ $payment->bank }} - {{ $payment->no_rekening }} ({{ $payment->nama_rekening }})</td>
+                                </tr>
+                                <tr>
                                     <th>Dibuat Oleh</th>
                                     <td>{{ $payment->creator->name ?? '-' }}</td>
                                 </tr>
@@ -209,25 +234,76 @@
     </div>
 
     <x-slot name="jscustom">
+        <!-- Select2 -->
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        
+        <!-- AutoNumeric JS -->
+        <script src="https://cdn.jsdelivr.net/npm/autonumeric@4.6.0/dist/autoNumeric.min.js"></script>
+
         <script>
-            function toggleBankFields() {
-                const method = $('#metode_pembayaran').val();
-                const bankField = $('#bankField');
-                const noRekField = $('#noRekField');
-                const namaRekField = $('#namaRekField');
+            // Format Rupiah function
+            function formatRupiah(angka) {
+                if (!angka && angka !== 0) return 'Rp 0';
+                let num = parseFloat(angka) || 0;
+                return 'Rp ' + Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
+            function parseNumber(value) {
+                if (!value && value !== 0) return 0;
                 
-                if (method === 'transfer') {
-                    bankField.show();
-                    noRekField.show();
-                    namaRekField.show();
-                    $('input[name="bank"]').prop('required', true);
-                } else {
-                    bankField.hide();
-                    noRekField.hide();
-                    namaRekField.hide();
-                    $('input[name="bank"]').prop('required', false);
+                try {
+                    if (value && value.jquery) {
+                        value = value.val();
+                    }
+                    
+                    if (typeof value === 'string') {
+                        value = value.replace(/[^\d,-]/g, '');
+                        value = value.replace(',', '.');
+                    }
+                    
+                    let num = parseFloat(value);
+                    return !isNaN(num) ? num : 0;
+                } catch (e) {
+                    return 0;
                 }
             }
+            
+            function toggleRekeningFields() {
+                const method = $('#metode_pembayaran').val();
+                const rekeningContainer = $('#rekeningContainer');
+                const saldoInfoContainer = $('#saldoInfoContainer');
+                const noRekContainer = $('#noRekContainer');
+                const namaRekContainer = $('#namaRekContainer');
+                
+                if (method === 'transfer') {
+                    rekeningContainer.show();
+                    saldoInfoContainer.show();
+                    noRekContainer.show();
+                    namaRekContainer.show();
+                    $('#idrek').prop('required', true);
+                } else {
+                    rekeningContainer.hide();
+                    saldoInfoContainer.hide();
+                    noRekContainer.hide();
+                    namaRekContainer.hide();
+                    $('#idrek').prop('required', false);
+                }
+            }
+            
+            // Update saldo saat rekening dipilih
+            $('#idrek').change(function() {
+                const selected = $(this).find('option:selected');
+                const saldo = selected.data('saldo') || 0;
+                const norek = selected.data('norek') || '';
+                const namarek = selected.data('namarek') || '';
+                
+                $('#availableBalance').text(formatRupiah(saldo));
+                
+                // Isi field manual dengan data dari rekening
+                $('#no_rekening').val(norek);
+                $('#nama_rekening').val(namarek);
+            });
             
             // Format numeric input
             $('.numeric-input').on('input', function() {
@@ -281,7 +357,18 @@
             
             // Initialize
             $(document).ready(function() {
-                toggleBankFields();
+                // Initialize Select2
+                $('.select2').select2({
+                    width: '100%',
+                    placeholder: '-- Pilih Rekening --'
+                });
+                
+                toggleRekeningFields();
+                
+                // Set nilai awal saldo
+                const selected = $('#idrek').find('option:selected');
+                const saldo = selected.data('saldo') || 0;
+                $('#availableBalance').text(formatRupiah(saldo));
             });
         </script>
     </x-slot>

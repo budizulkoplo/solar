@@ -1,11 +1,13 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\PenjualanPayment; // Ganti dari PencairanBank
+use App\Models\PenjualanPayment;
 use App\Models\Penjualan;
 use App\Models\UnitDetail;
 use App\Models\Unit;
 use App\Models\Customer;
+use App\Models\Rekening;
+use App\Models\Cashflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -48,7 +50,7 @@ class PenjualanPaymentController extends Controller
                 }
                 $q->whereIn('status_penjualan', ['process', 'selesai', 'lunas']);
             })
-            // Filter by project yang aktif - PERBAIKAN INI
+            // Filter by project yang aktif
             ->whereHas('unit', function($query) use ($projectId) {
                 $query->where('idproject', $projectId);
             })
@@ -173,7 +175,6 @@ class PenjualanPaymentController extends Controller
                             </a>';
                     
                     // Hitung sisa yang belum dibayar
-                    // BENAR: sisa_pembayaran sudah merupakan sisa setelah semua pembayaran
                     $sisaBelumDibayar = $row->penjualan->sisa_pembayaran;
                     
                     // Tombol untuk menambah pembayaran baru (jika masih ada sisa)
@@ -196,7 +197,7 @@ class PenjualanPaymentController extends Controller
                 $q->where('status_payment', 'realized');
             }])
             ->whereIn('status_penjualan', ['process', 'selesai', 'lunas'])
-            // Filter by project yang aktif - PERBAIKAN INI JUGA
+            // Filter by project yang aktif
             ->whereHas('unitDetail.unit', function($q) use ($projectId) {
                 $q->where('idproject', $projectId);
             });
@@ -241,8 +242,7 @@ class PenjualanPaymentController extends Controller
             ->findOrFail($penjualanId);
         
         $totalPayment = $penjualan->payments->where('status_payment', 'realized')->sum('nominal');
-        // $sisaBelumDibayar = $penjualan->sisa_pembayaran - $totalPayment;
-        $sisaBelumDibayar =  $penjualan->sisa_pembayaran - $penjualan->dp_awal;
+        $sisaBelumDibayar = $penjualan->sisa_pembayaran;
         $progress = $penjualan->harga_jual > 0 ? ($totalPayment / $penjualan->harga_jual) * 100 : 0;
         
         return view('penjualan-payment.detail', compact('penjualan', 'totalPayment', 'sisaBelumDibayar', 'progress'));
@@ -265,7 +265,7 @@ class PenjualanPaymentController extends Controller
         
         // Hitung total yang sudah dibayar
         $totalPayment = $penjualan->payments->sum('nominal');
-        $sisaBelumDibayar = $penjualan->sisa_pembayaran - $totalPayment;
+        $sisaBelumDibayar = $penjualan->sisa_pembayaran;
         $progress = $penjualan->harga_jual > 0 ? ($totalPayment / $penjualan->harga_jual) * 100 : 0;
         
         // Cek apakah sudah lunas
@@ -274,11 +274,15 @@ class PenjualanPaymentController extends Controller
                 ->with('error', 'Penjualan ini sudah lunas');
         }
         
+        // Ambil daftar rekening untuk project aktif
+        $rekenings = Rekening::forProject(session('active_project_id'))->get();
+        
         return view('penjualan-payment.create', compact(
             'penjualan', 
             'totalPayment', 
             'sisaBelumDibayar', 
-            'progress'
+            'progress',
+            'rekenings'
         ));
     }
     
@@ -292,7 +296,7 @@ class PenjualanPaymentController extends Controller
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
             'metode_pembayaran' => 'required|in:cash,transfer',
-            'bank' => 'nullable|required_if:metode_pembayaran,transfer|string|max:100',
+            'idrek' => 'required|exists:rekening,idrek', // Ganti dari 'bank' menjadi 'idrek'
             'no_rekening' => 'nullable|string|max:50',
             'nama_rekening' => 'nullable|string|max:100',
             'keterangan' => 'nullable|string|max:500',
@@ -306,7 +310,7 @@ class PenjualanPaymentController extends Controller
             
             // Cek sisa yang belum dibayar
             $totalPayment = $penjualan->payments->where('status_payment', 'realized')->sum('nominal');
-            $sisaBelumDibayar = $penjualan->sisa_pembayaran - $totalPayment;
+            $sisaBelumDibayar = $penjualan->sisa_pembayaran;
             
             if ($request->nominal > $sisaBelumDibayar) {
                 return response()->json([
@@ -349,6 +353,9 @@ class PenjualanPaymentController extends Controller
                 $terminKe = $lastTermin ? $lastTermin + 1 : 1;
             }
             
+            // Ambil data rekening untuk mendapatkan info bank
+            $rekening = Rekening::findOrFail($request->idrek);
+            
             // Create payment
             $payment = PenjualanPayment::create([
                 'kode_payment' => $kodePayment,
@@ -358,39 +365,59 @@ class PenjualanPaymentController extends Controller
                 'tanggal_payment' => $request->tanggal_payment,
                 'nominal' => $request->nominal,
                 'metode_pembayaran' => $request->metode_pembayaran,
-                'bank' => $request->bank,
-                'no_rekening' => $request->no_rekening,
-                'nama_rekening' => $request->nama_rekening,
-                'status_payment' => 'realized', // Untuk cash langsung realized
+                'idrek' => $request->idrek, // Simpan ID rekening
+                'bank' => $rekening->namabank ?? $rekening->nama, // Ambil nama bank dari rekening
+                'no_rekening' => $request->no_rekening ?? $rekening->norek, // Gunakan norek dari rekening jika tidak diisi manual
+                'nama_rekening' => $request->nama_rekening ?? $rekening->namarek, // Gunakan namarek dari rekening jika tidak diisi manual
+                'status_payment' => 'realized', // Langsung realized untuk pembayaran penjualan
                 'keterangan' => $request->keterangan,
                 'bukti_payment' => $buktiPayment,
                 'created_by' => Auth::id()
             ]);
             
-            // Untuk pembayaran cash, langsung update penjualan
-            if ($request->metode_pembayaran == 'cash') {
-                // Hitung total pembayaran setelah ini
-                $totalPaymentAfter = $totalPayment + $request->nominal;
-                
-                // Update penjualan
+            // Update penjualan - kurangi sisa pembayaran
+            $penjualan->update([
+                'sisa_pembayaran' => max(0, $penjualan->sisa_pembayaran - $request->nominal)
+            ]);
+            
+            // Cek jika sudah lunas
+            $totalPaymentAfter = $totalPayment + $request->nominal;
+            if ($totalPaymentAfter >= $penjualan->harga_jual) {
                 $penjualan->update([
-                    'sisa_pembayaran' => max(0, $penjualan->sisa_pembayaran - $request->nominal)
+                    'status_penjualan' => 'lunas',
+                    'sisa_pembayaran' => 0
                 ]);
-                
-                // Cek jika sudah lunas
-                if ($totalPaymentAfter >= $penjualan->harga_jual) {
-                    $penjualan->update([
-                        'status_penjualan' => 'lunas',
-                        'sisa_pembayaran' => 0
-                    ]);
-                }
             }
+            
+            // TAMBAHKAN KE REKENING SALDO (CASHFLOW)
+            // Pembayaran penjualan dianggap sebagai pemasukan (in)
+            $rekening = Rekening::findOrFail($request->idrek);
+            $saldoAwal = $rekening->saldo;
+            
+            // Tambah saldo rekening (pemasukan)
+            $rekening->saldo += $request->nominal;
+            $rekening->save();
+            
+            // Catat di cashflows
+            Cashflow::create([
+                'idrek' => $request->idrek,
+                'idnota' => null, // Bisa diisi nanti jika ada integrasi dengan nota
+                'tanggal' => $request->tanggal_payment,
+                'cashflow' => 'in', // Pemasukan
+                'nominal' => $request->nominal,
+                'saldo_awal' => $saldoAwal,
+                'saldo_akhir' => $rekening->saldo,
+                'keterangan' => "Pembayaran " . ($jenisPayment == 'dp_awal' ? 'DP Awal' : $jenisPayment) . 
+                                " - Penjualan: {$penjualan->kode_penjualan} - Unit: " . 
+                                ($penjualan->unitDetail->unit->namaunit ?? '') . 
+                                " - Customer: " . ($penjualan->customer->nama_lengkap ?? '')
+            ]);
             
             DB::commit();
             
             return response()->json([
                 'success' => true,
-                'message' => 'Pembayaran berhasil dicatat',
+                'message' => 'Pembayaran berhasil dicatat dan saldo rekening telah ditambahkan',
                 'redirect' => route('penjualan-payment.detail', $penjualan->id)
             ]);
             
@@ -408,8 +435,11 @@ class PenjualanPaymentController extends Controller
     {
         $payment = PenjualanPayment::with(['penjualan.unitDetail.unit.project', 'penjualan.customer'])
             ->findOrFail($id);
+        
+        // Ambil daftar rekening untuk project aktif
+        $rekenings = Rekening::forProject(session('active_project_id'))->get();
             
-        return view('penjualan-payment.edit', compact('payment'));
+        return view('penjualan-payment.edit', compact('payment', 'rekenings'));
     }
 
     // Update pembayaran
@@ -423,7 +453,7 @@ class PenjualanPaymentController extends Controller
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
             'metode_pembayaran' => 'required|in:cash,transfer',
-            'bank' => 'nullable|required_if:metode_pembayaran,transfer|string|max:100',
+            'idrek' => 'required|exists:rekening,idrek', // Ganti dari 'bank' menjadi 'idrek'
             'no_rekening' => 'nullable|string|max:50',
             'nama_rekening' => 'nullable|string|max:100',
             'keterangan' => 'nullable|string|max:500',
@@ -435,6 +465,30 @@ class PenjualanPaymentController extends Controller
             
             // Hitung selisih nominal
             $nominalDifference = $request->nominal - $payment->nominal;
+            $rekeningChanged = ($request->idrek != $payment->idrek);
+            
+            // ROLLBACK LOGIC - Kembalikan saldo ke kondisi sebelum transaksi
+            if ($payment->status_payment == 'realized') {
+                $rekeningLama = Rekening::find($payment->idrek);
+                if ($rekeningLama) {
+                    $saldoAwalLama = $rekeningLama->saldo;
+                    // Kembalikan saldo (kurangi karena ini pemasukan)
+                    $rekeningLama->saldo -= $payment->nominal;
+                    $rekeningLama->save();
+                    
+                    \Log::info('Rollback saldo lama:', [
+                        'rekening_id' => $rekeningLama->idrek,
+                        'saldo_awal' => $saldoAwalLama,
+                        'saldo_akhir' => $rekeningLama->saldo,
+                        'nominal' => $payment->nominal
+                    ]);
+                }
+                
+                // Hapus cashflow lama jika ada
+                Cashflow::where('idnota', null)
+                    ->where('keterangan', 'like', "%Pembayaran%{$payment->penjualan->kode_penjualan}%")
+                    ->delete();
+            }
             
             // Update payment
             if ($request->hasFile('bukti_payment')) {
@@ -449,42 +503,78 @@ class PenjualanPaymentController extends Controller
                 $payment->bukti_payment = $filename;
             }
             
+            // Ambil data rekening baru
+            $rekeningBaru = Rekening::findOrFail($request->idrek);
+            
             $payment->update([
                 'jenis_payment' => $request->jenis_payment,
                 'termin_ke' => $request->termin_ke,
                 'tanggal_payment' => $request->tanggal_payment,
                 'nominal' => $request->nominal,
                 'metode_pembayaran' => $request->metode_pembayaran,
-                'bank' => $request->bank,
-                'no_rekening' => $request->no_rekening,
-                'nama_rekening' => $request->nama_rekening,
+                'idrek' => $request->idrek,
+                'bank' => $rekeningBaru->namabank ?? $rekeningBaru->nama,
+                'no_rekening' => $request->no_rekening ?? $rekeningBaru->norek,
+                'nama_rekening' => $request->nama_rekening ?? $rekeningBaru->namarek,
                 'keterangan' => $request->keterangan
             ]);
             
-            // Update penjualan jika ada perubahan nominal
-            if ($nominalDifference != 0 && $payment->status_payment == 'realized') {
-                $penjualan = $payment->penjualan;
-                $newSisa = $penjualan->sisa_pembayaran - $nominalDifference;
-                
+            // Update penjualan
+            $penjualan = $payment->penjualan;
+            
+            // Hitung total pembayaran yang sudah direalisasi (selain payment ini)
+            $otherPaymentsTotal = $penjualan->payments()
+                ->where('status_payment', 'realized')
+                ->where('id', '!=', $payment->id)
+                ->sum('nominal');
+            
+            // Hitung sisa pembayaran baru
+            $newSisa = $penjualan->harga_jual - ($otherPaymentsTotal + $request->nominal);
+            
+            $penjualan->update([
+                'sisa_pembayaran' => max(0, $newSisa)
+            ]);
+            
+            // Cek jika sudah lunas
+            if ($otherPaymentsTotal + $request->nominal >= $penjualan->harga_jual) {
                 $penjualan->update([
-                    'sisa_pembayaran' => max(0, $newSisa)
+                    'status_penjualan' => 'lunas',
+                    'sisa_pembayaran' => 0
                 ]);
-                
-                // Cek jika sudah lunas
-                $totalPayment = $penjualan->payments()->where('status_payment', 'realized')->sum('nominal');
-                if ($totalPayment >= $penjualan->harga_jual) {
-                    $penjualan->update([
-                        'status_penjualan' => 'lunas',
-                        'sisa_pembayaran' => 0
-                    ]);
-                }
+            } else {
+                $penjualan->update([
+                    'status_penjualan' => 'process'
+                ]);
             }
+            
+            // PROSES PEMBAYARAN BARU - Tambah ke rekening baru
+            $rekeningBaru = Rekening::findOrFail($request->idrek);
+            $saldoAwalBaru = $rekeningBaru->saldo;
+            
+            // Tambah saldo rekening baru
+            $rekeningBaru->saldo += $request->nominal;
+            $rekeningBaru->save();
+            
+            // Catat cashflow baru
+            Cashflow::create([
+                'idrek' => $request->idrek,
+                'idnota' => null,
+                'tanggal' => $request->tanggal_payment,
+                'cashflow' => 'in',
+                'nominal' => $request->nominal,
+                'saldo_awal' => $saldoAwalBaru,
+                'saldo_akhir' => $rekeningBaru->saldo,
+                'keterangan' => "Pembayaran " . ($request->jenis_payment == 'dp_awal' ? 'DP Awal' : $request->jenis_payment) . 
+                                " - Penjualan: {$penjualan->kode_penjualan} - Unit: " . 
+                                ($penjualan->unitDetail->unit->namaunit ?? '') . 
+                                " - Customer: " . ($penjualan->customer->nama_lengkap ?? '')
+            ]);
             
             DB::commit();
             
             return response()->json([
                 'success' => true,
-                'message' => 'Pembayaran berhasil diperbarui',
+                'message' => 'Pembayaran berhasil diperbarui dan saldo rekening telah disesuaikan',
                 'redirect' => route('penjualan-payment.detail', $payment->penjualan_id)
             ]);
             
@@ -505,20 +595,40 @@ class PenjualanPaymentController extends Controller
             
             $payment = PenjualanPayment::with('penjualan')->findOrFail($id);
             
-            // Hapus bukti jika ada
-            if ($payment->bukti_payment) {
-                Storage::delete('public/bukti_payment/' . $payment->bukti_payment);
-            }
-            
-            // Update penjualan jika payment sudah realized
+            // ROLLBACK SALDO - Kurangi saldo rekening (karena ini pembayaran masuk)
             if ($payment->status_payment == 'realized') {
+                $rekening = Rekening::find($payment->idrek);
+                if ($rekening) {
+                    $saldoAwal = $rekening->saldo;
+                    $rekening->saldo -= $payment->nominal;
+                    $rekening->save();
+                    
+                    \Log::info('Rollback saldo karena delete:', [
+                        'rekening_id' => $rekening->idrek,
+                        'saldo_awal' => $saldoAwal,
+                        'saldo_akhir' => $rekening->saldo,
+                        'nominal' => $payment->nominal
+                    ]);
+                }
+                
+                // Hapus cashflow terkait
+                Cashflow::where('idnota', null)
+                    ->where('keterangan', 'like', "%Pembayaran%{$payment->penjualan->kode_penjualan}%")
+                    ->delete();
+                
+                // Update penjualan
                 $penjualan = $payment->penjualan;
                 $newSisa = $penjualan->sisa_pembayaran + $payment->nominal;
                 
                 $penjualan->update([
                     'sisa_pembayaran' => $newSisa,
-                    'status_penjualan' => 'process' // Kembalikan ke process jika belum lunas
+                    'status_penjualan' => 'process' // Kembalikan ke process
                 ]);
+            }
+            
+            // Hapus bukti jika ada
+            if ($payment->bukti_payment) {
+                Storage::delete('public/bukti_payment/' . $payment->bukti_payment);
             }
             
             $payment->delete();
@@ -527,7 +637,7 @@ class PenjualanPaymentController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => 'Pembayaran berhasil dihapus'
+                'message' => 'Pembayaran berhasil dihapus dan saldo rekening telah dikembalikan'
             ]);
             
         } catch (\Exception $e) {
