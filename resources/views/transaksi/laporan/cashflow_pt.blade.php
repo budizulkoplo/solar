@@ -527,11 +527,7 @@
                                 return `
                                     <div class="nota-no-container">
                                         <span>${data}</span>
-                                        <button class="btn btn-xs btn-info btn-view-detail" 
-                                                onclick="showDetail(${id})"
-                                                title="View Detail PT">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
+                                        
                                     </div>
                                 `;
                             }
