@@ -222,7 +222,7 @@
 
             {{-- Project Management (tetap seperti aslinya) --}}
             <div class="project-card">
-                <form action="{{ 'https://pm.mysolarsystem.web.id//external/' . $token }}" method="GET" target="_blank">
+                <form action="{{ 'https://pm.mysolarsystem.web.id/external/' . $token }}" method="GET" target="_blank">
                     <button type="submit">
                         <div class="project-icon"><i class="fas fa-project-diagram"></i></div>
                         <div class="project-company">Solar System</div>
