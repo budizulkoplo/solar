@@ -329,7 +329,7 @@
                             name: 'tanggal_pembelian',
                             className: 'text-center',
                             render: function(data) {
-                                return new Date(data).toLocaleDateString('id-ID');
+                                return data ? new Date(data).toLocaleDateString('id-ID') : '-';
                             }
                         },
                         { 
@@ -339,13 +339,19 @@
                         },
                         { 
                             data: 'harga_perolehan', 
-                            name: 'harga_perolehan'
-                           
+                            name: 'harga_perolehan',
+                            className: 'text-end',
+                            render: function(data) {
+                                return 'Rp ' + formatNumber(parseNumber(data));
+                            }
                         },
                         { 
                             data: 'nilai_buku', 
-                            name: 'nilai_buku'
-                            
+                            name: 'nilai_buku',
+                            className: 'text-end',
+                            render: function(data) {
+                                return 'Rp ' + formatNumber(parseNumber(data));
+                            }
                         },
                         { 
                             data: 'akumulasi_susut', 
@@ -358,7 +364,16 @@
                         { 
                             data: 'status', 
                             name: 'status',
-                            className: 'text-center'
+                            className: 'text-center',
+                            render: function(data) {
+                                const badges = {
+                                    'aktif': 'bg-success',
+                                    'nonaktif': 'bg-warning',
+                                    'terjual': 'bg-info',
+                                    'hilang': 'bg-danger'
+                                };
+                                return `<span class="badge ${badges[data] || 'bg-secondary'}">${data}</span>`;
+                            }
                         },
                         { 
                             data: 'action', 
@@ -387,10 +402,10 @@
                     },
                     success: function(res) {
                         if (res.summary) {
-                            $('#totalAssetCount').text(res.summary.total_assets);
-                            $('#totalAssetValue').text('Rp ' + formatNumber(res.summary.total_value));
-                            $('#totalBookValue').text('Rp ' + formatNumber(res.summary.total_book_value));
-                            $('#totalDepreciation').text('Rp ' + formatNumber(res.summary.total_depreciation));
+                            $('#totalAssetCount').text(res.summary.total_assets || 0);
+                            $('#totalAssetValue').text('Rp ' + formatNumber(res.summary.total_value || 0));
+                            $('#totalBookValue').text('Rp ' + formatNumber(res.summary.total_book_value || 0));
+                            $('#totalDepreciation').text('Rp ' + formatNumber(res.summary.total_depreciation || 0));
                         }
                     }
                 });
@@ -429,7 +444,7 @@
                             return response;
                         }).catch(error => {
                             Swal.showValidationMessage(
-                                `Error: ${error}`
+                                `Error: ${error.responseJSON?.message || error}`
                             );
                         });
                     }
@@ -463,11 +478,11 @@
                                         </tr>
                                         <tr>
                                             <th>Tanggal Pembelian</th>
-                                            <td>${new Date(asset.tanggal_pembelian).toLocaleDateString('id-ID')}</td>
+                                            <td>${asset.tanggal_pembelian ? new Date(asset.tanggal_pembelian).toLocaleDateString('id-ID') : '-'}</td>
                                         </tr>
                                         <tr>
                                             <th>Tanggal Mulai Susut</th>
-                                            <td>${new Date(asset.tanggal_mulai_susut).toLocaleDateString('id-ID')}</td>
+                                            <td>${asset.tanggal_mulai_susut ? new Date(asset.tanggal_mulai_susut).toLocaleDateString('id-ID') : '-'}</td>
                                         </tr>
                                         <tr>
                                             <th>Harga Perolehan</th>
@@ -525,7 +540,7 @@
                                 </tr>
                                 <tr>
                                     <th>Penyusutan per Bulan</th>
-                                    <td>Rp ${formatNumber(asset.calculate_monthly_depreciation || 0)}</td>
+                                    <td>Rp ${formatNumber(res.calculate_monthly_depreciation || 0)}</td>
                                 </tr>
                             </table>
                         `;
@@ -548,7 +563,7 @@
                                         <tbody>
                                             ${asset.depreciations.map(dep => `
                                                 <tr>
-                                                    <td>${new Date(dep.periode).toLocaleDateString('id-ID', {month: 'long', year: 'numeric'})}</td>
+                                                    <td>${dep.periode ? new Date(dep.periode).toLocaleDateString('id-ID', {month: 'long', year: 'numeric'}) : '-'}</td>
                                                     <td>${dep.bulan_ke}</td>
                                                     <td class="text-end">Rp ${formatNumber(dep.nilai_penyusutan)}</td>
                                                     <td class="text-end">Rp ${formatNumber(dep.akumulasi_penyusutan)}</td>
@@ -564,7 +579,11 @@
                         
                         $('#assetDetailContent').html(html);
                         $('#modalDetailAsset').modal('show');
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
                     }
+                }).fail(function(xhr) {
+                    Swal.fire('Error', 'Gagal mengambil data asset', 'error');
                 });
             });
             
@@ -578,7 +597,7 @@
                         $('#editAssetId').val(asset.id);
                         $('#editKodeAsset').val(asset.kode_aset);
                         $('#editNamaAsset').val(asset.nama_aset);
-                        $('#editTanggalSusut').val(asset.tanggal_mulai_susut);
+                        $('#editTanggalSusut').val(asset.tanggal_mulai_susut ? asset.tanggal_mulai_susut.split(' ')[0] : '');
                         $('#editUmurEkonomis').val(asset.umur_ekonomis);
                         $('#editNilaiResidu').val(asset.nilai_residu);
                         $('#editMetodePenyusutan').val(asset.metode_penyusutan);
@@ -589,7 +608,11 @@
                         $('#editKeterangan').val(asset.keterangan || '');
                         
                         $('#modalEditAsset').modal('show');
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
                     }
+                }).fail(function(xhr) {
+                    Swal.fire('Error', 'Gagal mengambil data asset', 'error');
                 });
             });
             
@@ -631,7 +654,7 @@
                             return response;
                         }).catch(error => {
                             Swal.showValidationMessage(
-                                `Error: ${error}`
+                                `Error: ${error.responseJSON?.message || error}`
                             );
                         });
                     }
@@ -643,6 +666,50 @@
                     }
                 });
             });
+
+            // Delete asset
+            $(document).on('click', '.delete-asset', function() {
+                let assetId = $(this).data('id');
+                let assetName = $(this).data('name');
+                
+                Swal.fire({
+                    title: 'Hapus Asset?',
+                    html: `Apakah Anda yakin ingin menghapus asset <strong>${assetName}</strong>?<br><br>
+                        <span class="text-danger"><i class="bi bi-exclamation-triangle"></i> 
+                        Asset yang sudah memiliki penyusutan terposting tidak dapat dihapus!</span>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal',
+                    showLoaderOnConfirm: true,
+                    preConfirm: () => {
+                        return $.ajax({
+                            url: `/transaksi/asset/${assetId}/destroy`,
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                _method: 'DELETE'
+                            }
+                        }).then(response => {
+                            if (!response.success) {
+                                throw new Error(response.message);
+                            }
+                            return response;
+                        }).catch(error => {
+                            Swal.showValidationMessage(
+                                `Error: ${error.responseJSON?.message || error}`
+                            );
+                        });
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire('Berhasil!', result.value.message, 'success');
+                        initDataTable();
+                    }
+                });
+            });
             
             // Export asset
             $('#btnExportAsset').click(function() {
@@ -650,11 +717,19 @@
                     status: $('#filterStatus').val(),
                     metode: $('#filterMetode').val(),
                     date_from: $('#filterDateFrom').val(),
-                    date_to: $('#filterDateTo').val(),
-                    _token: '{{ csrf_token() }}'
+                    date_to: $('#filterDateTo').val()
                 }).toString();
                 
-                window.open(`/transaksi/asset/export?${params}`, '_blank');
+                window.open(`{{ route('transaksi.asset.export') }}?${params}`, '_blank');
+            });
+            
+            // Reset filters
+            $('#btnResetFilter').click(function() {
+                $('#filterStatus').val('');
+                $('#filterMetode').val('');
+                $('#filterDateFrom').val('');
+                $('#filterDateTo').val('');
+                initDataTable();
             });
             
             // Initialize

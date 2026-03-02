@@ -346,6 +346,12 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             Route::get('list/getdata', [AssetTransactionController::class,'getAssetData'])->name('transaksi.asset.list.getdata');
             Route::post('generate-depreciation', [AssetTransactionController::class,'generateMonthlyDepreciation'])->name('transaksi.asset.generate.depreciation');
             Route::get('export', [AssetTransactionController::class,'exportAssets'])->name('transaksi.asset.export');
+            
+            // Route baru untuk CRUD asset
+            Route::get('{id}/detail', [AssetTransactionController::class,'getAssetDetail'])->name('transaksi.asset.detail');
+            Route::get('{id}/edit', [AssetTransactionController::class,'editAsset'])->name('transaksi.asset.edit');
+            Route::put('{id}/update', [AssetTransactionController::class,'updateAsset'])->name('transaksi.asset.update');
+            Route::delete('{id}/destroy', [AssetTransactionController::class,'destroyAsset'])->name('transaksi.asset.destroy');
         });
 
         // === PEMBIAYAAN ===

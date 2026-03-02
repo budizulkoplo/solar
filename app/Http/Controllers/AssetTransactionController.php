@@ -749,4 +749,190 @@ class AssetTransactionController extends Controller
             ], 500);
         }
     }
+
+    public function getAssetDetail($id)
+    {
+        try {
+            $asset = Asset::with([
+                'project', 
+                'kodeTransaksi',
+                'depreciations' => function($q) {
+                    $q->orderBy('periode', 'asc');
+                }
+            ])->findOrFail($id);
+
+            // Hitung penyusutan per bulan
+            $monthlyDepreciation = 0;
+            if ($asset->metode_penyusutan === 'garis_lurus') {
+                $monthlyDepreciation = ($asset->harga_perolehan - $asset->nilai_residu) / $asset->umur_ekonomis;
+            } elseif ($asset->metode_penyusutan === 'saldo_menurun') {
+                $ratePerBulan = ($asset->persentase_susut ?? 20) / 100 / 12;
+                $monthlyDepreciation = $asset->nilai_buku * $ratePerBulan;
+            }
+
+            return response()->json([
+                'success' => true,
+                'asset' => $asset,
+                'calculate_monthly_depreciation' => $monthlyDepreciation
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data asset: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get detail asset untuk edit
+     */
+    public function editAsset($id)
+    {
+        try {
+            $asset = Asset::with(['project', 'kodeTransaksi'])->findOrFail($id);
+            
+            return response()->json([
+                'success' => true,
+                'asset' => $asset
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data asset: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update asset
+     */
+    public function updateAsset(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'nama_aset' => 'required|string|max:255',
+                'tanggal_mulai_susut' => 'required|date',
+                'umur_ekonomis' => 'required|integer|min:1',
+                'nilai_residu' => 'nullable|numeric|min:0',
+                'metode_penyusutan' => 'required|in:garis_lurus,saldo_menurun',
+                'persentase_susut' => 'nullable|numeric|min:0|max:100',
+                'status' => 'required|in:aktif,nonaktif,terjual,hilang',
+                'lokasi' => 'nullable|string|max:100',
+                'pic' => 'nullable|string|max:100',
+                'keterangan' => 'nullable|string',
+            ]);
+
+            $asset = Asset::findOrFail($id);
+            
+            // Cek apakah ada perubahan pada data yang mempengaruhi penyusutan
+            $affectsDepreciation = (
+                $asset->umur_ekonomis != $request->umur_ekonomis ||
+                $asset->nilai_residu != $request->nilai_residu ||
+                $asset->metode_penyusutan != $request->metode_penyusutan ||
+                $asset->persentase_susut != $request->persentase_susut ||
+                $asset->tanggal_mulai_susut != $request->tanggal_mulai_susut
+            );
+
+            // Update asset
+            $asset->update([
+                'nama_aset' => $request->nama_aset,
+                'tanggal_mulai_susut' => $request->tanggal_mulai_susut,
+                'umur_ekonomis' => $request->umur_ekonomis,
+                'nilai_residu' => $request->nilai_residu ?? 0,
+                'metode_penyusutan' => $request->metode_penyusutan,
+                'persentase_susut' => $request->persentase_susut,
+                'status' => $request->status,
+                'lokasi' => $request->lokasi,
+                'pic' => $request->pic,
+                'keterangan' => $request->keterangan,
+            ]);
+
+            // Jika ada perubahan yang mempengaruhi penyusutan, update schedule penyusutan
+            if ($affectsDepreciation) {
+                $this->recalculateDepreciation($asset);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Asset berhasil diupdate'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete asset
+     */
+    public function destroyAsset($id)
+    {
+        DB::beginTransaction();
+        try {
+            $asset = Asset::findOrFail($id);
+            
+            // Cek apakah user memiliki hak akses
+            $user = auth()->user();
+            if (!$user->hasRole('direktur') && !$user->hasRole('keuangan')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki hak akses untuk menghapus asset'
+                ], 403);
+            }
+
+            // Cek apakah asset sudah memiliki transaksi penyusutan yang terposting
+            $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                ->where('status', 'terposting')
+                ->exists();
+
+            if ($hasPostedDepreciation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak dapat menghapus asset yang sudah memiliki penyusutan terposting'
+                ]);
+            }
+
+            // Hapus semua penyusutan terkait
+            AssetDepreciation::where('asset_id', $asset->id)->delete();
+            
+            // Hapus asset
+            $asset->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Asset berhasil dihapus'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Recalculate depreciation schedule
+     */
+    private function recalculateDepreciation(Asset $asset)
+    {
+        // Hapus semua schedule penyusutan yang terbentuk
+        AssetDepreciation::where('asset_id', $asset->id)
+            ->where('status', 'terbentuk')
+            ->delete();
+
+        // Buat ulang schedule penyusutan
+        $this->generateFirstDepreciation($asset);
+    }
 }
