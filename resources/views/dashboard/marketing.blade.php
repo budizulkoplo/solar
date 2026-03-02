@@ -76,9 +76,9 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h6 class="text-muted fw-semibold">Booking</h6>
-                                    <h4 class="fw-bold mb-0">{{ $statistikBooking['booking_bulan_ini'] }}</h4>
-                                    <small class="text-muted">Bulan Ini</small>
+                                    <h6 class="text-muted fw-semibold">Total Booking</h6>
+                                    <h4 class="fw-bold mb-0">{{ $statistikBooking['total_booking'] }}</h4>
+                                    <small class="text-muted">Semua Data</small>
                                 </div>
                                 <div class="avatar-sm">
                                     <span class="avatar-title bg-warning-subtle rounded-circle">
@@ -87,28 +87,22 @@
                                 </div>
                             </div>
                             <div class="mt-3">
-                                <span class="badge bg-{{ $statistikBooking['booking_trend'] == 'up' ? 'success' : 'danger' }}-subtle text-{{ $statistikBooking['booking_trend'] == 'up' ? 'success' : 'danger' }}">
-                                    <i class="bi bi-arrow-{{ $statistikBooking['booking_trend'] == 'up' ? 'up' : 'down' }} me-1"></i>
-                                    {{ abs($statistikBooking['booking_percentage']) }}%
-                                </span>
-                                <small class="text-muted ms-2">vs bulan lalu</small>
                                 <div class="mt-2">
-                                    <small class="text-muted">DP: Rp {{ $statistikBooking['dp_booking_formatted'] }}</small>
+                                    <small class="text-muted">Total DP: Rp {{ $statistikBooking['total_dp_formatted'] }}</small>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Penjualan Bulan Ini -->
                 <div class="col-md-3 col-sm-6 mb-3">
                     <div class="card border-start border-success border-5 h-100">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h6 class="text-muted fw-semibold">Penjualan</h6>
-                                    <h4 class="fw-bold mb-0">{{ $statistikBooking['penjualan_bulan_ini'] }}</h4>
-                                    <small class="text-muted">Bulan Ini</small>
+                                    <h6 class="text-muted fw-semibold">Total Penjualan</h6>
+                                    <h4 class="fw-bold mb-0">{{ $statistikBooking['total_penjualan'] }}</h4>
+                                    <small class="text-muted">Semua Data</small>
                                 </div>
                                 <div class="avatar-sm">
                                     <span class="avatar-title bg-success-subtle rounded-circle">
@@ -117,20 +111,14 @@
                                 </div>
                             </div>
                             <div class="mt-3">
-                                <span class="badge bg-{{ $statistikBooking['penjualan_trend'] == 'up' ? 'success' : 'danger' }}-subtle text-{{ $statistikBooking['penjualan_trend'] == 'up' ? 'success' : 'danger' }}">
-                                    <i class="bi bi-arrow-{{ $statistikBooking['penjualan_trend'] == 'up' ? 'up' : 'down' }} me-1"></i>
-                                    {{ abs($statistikBooking['penjualan_percentage']) }}%
-                                </span>
-                                <small class="text-muted ms-2">vs bulan lalu</small>
                                 <div class="mt-2">
-                                    <small class="text-muted">Nilai: Rp {{ $statistikBooking['nilai_penjualan_formatted'] }}</small>
+                                    <small class="text-muted">Nilai: Rp {{ $statistikBooking['total_nilai_penjualan_formatted'] }}</small>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Customer & Conversion -->
                 <div class="col-md-3 col-sm-6 mb-3">
                     <div class="card border-start border-info border-5 h-100">
                         <div class="card-body">
@@ -153,7 +141,6 @@
                                 </span>
                                 <div class="mt-2">
                                     <small class="text-muted">
-                                        Baru: {{ $statistikCustomer['baru_bulan_ini'] }} | 
                                         Repeat: {{ $statistikCustomer['repeat'] }}
                                     </small>
                                 </div>
@@ -161,7 +148,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
             <!-- Grafik dan Top Projects -->
             <div class="row mb-4">
@@ -524,11 +510,11 @@
                                 <div class="text-center">
                                     <div class="position-relative d-inline-block">
                                         <div class="progress-circle" 
-                                             data-value="{{ $statistikBooking['conversion_rate'] }}" 
-                                             data-size="120" 
-                                             data-thickness="8"
-                                             data-color="{{ $statistikBooking['conversion_rate'] >= 50 ? 'success' : ($statistikBooking['conversion_rate'] >= 30 ? 'warning' : 'danger') }}"
-                                             style="width: 120px; height: 120px; margin: 0 auto;">
+                                            data-value="{{ $statistikBooking['conversion_rate'] }}" 
+                                            data-size="120" 
+                                            data-thickness="8"
+                                            data-color="{{ $statistikBooking['conversion_rate'] >= 50 ? 'success' : ($statistikBooking['conversion_rate'] >= 30 ? 'warning' : 'danger') }}"
+                                            style="width: 120px; height: 120px; margin: 0 auto;">
                                         </div>
                                         <div class="position-absolute top-50 start-50 translate-middle">
                                             <h3 class="fw-bold mb-0">{{ $statistikBooking['conversion_rate'] }}%</h3>
@@ -568,8 +554,8 @@
                                         <div class="d-flex align-items-center">
                                             <i class="bi bi-calendar-check text-primary me-2"></i>
                                             <div>
-                                                <small class="text-muted d-block">Booking</small>
-                                                <small class="fw-bold">{{ $statistikBooking['booking_bulan_ini'] }}</small>
+                                                <small class="text-muted d-block">Total Booking</small>
+                                                <small class="fw-bold">{{ $statistikBooking['total_booking'] }}</small>
                                             </div>
                                         </div>
                                     </div>
@@ -577,17 +563,17 @@
                                         <div class="d-flex align-items-center">
                                             <i class="bi bi-cash-coin text-success me-2"></i>
                                             <div>
-                                                <small class="text-muted d-block">Penjualan</small>
-                                                <small class="fw-bold">{{ $statistikBooking['penjualan_bulan_ini'] }}</small>
+                                                <small class="text-muted d-block">Total Penjualan</small>
+                                                <small class="fw-bold">{{ $statistikBooking['total_penjualan'] }}</small>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-6 mb-2">
                                         <div class="d-flex align-items-center">
-                                            <i class="bi bi-person-plus text-info me-2"></i>
+                                            <i class="bi bi-people text-info me-2"></i>
                                             <div>
-                                                <small class="text-muted d-block">Customer Baru</small>
-                                                <small class="fw-bold">{{ $statistikCustomer['baru_bulan_ini'] }}</small>
+                                                <small class="text-muted d-block">Total Customer</small>
+                                                <small class="fw-bold">{{ $statistikCustomer['total'] }}</small>
                                             </div>
                                         </div>
                                     </div>
@@ -597,6 +583,24 @@
                                             <div>
                                                 <small class="text-muted d-block">Unit Tersedia</small>
                                                 <small class="fw-bold">{{ $statistikUnit['tersedia'] }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-arrow-repeat text-warning me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">Repeat Customer</small>
+                                                <small class="fw-bold">{{ $statistikCustomer['repeat'] }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-currency-dollar text-success me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">Total DP</small>
+                                                <small class="fw-bold">Rp {{ $statistikBooking['total_dp_formatted'] }}</small>
                                             </div>
                                         </div>
                                     </div>

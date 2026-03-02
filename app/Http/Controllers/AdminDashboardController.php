@@ -30,18 +30,18 @@ class AdminDashboardController extends Controller
     public function dashboard()
     {
         $activeModule = session('active_project_module');
-        
-        // Tampilkan dashboard sesuai module yang dipilih
-        switch($activeModule) {
+
+        switch ($activeModule) {
             case 'project':
                 return $this->dashboardProject();
             case 'hris':
                 return $this->dashboardHRIS();
             case 'agency':
                 return $this->dashboardMarketing();
+            case 'company':
+                return $this->dashboardCompany();
             default:
-                // Default ke project dashboard
-            return view('dashboard');
+                return redirect()->route('choose.project');
         }
     }
 
@@ -58,29 +58,13 @@ class AdminDashboardController extends Controller
                 ->with('error', 'Silakan pilih project terlebih dahulu.');
         }
         
-        // Ambil detail project
         $project = Project::with('companyUnit')->find($projectId);
         
-        // 1. Data untuk grafik transaksi berdasarkan COA
         $grafikTransaksi = $this->getGrafikTransaksi($projectId);
-        
-        // 2. Data rincian saldo rekening untuk project
         $saldoRekening = $this->getSaldoRekeningForProject($projectId, $companyId);
-        
-        // 3. Data cashflow detail per rekening
         $cashflowDetail = $this->getCashflowDetail($projectId);
-        
-        // Data ringkasan (summary)
         $ringkasan = $this->getRingkasan($projectId);
         
-        // Debug data - hapus ini setelah fix
-        // \Log::info('Dashboard Data:', [
-        //     'project_id' => $projectId,
-        //     'cashflow_count' => count($cashflowDetail),
-        //     'grafik_labels' => count($grafikTransaksi['labels'] ?? [])
-        // ]);
-        
-        // Info project
         $projectInfo = [
             'nama' => $project->namaproject ?? 'Tidak diketahui',
             'company' => $project->companyUnit->company_name ?? 'Tidak diketahui',
@@ -101,14 +85,12 @@ class AdminDashboardController extends Controller
      */
     private function getGrafikTransaksi($projectId)
     {
-        // Ambil data 30 hari terakhir
         $startDate = Carbon::now()->subDays(30);
         $endDate = Carbon::now();
 
         $transaksi = NotaTransaction::select([
                 'kodetransaksi.id',
                 'kodetransaksi.kodetransaksi',
-                'kodetransaksi.transaksi',
                 'kodetransaksi.transaksi',
                 DB::raw('SUM(nota_transactions.total) as total_nominal'),
                 DB::raw('COUNT(nota_transactions.id) as jumlah_transaksi')
@@ -117,17 +99,11 @@ class AdminDashboardController extends Controller
             ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
             ->where('notas.idproject', $projectId)
             ->whereBetween('notas.tanggal', [$startDate, $endDate])
-            ->groupBy(
-                'kodetransaksi.id',
-                'kodetransaksi.kodetransaksi', 
-                'kodetransaksi.transaksi',
-                'kodetransaksi.transaksi'
-            )
+            ->groupBy('kodetransaksi.id', 'kodetransaksi.kodetransaksi', 'kodetransaksi.transaksi')
             ->orderByDesc('total_nominal')
             ->limit(10)
             ->get();
 
-        // Format untuk chart.js
         $chartData = [
             'labels' => [],
             'data' => [],
@@ -149,14 +125,13 @@ class AdminDashboardController extends Controller
                 'jenis' => $item->transaksi ?? 'lainnya'
             ];
 
-            // Beri warna berdasarkan jenis transaksi
             $jenis = strtolower($item->transaksi ?? '');
             if (str_contains($jenis, 'pendapatan') || str_contains($jenis, 'income')) {
-                $chartData['colors'][] = '#28a745'; // Hijau untuk pendapatan
+                $chartData['colors'][] = '#28a745';
             } elseif (str_contains($jenis, 'beban') || str_contains($jenis, 'expense')) {
-                $chartData['colors'][] = '#dc3545'; // Merah untuk beban
+                $chartData['colors'][] = '#dc3545';
             } else {
-                $chartData['colors'][] = '#6c757d'; // Abu-abu untuk lainnya
+                $chartData['colors'][] = '#6c757d';
             }
         }
 
@@ -168,9 +143,6 @@ class AdminDashboardController extends Controller
      */
     private function getSaldoRekeningForProject($projectId, $companyId)
     {
-        // Ambil semua rekening yang terkait dengan project:
-        // 1. Rekening khusus project (idproject = projectId)
-        // 2. Rekening company yang bisa digunakan di project (idcompany = companyId, idproject IS NULL)
         $rekenings = Rekening::select([
                 'rekening.idrek',
                 'rekening.norek',
@@ -184,26 +156,20 @@ class AdminDashboardController extends Controller
                 END as rekening_type')
             ])
             ->where(function($query) use ($projectId, $companyId) {
-                // Rekening khusus project
                 $query->where('rekening.idproject', $projectId)
-                      // Rekening company yang bisa digunakan di semua project company
                       ->orWhere(function($q) use ($companyId) {
                           $q->whereNull('rekening.idproject')
                             ->where('rekening.idcompany', $companyId);
                       });
             })
-            ->orderBy('rekening_type', 'desc') // project rekening duluan
+            ->orderBy('rekening_type', 'desc')
             ->orderBy('rekening.namarek')
             ->get();
 
-        // Hitung total saldo
         $totalSaldo = $rekenings->sum('saldo');
-        
-        // Hitung per type
         $projectRekenings = $rekenings->where('rekening_type', 'project');
         $companyRekenings = $rekenings->where('rekening_type', 'company');
 
-        // Format untuk display
         $formattedData = [
             'rekenings' => $rekenings->map(function($rekening) {
                 return [
@@ -236,15 +202,13 @@ class AdminDashboardController extends Controller
     }
 
     /**
-     * 3. Cashflow detail tiap rekening untuk project - PERBAIKAN
+     * 3. Cashflow detail tiap rekening untuk project
      */
     private function getCashflowDetail($projectId)
     {
-        // Ambil data 7 hari terakhir
         $startDate = Carbon::now()->subDays(7);
         $endDate = Carbon::now();
 
-        // Query yang lebih sederhana dan akurat
         $cashflows = Cashflow::select([
                 'cashflows.idrek',
                 'rekening.norek',
@@ -273,22 +237,14 @@ class AdminDashboardController extends Controller
             ->orderBy('cashflows.idrek')
             ->get();
 
-        // \Log::info('Cashflow Query Result:', [
-        //     'count' => $cashflows->count(),
-        //     'project_id' => $projectId,
-        //     'start_date' => $startDate,
-        //     'end_date' => $endDate
-        // ]);
-
         return $this->formatCashflowData($cashflows);
     }
 
     /**
-     * Format data cashflow - PERBAIKAN
+     * Format data cashflow
      */
     private function formatCashflowData($cashflows)
     {
-        // Group by rekening
         $groupedData = [];
         foreach ($cashflows as $cf) {
             $rekKey = $cf->idrek;
@@ -322,7 +278,6 @@ class AdminDashboardController extends Controller
             ];
         }
 
-        // Format untuk display
         $formattedData = [];
         foreach ($groupedData as $rek) {
             $rek['net_cashflow'] = $rek['total_in'] - $rek['total_out'];
@@ -348,62 +303,51 @@ class AdminDashboardController extends Controller
      */
     private function getRingkasan($projectId)
     {
-        // Ambil data bulan ini
         $startDate = Carbon::now()->startOfMonth();
         $endDate = Carbon::now()->endOfMonth();
-        
-        // Data bulan lalu untuk perbandingan
         $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
         $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
 
-        // Total transaksi masuk bulan ini
         $transaksiIn = Nota::where('idproject', $projectId)
             ->where('cashflow', 'in')
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->select(DB::raw('COALESCE(SUM(total), 0) as total'))
             ->first()->total ?? 0;
 
-        // Total transaksi keluar bulan ini
         $transaksiOut = Nota::where('idproject', $projectId)
             ->where('cashflow', 'out')
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->select(DB::raw('COALESCE(SUM(total), 0) as total'))
             ->first()->total ?? 0;
 
-        // Total transaksi masuk bulan lalu
         $transaksiInLastMonth = Nota::where('idproject', $projectId)
             ->where('cashflow', 'in')
             ->whereBetween('tanggal', [$lastMonthStart, $lastMonthEnd])
             ->select(DB::raw('COALESCE(SUM(total), 0) as total'))
             ->first()->total ?? 0;
 
-        // Total transaksi keluar bulan lalu
         $transaksiOutLastMonth = Nota::where('idproject', $projectId)
             ->where('cashflow', 'out')
             ->whereBetween('tanggal', [$lastMonthStart, $lastMonthEnd])
             ->select(DB::raw('COALESCE(SUM(total), 0) as total'))
             ->first()->total ?? 0;
 
-        // Hitung persentase perubahan
         $percentageIn = $transaksiInLastMonth > 0 ? 
             (($transaksiIn - $transaksiInLastMonth) / $transaksiInLastMonth * 100) : 0;
         
         $percentageOut = $transaksiOutLastMonth > 0 ? 
             (($transaksiOut - $transaksiOutLastMonth) / $transaksiOutLastMonth * 100) : 0;
 
-        // Net cashflow bulan ini
         $netCashflow = $transaksiIn - $transaksiOut;
         $netCashflowLastMonth = $transaksiInLastMonth - $transaksiOutLastMonth;
         
         $percentageNet = ($netCashflowLastMonth != 0) ? 
             (($netCashflow - $netCashflowLastMonth) / abs($netCashflowLastMonth) * 100) : 0;
 
-        // Jumlah nota open
         $notaOpen = Nota::where('idproject', $projectId)
             ->where('status', 'open')
             ->count();
 
-        // Jumlah nota bulan ini
         $notaThisMonth = Nota::where('idproject', $projectId)
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->count();
@@ -433,11 +377,11 @@ class AdminDashboardController extends Controller
     }
 
     /**
-     * API endpoint untuk data grafik (digunakan oleh AJAX)
+     * API endpoint untuk data grafik
      */
     public function getChartData(Request $request)
     {
-        $type = $request->get('type', 'monthly'); // monthly, weekly, daily
+        $type = $request->get('type', 'monthly');
         $module = session('active_project_module');
         
         try {
@@ -486,9 +430,6 @@ class AdminDashboardController extends Controller
         }
     }
 
-    /**
-     * Get chart data for project
-     */
     private function getChartDataForProject($projectId, $type)
     {
         switch ($type) {
@@ -502,9 +443,6 @@ class AdminDashboardController extends Controller
         }
     }
 
-    /**
-     * Get chart data for company
-     */
     private function getChartDataForCompany($companyId, $type)
     {
         $projects = Project::where('idcompany', $companyId)->pluck('id');
@@ -524,9 +462,6 @@ class AdminDashboardController extends Controller
         }
     }
 
-    /**
-     * Return empty chart data structure
-     */
     private function getEmptyChartData($type)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -567,9 +502,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Data chart bulanan (12 bulan terakhir) untuk project
-     */
     private function getMonthlyChartData($projectId)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -598,9 +530,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Data chart bulanan untuk Company
-     */
     private function getMonthlyChartDataForCompany($projects)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -629,9 +558,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Data chart mingguan (8 minggu terakhir) untuk project
-     */
     private function getWeeklyChartData($projectId)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -660,9 +586,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Data chart mingguan untuk Company
-     */
     private function getWeeklyChartDataForCompany($projects)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -691,9 +614,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Data chart harian (14 hari terakhir) untuk project
-     */
     private function getDailyChartData($projectId)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -720,9 +640,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Data chart harian untuk Company
-     */
     private function getDailyChartDataForCompany($projects)
     {
         $data = ['labels' => [], 'in' => [], 'out' => [], 'net' => []];
@@ -750,42 +667,27 @@ class AdminDashboardController extends Controller
     }
 
     /**
-     * Dashboard untuk module Company (PT) - simplified version
+     * Dashboard untuk module HRIS
      */
     private function dashboardHRIS()
     {
-        $companyId = session('active_project_module');
+        $companyId = session('active_company_id');
         
         if (!$companyId) {
             return redirect()->route('choose.project')
                 ->with('error', 'Silakan pilih PT terlebih dahulu.');
         }
         
-        // Ambil info company
         $company = CompanyUnit::find($companyId);
         
-        // 1. Statistik Karyawan
         $statistikKaryawan = $this->getStatistikKaryawan($companyId);
-        
-        // 2. Statistik Presensi Bulan Ini
         $statistikPresensi = $this->getStatistikPresensi();
-        
-        // 3. Statistik Payroll
         $statistikPayroll = $this->getStatistikPayroll();
-        
-        // 4. Data Karyawan Aktif
         $karyawanAktif = $this->getKaryawanAktif($companyId);
-        
-        // 5. Presensi Hari Ini
         $presensiHariIni = $this->getPresensiHariIni();
-        
-        // 6. Izin/Cuti Pending
         $izinPending = $this->getIzinPending();
-        
-        // 7. Chart data untuk grafik
         $chartData = $this->getChartDataHRIS();
         
-        // Info HRIS
         $hrisInfo = [
             'nama' => session('active_company_name') ?? 'Tidak diketahui',
             'company' => session('active_company_name') ?? 'Tidak diketahui',
@@ -807,24 +709,18 @@ class AdminDashboardController extends Controller
         ));
     }
 
-    /**
-     * 1. Statistik Karyawan
-     */
     private function getStatistikKaryawan($companyId)
     {
-        // Total karyawan berdasarkan company
         $totalKaryawan = User::where('status', 'aktif')
             ->where('id_unitkerja', $companyId)
             ->count();
         
-        // Karyawan baru bulan ini
         $karyawanBaru = User::where('status', 'aktif')
             ->where('id_unitkerja', $companyId)
             ->whereMonth('created_at', Carbon::now()->month)
             ->whereYear('created_at', Carbon::now()->year)
             ->count();
         
-        // Karyawan berdasarkan jenis kelamin
         $karyawanLaki = User::where('status', 'aktif')
             ->where('id_unitkerja', $companyId)
             ->whereHas('pegawaiDtl', function($query) {
@@ -839,7 +735,6 @@ class AdminDashboardController extends Controller
             })
             ->count();
         
-        // Karyawan berdasarkan status
         $karyawanTetap = User::where('status', 'aktif')
             ->where('id_unitkerja', $companyId)
             ->whereHas('pegawaiDtl', function($query) {
@@ -868,15 +763,11 @@ class AdminDashboardController extends Controller
         ];
     }
 
-    /**
-     * 2. Statistik Presensi Bulan Ini
-     */
     private function getStatistikPresensi()
     {
         $startDate = Carbon::now()->startOfMonth();
         $endDate = Carbon::now()->endOfMonth();
         
-        // Total hari kerja bulan ini (exclude weekends)
         $totalHariKerja = 0;
         $current = $startDate->copy();
         while ($current->lte($endDate)) {
@@ -886,17 +777,14 @@ class AdminDashboardController extends Controller
             $current->addDay();
         }
         
-        // Presensi masuk hari ini
         $presensiHariIni = Presensi::whereDate('tgl_presensi', Carbon::today())
             ->where('inoutmode', 1)
             ->count();
         
-        // Total presensi bulan ini
         $totalPresensi = Presensi::whereBetween('tgl_presensi', [$startDate, $endDate])
             ->where('inoutmode', 1)
             ->count();
         
-        // Keterlambatan bulan ini
         $terlambatBulanIni = DB::table('presensi as p')
             ->join('jadwal as j', function($join) {
                 $join->on('p.nik', '=', 'j.pegawai_nik')
@@ -908,12 +796,10 @@ class AdminDashboardController extends Controller
             ->whereRaw('TIME(p.jam_in) > TIME(k.jammasuk)')
             ->count();
         
-        // Izin/Sakit bulan ini
         $izinBulanIni = PengajuanIzin::where('status_approved', 1)
             ->whereBetween('tgl_izin', [$startDate, $endDate])
             ->count();
         
-        // Cuti bulan ini
         $cutiBulanIni = PengajuanIzin::where('status', 'c')
             ->where('status_approved', 1)
             ->whereBetween('tgl_izin', [$startDate, $endDate])
@@ -930,15 +816,11 @@ class AdminDashboardController extends Controller
         ];
     }
 
-    /**
-     * 3. Statistik Payroll
-     */
     private function getStatistikPayroll()
     {
         $periode = Carbon::now()->format('Y-m');
         $periodeLalu = Carbon::now()->subMonth()->format('Y-m');
         
-        // Payroll bulan ini
         $payrollBulanIni = Payroll::where('periode', $periode)
             ->select([
                 DB::raw('COUNT(*) as total_karyawan'),
@@ -955,7 +837,6 @@ class AdminDashboardController extends Controller
             ])
             ->first();
         
-        // Payroll bulan lalu untuk perbandingan
         $payrollBulanLalu = Payroll::where('periode', $periodeLalu)
             ->select([
                 DB::raw('SUM(gajipokok) as total_gaji_pokok'),
@@ -968,7 +849,6 @@ class AdminDashboardController extends Controller
             ])
             ->first();
         
-        // Hitung total pendapatan bulan ini
         $totalPendapatan = ($payrollBulanIni->total_gaji_pokok ?? 0) +
                           ($payrollBulanIni->total_tambahan ?? 0) +
                           ($payrollBulanIni->total_masakerja ?? 0) +
@@ -977,7 +857,6 @@ class AdminDashboardController extends Controller
                           ($payrollBulanIni->total_tunj_asuransi ?? 0) +
                           ($payrollBulanIni->total_jabatan ?? 0);
         
-        // Hitung total pendapatan bulan lalu
         $totalPendapatanLalu = ($payrollBulanLalu->total_gaji_pokok ?? 0) +
                               ($payrollBulanLalu->total_tambahan ?? 0) +
                               ($payrollBulanLalu->total_masakerja ?? 0) +
@@ -986,13 +865,11 @@ class AdminDashboardController extends Controller
                               ($payrollBulanLalu->total_tunj_asuransi ?? 0) +
                               ($payrollBulanLalu->total_jabatan ?? 0);
         
-        // Hitung persentase perubahan
         $percentage = 0;
         if ($totalPendapatanLalu > 0) {
             $percentage = (($totalPendapatan - $totalPendapatanLalu) / $totalPendapatanLalu) * 100;
         }
         
-        // Rata-rata gaji per karyawan
         $rataGaji = $payrollBulanIni->total_karyawan > 0 ? 
                    $totalPendapatan / $payrollBulanIni->total_karyawan : 0;
 
@@ -1009,9 +886,6 @@ class AdminDashboardController extends Controller
         ];
     }
 
-    /**
-     * 4. Data Karyawan Aktif
-     */
     private function getKaryawanAktif($companyId)
     {
         return User::with(['pegawaiDtl', 'unitkerja'])
@@ -1033,9 +907,6 @@ class AdminDashboardController extends Controller
             });
     }
 
-    /**
-     * Helper: Get status kontrak karyawan
-     */
     private function getStatusKontrak($pegawaiDtl)
     {
         if (!$pegawaiDtl || !$pegawaiDtl->akhir_kontrak) {
@@ -1059,9 +930,6 @@ class AdminDashboardController extends Controller
         return "Aktif sampai " . $akhirKontrak->format('d/m/Y');
     }
 
-    /**
-     * 5. Presensi Hari Ini
-     */
     private function getPresensiHariIni()
     {
         $today = Carbon::today();
@@ -1076,7 +944,6 @@ class AdminDashboardController extends Controller
                 $jamIn = $presensi->jam_in ? Carbon::parse($presensi->jam_in)->format('H:i') : '-';
                 $status = 'Tepat Waktu';
                 
-                // Cek apakah terlambat
                 if ($presensi->user) {
                     $jadwal = Jadwal::where('pegawai_nik', $presensi->user->nik)
                         ->where('tgl', $presensi->tgl_presensi)
@@ -1111,13 +978,10 @@ class AdminDashboardController extends Controller
         return $presensi;
     }
 
-    /**
-     * 6. Izin/Cuti Pending
-     */
     private function getIzinPending()
     {
         return PengajuanIzin::with(['user.unitkerja'])
-            ->where('status_approved', 0) // Status pending
+            ->where('status_approved', 0)
             ->whereDate('tgl_izin', '>=', Carbon::today())
             ->orderBy('tgl_izin', 'asc')
             ->limit(10)
@@ -1144,30 +1008,23 @@ class AdminDashboardController extends Controller
             });
     }
 
-    /**
-     * 7. Chart Data untuk HRIS
-     */
     private function getChartDataHRIS()
     {
         $data = [];
         
-        // Data presensi 6 bulan terakhir
         for ($i = 5; $i >= 0; $i--) {
             $month = Carbon::now()->subMonths($i);
             $startDate = $month->copy()->startOfMonth();
             $endDate = $month->copy()->endOfMonth();
             
-            // Total presensi bulan ini
             $totalPresensi = Presensi::whereBetween('tgl_presensi', [$startDate, $endDate])
                 ->where('inoutmode', 1)
                 ->count();
             
-            // Total izin/sakit
             $totalIzin = PengajuanIzin::where('status_approved', 1)
                 ->whereBetween('tgl_izin', [$startDate, $endDate])
                 ->count();
             
-            // Total terlambat
             $totalTerlambat = DB::table('presensi as p')
                 ->join('jadwal as j', function($join) {
                     $join->on('p.nik', '=', 'j.pegawai_nik')
@@ -1188,9 +1045,6 @@ class AdminDashboardController extends Controller
         return $data;
     }
 
-    /**
-     * Grafik transaksi untuk Company (semua project dalam PT)
-     */
     private function getGrafikTransaksiForCompany($companyId)
     {
         $startDate = Carbon::now()->subDays(30);
@@ -1200,7 +1054,6 @@ class AdminDashboardController extends Controller
                 'kodetransaksi.id',
                 'kodetransaksi.kodetransaksi',
                 'kodetransaksi.transaksi',
-                'kodetransaksi.transaksi',
                 DB::raw('SUM(nota_transactions.total) as total_nominal'),
                 DB::raw('COUNT(nota_transactions.id) as jumlah_transaksi')
             ])
@@ -1208,17 +1061,11 @@ class AdminDashboardController extends Controller
             ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
             ->where('notas.idcompany', $companyId)
             ->whereBetween('notas.tanggal', [$startDate, $endDate])
-            ->groupBy(
-                'kodetransaksi.id',
-                'kodetransaksi.kodetransaksi', 
-                'kodetransaksi.transaksi',
-                'kodetransaksi.transaksi'
-            )
+            ->groupBy('kodetransaksi.id', 'kodetransaksi.kodetransaksi', 'kodetransaksi.transaksi')
             ->orderByDesc('total_nominal')
             ->limit(10)
             ->get();
 
-        // Format untuk chart.js
         $chartData = [
             'labels' => [],
             'data' => [],
@@ -1253,9 +1100,6 @@ class AdminDashboardController extends Controller
         return $chartData;
     }
 
-    /**
-     * Rincian saldo rekening untuk Company (semua rekening PT)
-     */
     private function getSaldoRekeningForCompany($companyId)
     {
         $rekenings = Rekening::select([
@@ -1300,9 +1144,6 @@ class AdminDashboardController extends Controller
         return $formattedData;
     }
 
-    /**
-     * Cashflow detail untuk Company (semua project dalam PT)
-     */
     private function getCashflowDetailForCompany($companyId)
     {
         $startDate = Carbon::now()->subDays(7);
@@ -1339,9 +1180,6 @@ class AdminDashboardController extends Controller
         return $this->formatCashflowData($cashflows);
     }
 
-    /**
-     * Data ringkasan dashboard untuk Company
-     */
     private function getRingkasanForCompany($companyId)
     {
         $projects = Project::where('idcompany', $companyId)->pluck('id');
@@ -1352,7 +1190,6 @@ class AdminDashboardController extends Controller
         
         $startDate = Carbon::now()->startOfMonth();
         $endDate = Carbon::now()->endOfMonth();
-        
         $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
         $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
 
@@ -1425,9 +1262,6 @@ class AdminDashboardController extends Controller
         ];
     }
 
-    /**
-     * Return empty ringkasan data
-     */
     private function getEmptyRingkasan()
     {
         return [
@@ -1455,467 +1289,412 @@ class AdminDashboardController extends Controller
         ];
     }
 
-    private function dashboardMarketing()
+    private function dashboardCompany()
     {
-        $companyId = session('active_project_module');
+        $companyId = session('active_company_id');
         
         if (!$companyId) {
             return redirect()->route('choose.project')
                 ->with('error', 'Silakan pilih PT terlebih dahulu.');
         }
         
-        // Ambil info company
-        $company = CompanyUnit::find($companyId);
+        $grafikTransaksi = $this->getGrafikTransaksiForCompany($companyId);
+        $saldoRekening = $this->getSaldoRekeningForCompany($companyId);
+        $cashflowDetail = $this->getCashflowDetailForCompany($companyId);
+        $ringkasan = $this->getRingkasanForCompany($companyId);
         
-        // 1. Statistik Unit (Semua Project dalam Company)
-        $statistikUnit = $this->getStatistikUnit($companyId);
-        
-        // 2. Statistik Booking & Penjualan
-        $statistikBooking = $this->getStatistikBooking($companyId);
-        
-        // 3. Statistik Customer
-        $statistikCustomer = $this->getStatistikCustomer($companyId);
-        
-        // 4. Project dengan Performa Terbaik
-        $topProjects = $this->getTopProjects($companyId);
-        
-        // 5. Booking Terbaru
-        $bookingTerbaru = $this->getBookingTerbaru($companyId);
-        
-        // 6. Penjualan Terbaru
-        $penjualanTerbaru = $this->getPenjualanTerbaru($companyId);
-        
-        // 7. Chart data untuk grafik
-        $chartData = $this->getChartDataMarketing($companyId);
-        
-        // Info Marketing
-        $marketingInfo = [
+        $companyInfo = [
             'nama' => session('active_company_name') ?? 'Tidak diketahui',
-            'company' => session('active_company_name') ?? 'Tidak diketahui',
-            'module' => 'Marketing',
-            'total_projects' => Project::where('idcompany', $companyId)->count(),
-            'periode' => Carbon::now()->translatedFormat('F Y')
+            'module' => 'Company'
         ];
 
-        return view('dashboard.marketing', compact(
-            'statistikUnit',
-            'statistikBooking', 
-            'statistikCustomer',
-            'topProjects',
-            'bookingTerbaru',
-            'penjualanTerbaru',
-            'chartData',
-            'marketingInfo',
-            'company'
+        return view('dashboard.company', compact(
+            'grafikTransaksi',
+            'saldoRekening',
+            'cashflowDetail',
+            'ringkasan',
+            'companyInfo'
         ));
     }
+    
+private function dashboardMarketing()
+{
+    $companyId = session('active_company_id');
+    
+    if (!$companyId) {
+        return redirect()->route('choose.project')
+            ->with('error', 'Silakan pilih PT terlebih dahulu.');
+    }
+    
+    $company = CompanyUnit::find($companyId);
+    
+    // AMBIL SEMUA PROJECT TANPA FILTER - GLOBAL
+    $allProjects = Project::where('idcompany', $companyId)->get();
+    
+    // Statistik GLOBAL - tanpa filter project
+    $statistikUnit = $this->getStatistikUnitMarketingGlobal();
+    $statistikBooking = $this->getStatistikBookingMarketingGlobal();
+    $statistikCustomer = $this->getStatistikCustomerMarketingGlobal();
+    $topProjects = $this->getTopProjectsMarketingGlobal($companyId);
+    $bookingTerbaru = $this->getBookingTerbaruMarketingGlobal();
+    $penjualanTerbaru = $this->getPenjualanTerbaruMarketingGlobal();
+    $chartData = $this->getChartDataMarketingGlobal();
+    
+    $marketingInfo = [
+        'nama' => session('active_company_name') ?? 'Tidak diketahui',
+        'company' => session('active_company_name') ?? 'Tidak diketahui',
+        'module' => 'Marketing',
+        'total_projects' => $allProjects->count(),
+        'periode' => 'Global / Semua Data'
+    ];
 
-    /**
-     * 1. Statistik Unit
-     */
-    private function getStatistikUnit($companyId)
-    {
-        // Ambil semua project dalam company
-        $projectIds = Project::where('idcompany', $companyId)->pluck('id');
+    return view('dashboard.marketing', compact(
+        'statistikUnit',
+        'statistikBooking', 
+        'statistikCustomer',
+        'topProjects',
+        'bookingTerbaru',
+        'penjualanTerbaru',
+        'chartData',
+        'marketingInfo',
+        'company',
+        'allProjects'
+    ));
+}
+
+/**
+ * 1. Statistik Unit untuk Marketing - GLOBAL (Semua Project)
+ */
+private function getStatistikUnitMarketingGlobal()
+{
+    // Query builder tanpa filter project - SEMUA UNIT
+    $query = UnitDetail::query();
+    
+    $totalUnits = $query->count();
+    
+    // Status unit - sama dengan UnitDetailController
+    $tersedia = $query->clone()->where('status', 'tersedia')->count();
+    $booking = $query->clone()->where('status', 'like', '%booking%')->count();
+    $biCheck = $query->clone()->where('status', 'bi_check')->count();
+    $pemberkasanBank = $query->clone()->where('status', 'pemberkasan_bank')->count();
+    $pemberkasanNotaris = $query->clone()->where('status', 'pemberkasan_notaris')->count();
+    $acc = $query->clone()->where('status', 'acc')->count();
+    $tidakAcc = $query->clone()->where('status', 'tidak_acc')->count();
+    $akad = $query->clone()->where('status', 'akad')->count();
+    $pencairan = $query->clone()->where('status', 'pencairan')->count();
+    $bast = $query->clone()->where('status', 'bast')->count();
+    $terjual = $query->clone()->where('status', 'terjual')->count();
+    
+    // Tipe penjualan
+    $cashCount = $query->clone()->where('tipe_penjualan', 'cash')->count();
+    $kreditCount = $query->clone()->where('tipe_penjualan', 'kredit')->count();
+    $belumDitentukan = $query->clone()->whereNull('tipe_penjualan')->count();
+    
+    // Nilai unit tersedia
+    $nilaiTersedia = UnitDetail::where('status', 'tersedia')
+        ->join('units', 'unit_details.idunit', '=', 'units.id')
+        ->sum('units.hargadasar') ?? 0;
+    
+    // Nilai unit terjual
+    $nilaiTerjual = UnitDetail::where('status', 'terjual')
+        ->join('penjualans', 'unit_details.penjualan_id', '=', 'penjualans.id')
+        ->sum('penjualans.harga_jual') ?? 0;
+
+    return [
+        'total' => $totalUnits,
+        'tersedia' => $tersedia,
+        'booking' => $booking,
+        'bi_check' => $biCheck,
+        'pemberkasan_bank' => $pemberkasanBank,
+        'pemberkasan_notaris' => $pemberkasanNotaris,
+        'acc' => $acc,
+        'tidak_acc' => $tidakAcc,
+        'akad' => $akad,
+        'pencairan' => $pencairan,
+        'bast' => $bast,
+        'terjual' => $terjual,
+        'cash_count' => $cashCount,
+        'kredit_count' => $kreditCount,
+        'belum_ditentukan' => $belumDitentukan,
+        'tersedia_percent' => $totalUnits > 0 ? round(($tersedia / $totalUnits) * 100, 1) : 0,
+        'booking_percent' => $totalUnits > 0 ? round(($booking / $totalUnits) * 100, 1) : 0,
+        'terjual_percent' => $totalUnits > 0 ? round(($terjual / $totalUnits) * 100, 1) : 0,
+        'nilai_tersedia' => $nilaiTersedia,
+        'nilai_terjual' => $nilaiTerjual,
+        'nilai_tersedia_formatted' => number_format($nilaiTersedia, 0, ',', '.'),
+        'nilai_terjual_formatted' => number_format($nilaiTerjual, 0, ',', '.')
+    ];
+}
+
+/**
+ * 2. Statistik Booking & Penjualan untuk Marketing - GLOBAL
+ */
+private function getStatistikBookingMarketingGlobal()
+{
+    // Total booking (semua status) - GLOBAL
+    $totalBooking = Booking::count();
+    
+    // Total DP booking
+    $totalDP = Booking::sum('dp_awal') ?? 0;
+    
+    // Total penjualan
+    $totalPenjualan = Penjualan::count();
+    
+    // Total nilai penjualan
+    $totalNilaiPenjualan = Penjualan::sum('harga_jual') ?? 0;
+    
+    // Unit terjual (status terjual)
+    $unitTerjual = UnitDetail::where('status', 'terjual')->count();
+    
+    // Conversion rate (Booking to Sale)
+    $conversionRate = 0;
+    if ($totalBooking > 0) {
+        $conversionRate = round(($unitTerjual / $totalBooking) * 100, 1);
+    }
+
+    return [
+        'total_booking' => $totalBooking,
+        'total_dp' => $totalDP,
+        'total_dp_formatted' => number_format($totalDP, 0, ',', '.'),
+        'total_penjualan' => $totalPenjualan,
+        'total_nilai_penjualan' => $totalNilaiPenjualan,
+        'total_nilai_penjualan_formatted' => number_format($totalNilaiPenjualan, 0, ',', '.'),
+        'unit_terjual' => $unitTerjual,
+        'conversion_rate' => $conversionRate,
+        'avg_dp' => $totalBooking > 0 ? round($totalDP / $totalBooking, 0) : 0,
+        'avg_sale' => $totalPenjualan > 0 ? round($totalNilaiPenjualan / $totalPenjualan, 0) : 0
+    ];
+}
+
+/**
+ * 3. Statistik Customer untuk Marketing - GLOBAL
+ */
+private function getStatistikCustomerMarketingGlobal()
+{
+    // Total customer
+    $totalCustomer = Customer::count();
+    
+    // Customer berdasarkan jenis kelamin
+    $customerLaki = Customer::where('jenis_kelamin', 'L')->count();
+    $customerPerempuan = Customer::where('jenis_kelamin', 'P')->count();
+    
+    // Customer repeat (beli lebih dari 1 unit)
+    $customerRepeat = DB::table('customers')
+        ->whereIn('id', function($query) {
+            $query->select('unit_details.customer_id')
+                ->from('unit_details')
+                ->whereNotNull('unit_details.customer_id')
+                ->groupBy('unit_details.customer_id')
+                ->havingRaw('COUNT(unit_details.id) > 1');
+        })
+        ->count();
+    
+    // Customer dengan DP tertinggi
+    $topDP = DB::table('bookings')
+        ->join('customers', 'bookings.customer_id', '=', 'customers.id')
+        ->orderBy('bookings.dp_awal', 'desc')
+        ->select('customers.nama_lengkap', 'bookings.dp_awal')
+        ->first();
+
+    return [
+        'total' => $totalCustomer,
+        'laki_laki' => $customerLaki,
+        'perempuan' => $customerPerempuan,
+        'repeat' => (int)$customerRepeat,
+        'persentase_laki' => $totalCustomer > 0 ? round(($customerLaki / $totalCustomer) * 100, 1) : 0,
+        'persentase_perempuan' => $totalCustomer > 0 ? round(($customerPerempuan / $totalCustomer) * 100, 1) : 0,
+        'persentase_repeat' => $totalCustomer > 0 ? round(($customerRepeat / $totalCustomer) * 100, 1) : 0,
+        'top_dp_customer' => $topDP ? [
+            'nama' => $topDP->nama_lengkap,
+            'dp' => number_format($topDP->dp_awal, 0, ',', '.')
+        ] : null
+    ];
+}
+
+/**
+ * 4. Project dengan Performa Terbaik untuk Marketing - GLOBAL
+ */
+private function getTopProjectsMarketingGlobal($companyId)
+{
+    $projects = Project::where('idcompany', $companyId)->get();
+    $result = [];
+    
+    foreach ($projects as $project) {
+        $totalUnit = Unit::where('idproject', $project->id)->count();
         
-        // Query untuk semua unit details dalam company
-        $query = UnitDetail::whereHas('unit', function($q) use ($projectIds) {
-            $q->whereIn('idproject', $projectIds);
-        });
-        
-        $totalUnits = $query->count();
-        
-        // Status unit
-        $tersedia = $query->clone()->where('status', 'tersedia')->count();
-        $booking = $query->clone()->where('status', 'booking_unit')->count();
-        $biCheck = $query->clone()->where('status', 'bi_check')->count();
-        $pemberkasan = $query->clone()->where('status', 'pemberkasan_bank')->count();
-        $acc = $query->clone()->where('status', 'acc')->count();
-        $akad = $query->clone()->where('status', 'akad')->count();
-        $pencairan = $query->clone()->where('status', 'pencairan')->count();
-        $bast = $query->clone()->where('status', 'bast')->count();
-        $terjual = $query->clone()->where('status', 'terjual')->count();
-        
-        // Total nilai unit tersedia
-        $nilaiTersedia = UnitDetail::whereHas('unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->where('status', 'tersedia')
-            ->join('units', 'unit_details.idunit', '=', 'units.id')
-            ->sum('units.hargadasar') ?? 0;
-        
-        // Total nilai unit terjual
-        $nilaiTerjual = UnitDetail::whereHas('unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
+        $totalTerjual = UnitDetail::whereHas('unit', function($q) use ($project) {
+                $q->where('idproject', $project->id);
             })
             ->where('status', 'terjual')
-            ->join('penjualans', 'unit_details.penjualan_id', '=', 'penjualans.id')
-            ->sum('penjualans.harga_jual') ?? 0;
-
-        return [
-            'total' => $totalUnits,
-            'tersedia' => $tersedia,
-            'booking' => $booking,
-            'bi_check' => $biCheck,
-            'pemberkasan_bank' => $pemberkasan,
-            'acc' => $acc,
-            'akad' => $akad,
-            'pencairan' => $pencairan,
-            'bast' => $bast,
-            'terjual' => $terjual,
-            'tersedia_percent' => $totalUnits > 0 ? round(($tersedia / $totalUnits) * 100, 1) : 0,
-            'booking_percent' => $totalUnits > 0 ? round(($booking / $totalUnits) * 100, 1) : 0,
-            'terjual_percent' => $totalUnits > 0 ? round(($terjual / $totalUnits) * 100, 1) : 0,
-            'nilai_tersedia' => $nilaiTersedia,
-            'nilai_terjual' => $nilaiTerjual,
-            'nilai_tersedia_formatted' => number_format($nilaiTersedia, 0, ',', '.'),
-            'nilai_terjual_formatted' => number_format($nilaiTerjual, 0, ',', '.')
-        ];
-    }
-
-    /**
-     * 2. Statistik Booking & Penjualan
-     */
-    private function getStatistikBooking($companyId)
-    {
-        $projectIds = Project::where('idcompany', $companyId)->pluck('id');
-        
-        // Periode bulan ini
-        $startDate = Carbon::now()->startOfMonth();
-        $endDate = Carbon::now()->endOfMonth();
-        
-        // Booking bulan ini
-        $bookingBulanIni = Booking::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->whereBetween('tanggal_booking', [$startDate, $endDate])
             ->count();
         
-        // Total DP booking bulan ini
-        $dpBookingBulanIni = Booking::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
+        $totalNilaiTerjual = Penjualan::whereHas('unitDetail.unit', function($q) use ($project) {
+                $q->where('idproject', $project->id);
             })
-            ->whereBetween('tanggal_booking', [$startDate, $endDate])
-            ->sum('dp_awal') ?? 0;
-        
-        // Booking bulan lalu untuk perbandingan
-        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
-        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
-        
-        $bookingBulanLalu = Booking::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->whereBetween('tanggal_booking', [$lastMonthStart, $lastMonthEnd])
-            ->count();
-        
-        // Persentase perubahan booking
-        $bookingPercentage = 0;
-        if ($bookingBulanLalu > 0) {
-            $bookingPercentage = (($bookingBulanIni - $bookingBulanLalu) / $bookingBulanLalu) * 100;
-        }
-        
-        // Penjualan bulan ini
-        $penjualanBulanIni = Penjualan::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->whereBetween('tanggal_akad', [$startDate, $endDate])
-            ->count();
-        
-        // Total nilai penjualan bulan ini
-        $nilaiPenjualanBulanIni = Penjualan::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->whereBetween('tanggal_akad', [$startDate, $endDate])
             ->sum('harga_jual') ?? 0;
         
-        // Penjualan bulan lalu
-        $penjualanBulanLalu = Penjualan::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->whereBetween('tanggal_akad', [$lastMonthStart, $lastMonthEnd])
-            ->count();
+        $penjualanRate = $totalUnit > 0 ? round(($totalTerjual / $totalUnit) * 100, 1) : 0;
         
-        // Persentase perubahan penjualan
-        $penjualanPercentage = 0;
-        if ($penjualanBulanLalu > 0) {
-            $penjualanPercentage = (($penjualanBulanIni - $penjualanBulanLalu) / $penjualanBulanLalu) * 100;
-        }
-        
-        // Conversion rate (Booking to Sale)
-        $conversionRate = 0;
-        if ($bookingBulanIni > 0) {
-            $conversionRate = round(($penjualanBulanIni / $bookingBulanIni) * 100, 1);
-        }
-
-        return [
-            'booking_bulan_ini' => $bookingBulanIni,
-            'dp_booking_bulan_ini' => $dpBookingBulanIni,
-            'dp_booking_formatted' => number_format($dpBookingBulanIni, 0, ',', '.'),
-            'booking_percentage' => round($bookingPercentage, 1),
-            'booking_trend' => $bookingPercentage >= 0 ? 'up' : 'down',
-            'penjualan_bulan_ini' => $penjualanBulanIni,
-            'nilai_penjualan_bulan_ini' => $nilaiPenjualanBulanIni,
-            'nilai_penjualan_formatted' => number_format($nilaiPenjualanBulanIni, 0, ',', '.'),
-            'penjualan_percentage' => round($penjualanPercentage, 1),
-            'penjualan_trend' => $penjualanPercentage >= 0 ? 'up' : 'down',
-            'conversion_rate' => $conversionRate,
-            'avg_dp' => $bookingBulanIni > 0 ? round($dpBookingBulanIni / $bookingBulanIni, 0) : 0,
-            'avg_sale' => $penjualanBulanIni > 0 ? round($nilaiPenjualanBulanIni / $penjualanBulanIni, 0) : 0
+        $result[] = [
+            'id' => $project->id,
+            'nama' => $project->namaproject,
+            'total_unit' => $totalUnit,
+            'total_terjual' => $totalTerjual,
+            'total_nilai_terjual' => $totalNilaiTerjual,
+            'total_nilai_formatted' => number_format($totalNilaiTerjual, 0, ',', '.'),
+            'penjualan_rate' => $penjualanRate
         ];
     }
+    
+    // Urutkan berdasarkan total terjual
+    usort($result, function($a, $b) {
+        return $b['total_terjual'] - $a['total_terjual'];
+    });
+    
+    return collect(array_slice($result, 0, 5));
+}
 
-    private function getStatistikCustomer($companyId)
-    {
-        // Total customer (yang pernah booking)
-        $totalCustomer = Customer::whereHas('bookings.unitDetail.unit', function($q) use ($companyId) {
-                $q->whereHas('project', function($q2) use ($companyId) {
-                    $q2->where('idcompany', $companyId);
-                });
-            })
-            ->count();
-        
-        // Customer baru bulan ini
-        $customerBaru = Customer::whereHas('bookings.unitDetail.unit', function($q) use ($companyId) {
-                $q->whereHas('project', function($q2) use ($companyId) {
-                    $q2->where('idcompany', $companyId);
-                });
-            })
-            ->whereMonth('created_at', Carbon::now()->month)
-            ->whereYear('created_at', Carbon::now()->year)
-            ->count();
-        
-        // Customer berdasarkan jenis kelamin
-        $customerLaki = Customer::whereHas('bookings.unitDetail.unit', function($q) use ($companyId) {
-                $q->whereHas('project', function($q2) use ($companyId) {
-                    $q2->where('idcompany', $companyId);
-                });
-            })
-            ->where('jenis_kelamin', 'L')
-            ->count();
-        
-        $customerPerempuan = Customer::whereHas('bookings.unitDetail.unit', function($q) use ($companyId) {
-                $q->whereHas('project', function($q2) use ($companyId) {
-                    $q2->where('idcompany', $companyId);
-                });
-            })
-            ->where('jenis_kelamin', 'P')
-            ->count();
-        
-        // Customer repeat (beli lebih dari 1 unit) - VERSI SIMPLE
-        $customerRepeat = DB::table('customers as c')
-            ->select(DB::raw('COUNT(DISTINCT c.id) as total'))
-            ->join('penjualans as p', 'c.id', '=', 'p.customer_id')
-            ->whereIn('c.id', function($query) use ($companyId) {
-                $query->select('p2.customer_id')
-                    ->from('penjualans as p2')
-                    ->join('unit_details as ud', 'p2.unit_detail_id', '=', 'ud.id')
-                    ->join('units as u', 'ud.idunit', '=', 'u.id')
-                    ->join('projects as pr', 'u.idproject', '=', 'pr.id')
-                    ->where('pr.idcompany', $companyId)
-                    ->groupBy('p2.customer_id')
-                    ->havingRaw('COUNT(p2.id) > 1');
-            })
-            ->whereNull('c.deleted_at')
-            ->first()
-            ->total ?? 0;
-        
-        // Customer dengan DP tertinggi
-        $customerTopDP = DB::select("
-            SELECT customers.*, max_dp
-            FROM customers
-            INNER JOIN (
-                SELECT customer_id, MAX(dp_awal) as max_dp
-                FROM bookings b
-                WHERE EXISTS (
-                    SELECT 1 
-                    FROM unit_details ud
-                    INNER JOIN units u ON ud.idunit = u.id
-                    INNER JOIN projects pr ON u.idproject = pr.id
-                    WHERE ud.id = b.unit_detail_id
-                    AND pr.idcompany = ?
-                )
-                GROUP BY customer_id
-                ORDER BY max_dp DESC
-                LIMIT 1
-            ) as top_dp ON customers.id = top_dp.customer_id
-            WHERE customers.deleted_at IS NULL
-            LIMIT 1
-        ", [$companyId])[0] ?? null;
-
-        return [
-            'total' => $totalCustomer,
-            'baru_bulan_ini' => $customerBaru,
-            'laki_laki' => $customerLaki,
-            'perempuan' => $customerPerempuan,
-            'repeat' => (int)$customerRepeat,
-            'persentase_laki' => $totalCustomer > 0 ? round(($customerLaki / $totalCustomer) * 100, 1) : 0,
-            'persentase_perempuan' => $totalCustomer > 0 ? round(($customerPerempuan / $totalCustomer) * 100, 1) : 0,
-            'persentase_repeat' => $totalCustomer > 0 ? round(($customerRepeat / $totalCustomer) * 100, 1) : 0,
-            'top_dp_customer' => $customerTopDP ? [
-                'nama' => $customerTopDP->nama_lengkap,
-                'dp' => number_format($customerTopDP->max_dp, 0, ',', '.')
-            ] : null
-        ];
-    }
-
-    /**
-     * 4. Project dengan Performa Terbaik
-     */
-    /**
- * 4. Project dengan Performa Terbaik
+/**
+ * 5. Booking Terbaru untuk Marketing - GLOBAL
  */
-private function getTopProjects($companyId)
+private function getBookingTerbaruMarketingGlobal()
 {
-    // Solusi 1: Gunakan subquery dengan WHERE
-    return Project::select(
-            'projects.*',
-            DB::raw('(SELECT COUNT(*) FROM units WHERE units.idproject = projects.id) as total_unit'),
-            DB::raw('(SELECT COUNT(*) FROM unit_details ud 
-                     JOIN units u ON ud.idunit = u.id 
-                     WHERE u.idproject = projects.id AND ud.status = "terjual") as total_terjual'),
-            DB::raw('(SELECT SUM(p.harga_jual) FROM penjualans p 
-                     JOIN unit_details ud ON p.unit_detail_id = ud.id 
-                     JOIN units u ON ud.idunit = u.id 
-                     WHERE u.idproject = projects.id) as total_nilai_terjual')
-        )
-        ->where('idcompany', $companyId)
-        ->whereExists(function($query) {
-            $query->select(DB::raw(1))
-                ->from('units')
-                ->whereColumn('units.idproject', 'projects.id');
-        })
-        ->orderByDesc(DB::raw('(SELECT COUNT(*) FROM unit_details ud 
-                             JOIN units u ON ud.idunit = u.id 
-                             WHERE u.idproject = projects.id AND ud.status = "terjual")'))
-        ->limit(5)
+    return Booking::with(['customer', 'unitDetail.unit.project'])
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
         ->get()
-        ->map(function($project) {
-            $penjualanRate = $project->total_unit > 0 ? 
-                round(($project->total_terjual / $project->total_unit) * 100, 1) : 0;
-            
+        ->map(function($booking) {
             return [
-                'id' => $project->id,
-                'nama' => $project->namaproject,
-                'total_unit' => $project->total_unit,
-                'total_terjual' => $project->total_terjual,
-                'total_nilai_terjual' => $project->total_nilai_terjual ?? 0,
-                'total_nilai_formatted' => number_format($project->total_nilai_terjual ?? 0, 0, ',', '.'),
-                'penjualan_rate' => $penjualanRate,
-                'status' => $project->status
+                'id' => $booking->id,
+                'kode_booking' => $booking->kode_booking,
+                'tanggal' => $booking->tanggal_booking ? Carbon::parse($booking->tanggal_booking)->format('d/m/Y') : '-',
+                'customer' => $booking->customer->nama_lengkap ?? '-',
+                'project' => $booking->unitDetail->unit->project->namaproject ?? '-',
+                'unit' => $booking->unitDetail->unit->namaunit ?? '-',
+                'dp' => number_format($booking->dp_awal, 0, ',', '.'),
+                'status' => $booking->status_booking,
+                'status_badge' => $this->getBookingStatusBadge($booking->status_booking)
             ];
         });
 }
 
-    /**
-     * 5. Booking Terbaru
-     */
-    private function getBookingTerbaru($companyId)
-    {
-        $projectIds = Project::where('idcompany', $companyId)->pluck('id');
-        
-        return Booking::with(['customer', 'unitDetail.unit.project'])
-            ->whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->orderBy('tanggal_booking', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function($booking) {
-                return [
-                    'id' => $booking->id,
-                    'kode_booking' => $booking->kode_booking,
-                    'tanggal' => Carbon::parse($booking->tanggal_booking)->format('d/m/Y'),
-                    'customer' => $booking->customer->nama_lengkap ?? '-',
-                    'project' => $booking->unitDetail->unit->project->namaproject ?? '-',
-                    'unit' => $booking->unitDetail->unit->namaunit ?? '-',
-                    'dp' => number_format($booking->dp_awal, 0, ',', '.'),
-                    'status' => $booking->status_booking,
-                    'status_badge' => $this->getBookingStatusBadge($booking->status_booking)
-                ];
-            });
-    }
+/**
+ * 6. Penjualan Terbaru untuk Marketing - GLOBAL
+ */
+private function getPenjualanTerbaruMarketingGlobal()
+{
+    return Penjualan::with(['customer', 'unitDetail.unit.project'])
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get()
+        ->map(function($penjualan) {
+            return [
+                'id' => $penjualan->id,
+                'kode_penjualan' => $penjualan->kode_penjualan,
+                'tanggal' => $penjualan->tanggal_akad ? Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y') : '-',
+                'customer' => $penjualan->customer->nama_lengkap ?? '-',
+                'project' => $penjualan->unitDetail->unit->project->namaproject ?? '-',
+                'unit' => $penjualan->unitDetail->unit->namaunit ?? '-',
+                'harga' => number_format($penjualan->harga_jual, 0, ',', '.'),
+                'metode' => $penjualan->metode_pembayaran,
+                'status' => $penjualan->status_penjualan,
+                'status_badge' => $this->getPenjualanStatusBadge($penjualan->status_penjualan)
+            ];
+        });
+}
 
-    /**
-     * 6. Penjualan Terbaru
-     */
-    private function getPenjualanTerbaru($companyId)
-    {
-        $projectIds = Project::where('idcompany', $companyId)->pluck('id');
+/**
+ * 7. Chart Data untuk Marketing (6 bulan terakhir) - GLOBAL
+ */
+private function getChartDataMarketingGlobal()
+{
+    $data = ['labels' => [], 'booking' => [], 'penjualan' => []];
+    
+    for ($i = 5; $i >= 0; $i--) {
+        $month = Carbon::now()->subMonths($i);
+        $startDate = $month->copy()->startOfMonth();
+        $endDate = $month->copy()->endOfMonth();
         
-        return Penjualan::with(['customer', 'unitDetail.unit.project'])
-            ->whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                $q->whereIn('idproject', $projectIds);
-            })
-            ->orderBy('tanggal_akad', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function($penjualan) {
-                return [
-                    'id' => $penjualan->id,
-                    'kode_penjualan' => $penjualan->kode_penjualan,
-                    'tanggal' => Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y'),
-                    'customer' => $penjualan->customer->nama_lengkap ?? '-',
-                    'project' => $penjualan->unitDetail->unit->project->namaproject ?? '-',
-                    'unit' => $penjualan->unitDetail->unit->namaunit ?? '-',
-                    'harga' => number_format($penjualan->harga_jual, 0, ',', '.'),
-                    'metode' => $penjualan->metode_pembayaran,
-                    'status' => $penjualan->status_penjualan,
-                    'status_badge' => $this->getPenjualanStatusBadge($penjualan->status_penjualan)
-                ];
-            });
+        // Booking bulan ini - GLOBAL
+        $totalBooking = Booking::whereBetween('created_at', [$startDate, $endDate])->count();
+        
+        // Penjualan bulan ini - GLOBAL
+        $totalPenjualan = Penjualan::whereBetween('created_at', [$startDate, $endDate])->count();
+        
+        $data['labels'][] = $month->format('M Y');
+        $data['booking'][] = $totalBooking;
+        $data['penjualan'][] = $totalPenjualan;
     }
+    
+    return $data;
+}
 
-    /**
-     * 7. Chart Data untuk Marketing
-     */
-    private function getChartDataMarketing($companyId)
-    {
-        $data = [];
-        $projectIds = Project::where('idcompany', $companyId)->pluck('id');
-        
-        // Data 6 bulan terakhir
-        for ($i = 5; $i >= 0; $i--) {
-            $month = Carbon::now()->subMonths($i);
-            $startDate = $month->copy()->startOfMonth();
-            $endDate = $month->copy()->endOfMonth();
-            
-            // Booking bulan ini
-            $totalBooking = Booking::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                    $q->whereIn('idproject', $projectIds);
-                })
-                ->whereBetween('tanggal_booking', [$startDate, $endDate])
-                ->count();
-            
-            // Total DP booking
-            $totalDP = Booking::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                    $q->whereIn('idproject', $projectIds);
-                })
-                ->whereBetween('tanggal_booking', [$startDate, $endDate])
-                ->sum('dp_awal') ?? 0;
-            
-            // Penjualan bulan ini
-            $totalPenjualan = Penjualan::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                    $q->whereIn('idproject', $projectIds);
-                })
-                ->whereBetween('tanggal_akad', [$startDate, $endDate])
-                ->count();
-            
-            // Total nilai penjualan
-            $totalNilaiPenjualan = Penjualan::whereHas('unitDetail.unit', function($q) use ($projectIds) {
-                    $q->whereIn('idproject', $projectIds);
-                })
-                ->whereBetween('tanggal_akad', [$startDate, $endDate])
-                ->sum('harga_jual') ?? 0;
-            
-            $data['labels'][] = $month->format('M Y');
-            $data['booking'][] = $totalBooking;
-            $data['dp'][] = $totalDP;
-            $data['penjualan'][] = $totalPenjualan;
-            $data['nilai_penjualan'][] = $totalNilaiPenjualan;
-        }
-        
-        return $data;
-    }
+/**
+ * Return empty statistik unit
+ */
+private function getEmptyStatistikUnit()
+{
+    return [
+        'total' => 0,
+        'tersedia' => 0,
+        'booking' => 0,
+        'bi_check' => 0,
+        'pemberkasan_bank' => 0,
+        'pemberkasan_notaris' => 0,
+        'acc' => 0,
+        'tidak_acc' => 0,
+        'akad' => 0,
+        'pencairan' => 0,
+        'bast' => 0,
+        'terjual' => 0,
+        'cash_count' => 0,
+        'kredit_count' => 0,
+        'belum_ditentukan' => 0,
+        'tersedia_percent' => 0,
+        'booking_percent' => 0,
+        'terjual_percent' => 0,
+        'nilai_tersedia' => 0,
+        'nilai_terjual' => 0,
+        'nilai_tersedia_formatted' => '0',
+        'nilai_terjual_formatted' => '0'
+    ];
+}
+
+/**
+ * Return empty statistik booking
+ */
+private function getEmptyStatistikBooking()
+{
+    return [
+        'total_booking' => 0,
+        'total_dp' => 0,
+        'total_dp_formatted' => '0',
+        'total_penjualan' => 0,
+        'total_nilai_penjualan' => 0,
+        'total_nilai_penjualan_formatted' => '0',
+        'unit_terjual' => 0,
+        'conversion_rate' => 0,
+        'avg_dp' => 0,
+        'avg_sale' => 0
+    ];
+}
+
+/**
+ * Return empty statistik customer
+ */
+private function getEmptyStatistikCustomer()
+{
+    return [
+        'total' => 0,
+        'laki_laki' => 0,
+        'perempuan' => 0,
+        'repeat' => 0,
+        'persentase_laki' => 0,
+        'persentase_perempuan' => 0,
+        'persentase_repeat' => 0,
+        'top_dp_customer' => null
+    ];
+}
 
     /**
      * Helper: Get booking status badge
@@ -1943,6 +1722,20 @@ private function getTopProjects($companyId)
             'completed' => 'bg-success',
             'canceled' => 'bg-danger',
             'pending' => 'bg-info'
+        ];
+        
+        return $badges[$status] ?? 'bg-secondary';
+    }
+
+    /**
+     * Helper: Get project status badge
+     */
+    private function getProjectStatusBadge($status)
+    {
+        $badges = [
+            'active' => 'bg-success',
+            'inactive' => 'bg-secondary',
+            'completed' => 'bg-info'
         ];
         
         return $badges[$status] ?? 'bg-secondary';
