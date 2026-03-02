@@ -594,17 +594,24 @@
                                 columns: ':visible',
                                 format: {
                                     body: function(data, row, column, node) {
-                                        // Remove HTML tags and button for export
+                                        // Kolom No. Nota (index 1) - hapus button
                                         if (column === 1) {
                                             const tempDiv = document.createElement('div');
                                             tempDiv.innerHTML = data;
                                             const span = tempDiv.querySelector('span');
                                             return span ? span.textContent : data;
                                         }
-                                        if (column === 5 || column === 6 || column === 7) {
-                                            const num = data.replace('Rp ', '').replace(/\./g, '').replace(',', '.');
-                                            return isNaN(num) ? 0 : parseFloat(num);
+                                        
+                                        // Kolom nominal (Pemasukan index 4, Pengeluaran index 5, Saldo index 6)
+                                        if (column === 4 || column === 5 || column === 6) {
+                                            // Ambil data asli dari row, bukan dari HTML yang sudah diformat
+                                            const rowData = table.row(row).data();
+                                            
+                                            if (column === 4) return rowData.pemasukan || 0;
+                                            if (column === 5) return rowData.pengeluaran || 0;
+                                            if (column === 6) return rowData.saldo || 0;
                                         }
+                                        
                                         return data;
                                     }
                                 }
@@ -623,6 +630,20 @@
                                 const start = $('#start_date').val();
                                 const end = $('#end_date').val();
                                 return `Cashflow_PT_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
+                            },
+                            customize: function(xlsx) {
+                                const sheet = xlsx.xl.worksheets['sheet1.xml'];
+                                
+                                // Format kolom nominal sebagai angka
+                                $('row c[r^="E"]', sheet).each(function() {
+                                    $(this).attr('s', '2'); // Format number
+                                });
+                                $('row c[r^="F"]', sheet).each(function() {
+                                    $(this).attr('s', '2');
+                                });
+                                $('row c[r^="G"]', sheet).each(function() {
+                                    $(this).attr('s', '2');
+                                });
                             }
                         },
                         {

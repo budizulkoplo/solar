@@ -615,6 +615,7 @@ class LaporanController extends Controller
             ->leftJoin('company_units as cu', 'n.idcompany', '=', 'cu.id')
             ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota')
             ->where('n.status', 'paid')
+            ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
             ->whereNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate]);

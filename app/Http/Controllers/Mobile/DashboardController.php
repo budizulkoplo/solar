@@ -156,7 +156,7 @@ class DashboardController extends Controller
 
         // Ambil data tiket dari API eksternal
         try {
-            $response = Http::timeout(5)->get('https://pm.mentarimultitrada.com/api/tickets/latest-status');
+            $response = Http::timeout(5)->get('https://pm.mysolarsystem.web.id/api/tickets/latest-status');
 
             if ($response->successful()) {
                 $tickets = collect($response->json());
