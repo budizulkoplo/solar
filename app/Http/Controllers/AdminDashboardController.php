@@ -1331,11 +1331,11 @@ private function dashboardMarketing()
     // AMBIL SEMUA PROJECT TANPA FILTER - GLOBAL
     $allProjects = Project::where('idcompany', $companyId)->get();
     
-    // Statistik GLOBAL - tanpa filter project
+    // Statistik GLOBAL - SEMUA FUNGSI TANPA PARAMETER
     $statistikUnit = $this->getStatistikUnitMarketingGlobal();
     $statistikBooking = $this->getStatistikBookingMarketingGlobal();
     $statistikCustomer = $this->getStatistikCustomerMarketingGlobal();
-    $topProjects = $this->getTopProjectsMarketingGlobal($companyId);
+    $topProjects = $this->getTopProjectsMarketingGlobal(); 
     $bookingTerbaru = $this->getBookingTerbaruMarketingGlobal();
     $penjualanTerbaru = $this->getPenjualanTerbaruMarketingGlobal();
     $chartData = $this->getChartDataMarketingGlobal();
@@ -1360,6 +1360,171 @@ private function dashboardMarketing()
         'company',
         'allProjects'
     ));
+}
+
+/**
+ * 4. Project dengan Performa Terbaik untuk Marketing - GLOBAL (TANPA FILTER COMPANY)
+ */
+private function getTopProjectsMarketingGlobal()
+{
+    // Ambil SEMUA project
+    $projects = DB::table('projects')->get();
+    $result = [];
+    
+    \Log::info('===== TOP PROJECTS DEBUG =====');
+    \Log::info('Total Projects: ' . $projects->count());
+    
+    foreach ($projects as $project) {
+        // Hitung total unit DETAILS per project (bukan units!)
+        $totalUnitDetails = DB::table('unit_details')
+            ->join('units', 'unit_details.idunit', '=', 'units.id')
+            ->where('units.idproject', $project->id)
+            ->count();
+        
+        // Hitung unit terjual per project (status 'terjual' di unit_details)
+        $totalTerjual = DB::table('unit_details')
+            ->join('units', 'unit_details.idunit', '=', 'units.id')
+            ->where('units.idproject', $project->id)
+            ->where('unit_details.status', 'terjual')
+            ->count();
+        
+        // Hitung total nilai penjualan per project
+        $totalNilaiTerjual = DB::table('penjualans')
+            ->join('unit_details', 'penjualans.unit_detail_id', '=', 'unit_details.id')
+            ->join('units', 'unit_details.idunit', '=', 'units.id')
+            ->where('units.idproject', $project->id)
+            ->sum('penjualans.harga_jual') ?? 0;
+        
+        // Ambil nama company
+        $companyName = DB::table('company_units')
+            ->where('id', $project->idcompany)
+            ->value('company_name') ?? 'Unknown';
+        
+        \Log::info('Project: ' . $project->namaproject . ' (ID: ' . $project->id . ')');
+        \Log::info('  - Company: ' . $companyName);
+        \Log::info('  - Total Unit Details: ' . $totalUnitDetails); // Ini harusnya 81 untuk project 13
+        \Log::info('  - Total Terjual: ' . $totalTerjual);
+        \Log::info('  - Total Nilai: Rp ' . number_format($totalNilaiTerjual, 0, ',', '.'));
+        
+        // Hanya tampilkan project yang punya unit details
+        if ($totalUnitDetails > 0) {
+            $penjualanRate = $totalUnitDetails > 0 ? round(($totalTerjual / $totalUnitDetails) * 100, 1) : 0;
+            
+            $result[] = [
+                'id' => $project->id,
+                'nama' => $project->namaproject,
+                'company' => $companyName,
+                'total_unit' => $totalUnitDetails, // Ini yang benar adalah total unit_details
+                'total_terjual' => $totalTerjual,
+                'total_nilai_terjual' => $totalNilaiTerjual,
+                'total_nilai_formatted' => number_format($totalNilaiTerjual, 0, ',', '.'),
+                'penjualan_rate' => $penjualanRate
+            ];
+        }
+    }
+    
+    // Urutkan berdasarkan total terjual (descending)
+    usort($result, function($a, $b) {
+        if ($b['total_terjual'] == $a['total_terjual']) {
+            return $b['total_nilai_terjual'] <=> $a['total_nilai_terjual'];
+        }
+        return $b['total_terjual'] - $a['total_terjual'];
+    });
+    
+    \Log::info('Total Projects with unit details: ' . count($result));
+    foreach ($result as $r) {
+        \Log::info($r['nama'] . ': ' . $r['total_unit'] . ' unit details, ' . $r['total_terjual'] . ' terjual, rate ' . $r['penjualan_rate'] . '%');
+    }
+    \Log::info('===== END TOP PROJECTS DEBUG =====');
+    
+    return collect(array_slice($result, 0, 5));
+}
+
+/**
+ * 5. Booking Terbaru untuk Marketing - GLOBAL (Semua project)
+ */
+private function getBookingTerbaruMarketingGlobal()
+{
+    return Booking::with(['customer', 'unitDetail.unit.project.companyUnit'])
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get()
+        ->map(function($booking) {
+            return [
+                'id' => $booking->id,
+                'kode_booking' => $booking->kode_booking,
+                'tanggal' => $booking->tanggal_booking ? Carbon::parse($booking->tanggal_booking)->format('d/m/Y') : '-',
+                'customer' => $booking->customer->nama_lengkap ?? '-',
+                'project' => $booking->unitDetail->unit->project->namaproject ?? '-',
+                'company' => $booking->unitDetail->unit->project->companyUnit->company_name ?? '-',
+                'unit' => $booking->unitDetail->unit->namaunit ?? '-',
+                'dp' => number_format($booking->dp_awal, 0, ',', '.'),
+                'status' => $booking->status_booking,
+                'status_badge' => $this->getBookingStatusBadge($booking->status_booking)
+            ];
+        });
+}
+
+/**
+ * 6. Penjualan Terbaru untuk Marketing - GLOBAL (Semua project)
+ */
+private function getPenjualanTerbaruMarketingGlobal()
+{
+    return Penjualan::with(['customer', 'unitDetail.unit.project.companyUnit'])
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get()
+        ->map(function($penjualan) {
+            return [
+                'id' => $penjualan->id,
+                'kode_penjualan' => $penjualan->kode_penjualan,
+                'tanggal' => $penjualan->tanggal_akad ? Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y') : '-',
+                'customer' => $penjualan->customer->nama_lengkap ?? '-',
+                'project' => $penjualan->unitDetail->unit->project->namaproject ?? '-',
+                'company' => $penjualan->unitDetail->unit->project->companyUnit->company_name ?? '-',
+                'unit' => $penjualan->unitDetail->unit->namaunit ?? '-',
+                'harga' => number_format($penjualan->harga_jual, 0, ',', '.'),
+                'metode' => $penjualan->metode_pembayaran,
+                'status' => $penjualan->status_penjualan,
+                'status_badge' => $this->getPenjualanStatusBadge($penjualan->status_penjualan)
+            ];
+        });
+}
+
+/**
+ * 7. Chart Data untuk Marketing (6 bulan terakhir) - GLOBAL (Semua project)
+ */
+private function getChartDataMarketingGlobal()
+{
+    $data = ['labels' => [], 'booking' => [], 'penjualan' => []];
+    
+    for ($i = 5; $i >= 0; $i--) {
+        $month = Carbon::now()->subMonths($i);
+        $startDate = $month->copy()->startOfMonth()->format('Y-m-d');
+        $endDate = $month->copy()->endOfMonth()->format('Y-m-d');
+        
+        \Log::info('Month: ' . $month->format('M Y') . ' | Start: ' . $startDate . ' | End: ' . $endDate);
+        
+        // Booking per bulan berdasarkan TANGGAL BOOKING (bukan created_at)
+        $totalBooking = DB::table('bookings')
+            ->whereBetween('tanggal_booking', [$startDate, $endDate])
+            ->count();
+        
+        // Penjualan per bulan berdasarkan TANGGAL AKAD (bukan created_at)
+        $totalPenjualan = DB::table('penjualans')
+            ->whereBetween('tanggal_akad', [$startDate, $endDate])
+            ->count();
+        
+        \Log::info('  Booking: ' . $totalBooking . ' | Penjualan: ' . $totalPenjualan);
+        
+        $data['labels'][] = $month->format('M Y');
+        $data['booking'][] = $totalBooking;
+        $data['penjualan'][] = $totalPenjualan;
+    }
+    
+    \Log::info('Final Chart Data:', $data);
+    
+    return $data;
 }
 
 /**
@@ -1511,123 +1676,7 @@ private function getStatistikCustomerMarketingGlobal()
     ];
 }
 
-/**
- * 4. Project dengan Performa Terbaik untuk Marketing - GLOBAL
- */
-private function getTopProjectsMarketingGlobal($companyId)
-{
-    $projects = Project::where('idcompany', $companyId)->get();
-    $result = [];
-    
-    foreach ($projects as $project) {
-        $totalUnit = Unit::where('idproject', $project->id)->count();
-        
-        $totalTerjual = UnitDetail::whereHas('unit', function($q) use ($project) {
-                $q->where('idproject', $project->id);
-            })
-            ->where('status', 'terjual')
-            ->count();
-        
-        $totalNilaiTerjual = Penjualan::whereHas('unitDetail.unit', function($q) use ($project) {
-                $q->where('idproject', $project->id);
-            })
-            ->sum('harga_jual') ?? 0;
-        
-        $penjualanRate = $totalUnit > 0 ? round(($totalTerjual / $totalUnit) * 100, 1) : 0;
-        
-        $result[] = [
-            'id' => $project->id,
-            'nama' => $project->namaproject,
-            'total_unit' => $totalUnit,
-            'total_terjual' => $totalTerjual,
-            'total_nilai_terjual' => $totalNilaiTerjual,
-            'total_nilai_formatted' => number_format($totalNilaiTerjual, 0, ',', '.'),
-            'penjualan_rate' => $penjualanRate
-        ];
-    }
-    
-    // Urutkan berdasarkan total terjual
-    usort($result, function($a, $b) {
-        return $b['total_terjual'] - $a['total_terjual'];
-    });
-    
-    return collect(array_slice($result, 0, 5));
-}
 
-/**
- * 5. Booking Terbaru untuk Marketing - GLOBAL
- */
-private function getBookingTerbaruMarketingGlobal()
-{
-    return Booking::with(['customer', 'unitDetail.unit.project'])
-        ->orderBy('created_at', 'desc')
-        ->limit(10)
-        ->get()
-        ->map(function($booking) {
-            return [
-                'id' => $booking->id,
-                'kode_booking' => $booking->kode_booking,
-                'tanggal' => $booking->tanggal_booking ? Carbon::parse($booking->tanggal_booking)->format('d/m/Y') : '-',
-                'customer' => $booking->customer->nama_lengkap ?? '-',
-                'project' => $booking->unitDetail->unit->project->namaproject ?? '-',
-                'unit' => $booking->unitDetail->unit->namaunit ?? '-',
-                'dp' => number_format($booking->dp_awal, 0, ',', '.'),
-                'status' => $booking->status_booking,
-                'status_badge' => $this->getBookingStatusBadge($booking->status_booking)
-            ];
-        });
-}
-
-/**
- * 6. Penjualan Terbaru untuk Marketing - GLOBAL
- */
-private function getPenjualanTerbaruMarketingGlobal()
-{
-    return Penjualan::with(['customer', 'unitDetail.unit.project'])
-        ->orderBy('created_at', 'desc')
-        ->limit(10)
-        ->get()
-        ->map(function($penjualan) {
-            return [
-                'id' => $penjualan->id,
-                'kode_penjualan' => $penjualan->kode_penjualan,
-                'tanggal' => $penjualan->tanggal_akad ? Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y') : '-',
-                'customer' => $penjualan->customer->nama_lengkap ?? '-',
-                'project' => $penjualan->unitDetail->unit->project->namaproject ?? '-',
-                'unit' => $penjualan->unitDetail->unit->namaunit ?? '-',
-                'harga' => number_format($penjualan->harga_jual, 0, ',', '.'),
-                'metode' => $penjualan->metode_pembayaran,
-                'status' => $penjualan->status_penjualan,
-                'status_badge' => $this->getPenjualanStatusBadge($penjualan->status_penjualan)
-            ];
-        });
-}
-
-/**
- * 7. Chart Data untuk Marketing (6 bulan terakhir) - GLOBAL
- */
-private function getChartDataMarketingGlobal()
-{
-    $data = ['labels' => [], 'booking' => [], 'penjualan' => []];
-    
-    for ($i = 5; $i >= 0; $i--) {
-        $month = Carbon::now()->subMonths($i);
-        $startDate = $month->copy()->startOfMonth();
-        $endDate = $month->copy()->endOfMonth();
-        
-        // Booking bulan ini - GLOBAL
-        $totalBooking = Booking::whereBetween('created_at', [$startDate, $endDate])->count();
-        
-        // Penjualan bulan ini - GLOBAL
-        $totalPenjualan = Penjualan::whereBetween('created_at', [$startDate, $endDate])->count();
-        
-        $data['labels'][] = $month->format('M Y');
-        $data['booking'][] = $totalBooking;
-        $data['penjualan'][] = $totalPenjualan;
-    }
-    
-    return $data;
-}
 
 /**
  * Return empty statistik unit

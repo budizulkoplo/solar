@@ -152,50 +152,31 @@
             <!-- Grafik dan Top Projects -->
             <div class="row mb-4">
                 <!-- Grafik Marketing -->
-                <div class="col-lg-8 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-bar-chart me-2"></i>Trend Booking & Penjualan 6 Bulan Terakhir
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            @if(!empty($chartData['labels']))
-                                <canvas id="marketingChart" height="250"></canvas>
-                            @else
-                                <div class="text-center py-5">
-                                    <i class="bi bi-graph-up display-4 text-muted"></i>
-                                    <p class="text-muted mt-3">Belum ada data grafik</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Top Projects -->
-                <div class="col-lg-4 mb-4">
+                <div class="col-lg-12 mb-12">
                     <div class="card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">
-                                <i class="bi bi-trophy me-2"></i>Top 5 Projects
+                                <i class="bi bi-trophy me-2"></i>Top 5 Projects Global
                             </h5>
-                            <span class="badge bg-primary">Perform Terbaik</span>
+                            <span class="badge bg-primary">Semua Company</span>
                         </div>
                         <div class="card-body p-0">
                             <div class="list-group list-group-flush">
-                                @foreach($topProjects as $index => $project)
+                                @forelse($topProjects as $index => $project)
                                 <div class="list-group-item">
                                     <div class="d-flex align-items-center">
                                         <div class="flex-shrink-0">
                                             <span class="badge bg-{{ $index == 0 ? 'warning' : ($index == 1 ? 'secondary' : ($index == 2 ? 'danger' : 'light')) }} rounded-circle d-flex align-items-center justify-content-center" 
-                                                  style="width: 40px; height: 40px;">
+                                                style="width: 40px; height: 40px;">
                                                 <strong>{{ $index + 1 }}</strong>
                                             </span>
                                         </div>
                                         <div class="flex-grow-1 ms-3">
                                             <h6 class="mb-1">{{ $project['nama'] }}</h6>
                                             <small class="text-muted">
-                                                {{ $project['total_terjual'] }}/{{ $project['total_unit'] }} unit terjual
+                                                {{ $project['company'] ?? 'Unknown' }} | 
+                                                {{ $project['total_terjual'] }}/{{ $project['total_unit'] }} unit
                                             </small>
                                         </div>
                                         <div class="text-end">
@@ -207,7 +188,12 @@
                                         <div class="progress-bar bg-success" style="width: {{ $project['penjualan_rate'] }}%"></div>
                                     </div>
                                 </div>
-                                @endforeach
+                                @empty
+                                <div class="list-group-item text-center py-4">
+                                    <i class="bi bi-trophy display-4 text-muted"></i>
+                                    <p class="text-muted mt-2">Belum ada data project</p>
+                                </div>
+                                @endforelse
                             </div>
                         </div>
                     </div>
@@ -648,182 +634,4 @@
             </div>
         </div>
     </div>
-
-    @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Inisialisasi Chart
-            const chartData = @json($chartData);
-            
-            if (chartData.labels && chartData.labels.length > 0) {
-                const ctx = document.getElementById('marketingChart').getContext('2d');
-                const marketingChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [
-                            {
-                                label: 'Booking',
-                                data: chartData.booking,
-                                borderColor: '#ffc107',
-                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Penjualan',
-                                data: chartData.penjualan,
-                                borderColor: '#198754',
-                                backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.datasetIndex === 0) {
-                                            label += context.parsed.y + ' booking';
-                                        } else {
-                                            label += context.parsed.y + ' penjualan';
-                                        }
-                                        return label;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Jumlah'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Bulan'
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Inisialisasi Progress Circle untuk Conversion Rate
-            const conversionRate = {{ $statistikBooking['conversion_rate'] }};
-            const progressCircles = document.querySelectorAll('.progress-circle');
-            
-            progressCircles.forEach(circle => {
-                const value = parseFloat(circle.dataset.value);
-                const size = parseInt(circle.dataset.size);
-                const thickness = parseInt(circle.dataset.thickness);
-                const color = circle.dataset.color;
-                
-                const radius = (size - thickness) / 2;
-                const circumference = 2 * Math.PI * radius;
-                const offset = circumference - (value / 100) * circumference;
-                
-                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                svg.setAttribute('width', size);
-                svg.setAttribute('height', size);
-                svg.setAttribute('class', 'progress-circle-svg');
-                
-                const bgCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                bgCircle.setAttribute('cx', size / 2);
-                bgCircle.setAttribute('cy', size / 2);
-                bgCircle.setAttribute('r', radius);
-                bgCircle.setAttribute('fill', 'none');
-                bgCircle.setAttribute('stroke', '#e9ecef');
-                bgCircle.setAttribute('stroke-width', thickness);
-                
-                const progressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                progressCircle.setAttribute('cx', size / 2);
-                progressCircle.setAttribute('cy', size / 2);
-                progressCircle.setAttribute('r', radius);
-                progressCircle.setAttribute('fill', 'none');
-                progressCircle.setAttribute('stroke', getColor(color));
-                progressCircle.setAttribute('stroke-width', thickness);
-                progressCircle.setAttribute('stroke-linecap', 'round');
-                progressCircle.setAttribute('stroke-dasharray', circumference);
-                progressCircle.setAttribute('stroke-dashoffset', circumference);
-                progressCircle.style.transition = 'stroke-dashoffset 1s ease-in-out';
-                
-                svg.appendChild(bgCircle);
-                svg.appendChild(progressCircle);
-                circle.appendChild(svg);
-                
-                // Trigger animation
-                setTimeout(() => {
-                    progressCircle.style.strokeDashoffset = offset;
-                }, 100);
-            });
-
-            function getColor(colorName) {
-                const colors = {
-                    'success': '#198754',
-                    'warning': '#ffc107',
-                    'danger': '#dc3545',
-                    'primary': '#0d6efd',
-                    'info': '#0dcaf0'
-                };
-                return colors[colorName] || '#0d6efd';
-            }
-
-            // Auto refresh setiap 5 menit
-            setInterval(() => {
-                // Optional: Implement AJAX refresh jika diperlukan
-                // console.log('Dashboard akan refresh...');
-            }, 300000); // 5 menit
-        });
-    </script>
-    <style>
-        .progress-circle {
-            position: relative;
-            display: inline-block;
-        }
-        .progress-circle-svg {
-            transform: rotate(-90deg);
-        }
-        .avatar-title {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .border-start {
-            border-left-width: 3px !important;
-        }
-        .badge-sm {
-            font-size: 0.75em;
-            padding: 0.25em 0.5em;
-        }
-        .card {
-            transition: transform 0.2s;
-        }
-        .card:hover {
-            transform: translateY(-2px);
-        }
-        .list-group-item:hover {
-            background-color: rgba(0,0,0,0.02);
-        }
-    </style>
-    @endpush
 </x-app-layout>
