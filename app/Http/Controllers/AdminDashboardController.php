@@ -30,18 +30,18 @@ class AdminDashboardController extends Controller
     public function dashboard()
     {
         $activeModule = session('active_project_module');
-
-        switch ($activeModule) {
+        
+        // Tampilkan dashboard sesuai module yang dipilih
+        switch($activeModule) {
             case 'project':
                 return $this->dashboardProject();
             case 'hris':
                 return $this->dashboardHRIS();
             case 'agency':
                 return $this->dashboardMarketing();
-            case 'company':
-                return $this->dashboardCompany();
             default:
-                return redirect()->route('choose.project');
+                // Default ke project dashboard
+            return view('dashboard');
         }
     }
 
