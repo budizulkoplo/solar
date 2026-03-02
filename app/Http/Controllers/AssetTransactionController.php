@@ -151,7 +151,7 @@ class AssetTransactionController extends Controller
                 'transactions.*.description' => 'required|string|max:255',
                 'transactions.*.nominal' => 'required|numeric|min:0',
                 'transactions.*.jml' => 'required|numeric|min:1',
-                'bukti_nota' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                'bukti_nota' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5000',
                 'ppn' => 'nullable|numeric|min:0',
                 'diskon' => 'nullable|numeric|min:0',
                 'subtotal' => 'required|numeric|min:0',
