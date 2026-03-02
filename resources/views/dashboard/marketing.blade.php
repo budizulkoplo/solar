@@ -148,10 +148,10 @@
                         </div>
                     </div>
                 </div>
-
+            </div>
+            
             <!-- Grafik dan Top Projects -->
             <div class="row mb-4">
-                <!-- Grafik Marketing -->
                 <!-- Top Projects -->
                 <div class="col-lg-12 mb-12">
                     <div class="card h-100">
