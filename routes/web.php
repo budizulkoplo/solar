@@ -347,13 +347,18 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             Route::post('generate-depreciation', [AssetTransactionController::class,'generateMonthlyDepreciation'])->name('transaksi.asset.generate.depreciation');
             Route::get('export', [AssetTransactionController::class,'exportAssets'])->name('transaksi.asset.export');
             
-            // Route baru untuk CRUD asset
+            // Route untuk edit dan delete transaksi
+            Route::get('{id}/edit-transaksi', [AssetTransactionController::class,'editTransaksi'])->name('transaksi.asset.edit-transaksi');
+            Route::post('{id}/update-transaksi', [AssetTransactionController::class,'updateTransaksi'])->name('transaksi.asset.update-transaksi');
+            Route::delete('{id}/destroy-transaksi', [AssetTransactionController::class,'destroyTransaksi'])->name('transaksi.asset.destroy-transaksi');
+            
+            // Route untuk CRUD asset (sudah ada sebelumnya)
             Route::get('{id}/detail', [AssetTransactionController::class,'getAssetDetail'])->name('transaksi.asset.detail');
             Route::get('{id}/edit', [AssetTransactionController::class,'editAsset'])->name('transaksi.asset.edit');
             Route::put('{id}/update', [AssetTransactionController::class,'updateAsset'])->name('transaksi.asset.update');
             Route::delete('{id}/destroy', [AssetTransactionController::class,'destroyAsset'])->name('transaksi.asset.destroy');
         });
-
+        
         // === PEMBIAYAAN ===
         Route::prefix('pembiayaan')->group(function() {
             Route::get('/', [PembiayaanController::class, 'index'])

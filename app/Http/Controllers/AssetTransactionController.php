@@ -935,4 +935,135 @@ class AssetTransactionController extends Controller
         // Buat ulang schedule penyusutan
         $this->generateFirstDepreciation($asset);
     }
+
+    /**
+     * Edit transaksi
+     */
+    public function editTransaksi($id)
+    {
+        try {
+            $nota = Nota::with(['transactions.kodeTransaksi', 'vendor', 'project'])
+                ->findOrFail($id);
+            
+            return response()->json([
+                'success' => true,
+                'nota' => $nota
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data transaksi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update transaksi
+     */
+    public function updateTransaksi(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'namatransaksi' => 'required|string|max:255',
+                'tanggal' => 'required|date',
+                'idrek' => 'required|exists:rekening,idrek',
+                'vendor_id' => 'required|exists:vendors,id',
+                'paymen_method' => 'required|in:cash,tempo',
+                'ppn' => 'nullable|numeric|min:0',
+                'diskon' => 'nullable|numeric|min:0',
+            ]);
+
+            $nota = Nota::findOrFail($id);
+            
+            // Cek apakah sudah ada aset yang digenerate
+            $hasAsset = Asset::where('idnota', $id)->exists();
+            if ($hasAsset) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak dapat mengubah transaksi yang sudah memiliki aset'
+                ], 400);
+            }
+
+            // Update nota
+            $nota->update([
+                'namatransaksi' => $request->namatransaksi,
+                'tanggal' => $request->tanggal,
+                'idrek' => $request->idrek,
+                'vendor_id' => $request->vendor_id,
+                'paymen_method' => $request->paymen_method,
+                'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
+                'ppn' => $request->ppn ?? 0,
+                'diskon' => $request->diskon ?? 0,
+                'total' => $nota->subtotal + ($request->ppn ?? 0) - ($request->diskon ?? 0),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil diupdate'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete transaksi
+     */
+    public function destroyTransaksi($id)
+    {
+        DB::beginTransaction();
+        try {
+            $user = auth()->user();
+            if (!$user->hasRole('direktur') && !$user->hasRole('keuangan')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki hak akses untuk menghapus transaksi'
+                ], 403);
+            }
+
+            $nota = Nota::findOrFail($id);
+            
+            // Cek apakah sudah ada aset
+            $hasAsset = Asset::where('idnota', $id)->exists();
+            if ($hasAsset) {
+                // Hapus semua aset terkait beserta penyusutannya
+                $assets = Asset::where('idnota', $id)->get();
+                foreach ($assets as $asset) {
+                    AssetDepreciation::where('asset_id', $asset->id)->delete();
+                    $asset->delete();
+                }
+            }
+
+            // Hapus transaksi details
+            NotaTransaction::where('idnota', $id)->delete();
+            
+            // Hapus pembayaran jika ada
+            NotaPayment::where('idnota', $id)->delete();
+            
+            // Hapus nota
+            $nota->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil dihapus'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
