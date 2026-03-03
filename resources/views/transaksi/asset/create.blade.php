@@ -33,8 +33,8 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label">No Invoice *</label>
-                                        <input type="text" class="form-control" name="nota_no" 
-                                               value="AST-{{ session('active_project_id') }}-{{ date('Ym') }}-001" required>
+                                        <input type="text" class="form-control" name="nota_no" id="nota_no" readonly>
+                                        <small class="text-muted">Nomor invoice akan digenerate otomatis</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Nama Transaksi *</label>
@@ -279,6 +279,7 @@
                 
                 // Update asset calculations
                 updateAssetCalculations();
+                generateNotaNumber();
             }
             
             // Update asset calculations
@@ -515,6 +516,32 @@
             // Initial calculation
             calculateTotals();
         });
+
+    function generateNotaNumber() {
+        $.ajax({
+            url: "{{ route('transaksi.asset.generate-nota') }}",
+            type: 'GET',
+            success: function(res) {
+                if (res.success) {
+                    $('#nota_no').val(res.nota_no);
+                } else {
+                    console.error('Gagal generate nomor nota:', res.message);
+                    // Fallback
+                    let projectId = "{{ session('active_project_id') }}";
+                    let yearMonth = new Date().toISOString().slice(0,7).replace('-', '');
+                    $('#nota_no').val(`AST-${projectId}-${yearMonth}-0001`);
+                }
+            },
+            error: function(xhr) {
+                console.error('Error:', xhr.responseJSON);
+                // Fallback
+                let projectId = "{{ session('active_project_id') }}";
+                let yearMonth = new Date().toISOString().slice(0,7).replace('-', '');
+                $('#nota_no').val(`AST-${projectId}-${yearMonth}-0001`);
+            }
+        });
+    }
+
         </script>
     </x-slot>
 </x-app-layout>

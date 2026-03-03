@@ -1131,4 +1131,44 @@ class AssetTransactionController extends Controller
             ], 500);
         }
     }
+
+    public function generateNotaNumber()
+    {
+        try {
+            $projectId = session('active_project_id');
+            $yearMonth = date('Ym');
+            
+            // Cari nomor invoice terakhir dengan format yang lebih fleksibel
+            $lastNota = Nota::where('idproject', $projectId)
+                ->whereYear('created_at', date('Y'))
+                ->whereMonth('created_at', date('m'))
+                ->where('nota_no', 'like', 'AST-%')
+                ->orderBy('nota_no', 'desc')
+                ->first();
+            
+            if ($lastNota) {
+                // Extract nomor urut dari nota_no
+                // Format: AST-{project}-{tahunbulan}-{nomor}
+                $parts = explode('-', $lastNota->nota_no);
+                $lastNumber = intval(end($parts));
+                $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+            } else {
+                $newNumber = '0001';
+            }
+            
+            $notaNo = "AST-{$projectId}-{$yearMonth}-{$newNumber}";
+            
+            return response()->json([
+                'success' => true,
+                'nota_no' => $notaNo
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error generate nota: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal generate nomor nota: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

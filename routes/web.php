@@ -357,8 +357,10 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             Route::get('{id}/edit', [AssetTransactionController::class,'editAsset'])->name('transaksi.asset.edit');
             Route::put('{id}/update', [AssetTransactionController::class,'updateAsset'])->name('transaksi.asset.update');
             Route::delete('{id}/destroy', [AssetTransactionController::class,'destroyAsset'])->name('transaksi.asset.destroy');
+            // Di routes/web.php
+            Route::get('generate-nota', [AssetTransactionController::class, 'generateNotaNumber'])->name('transaksi.asset.generate-nota');
         });
-        
+
         // === PEMBIAYAAN ===
         Route::prefix('pembiayaan')->group(function() {
             Route::get('/', [PembiayaanController::class, 'index'])
