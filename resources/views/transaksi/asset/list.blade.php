@@ -326,11 +326,7 @@
                         { data: 'nama_aset', name: 'nama_aset' },
                         { 
                             data: 'tanggal_pembelian', 
-                            name: 'tanggal_pembelian',
-                            className: 'text-center',
-                            render: function(data) {
-                                return data ? new Date(data).toLocaleDateString('id-ID') : '-';
-                            }
+                            name: 'tanggal_pembelian'
                         },
                         { 
                             data: 'umur_ekonomis', 
@@ -339,41 +335,21 @@
                         },
                         { 
                             data: 'harga_perolehan', 
-                            name: 'harga_perolehan',
-                            className: 'text-end',
-                            render: function(data) {
-                                return 'Rp ' + formatNumber(parseNumber(data));
-                            }
+                            name: 'harga_perolehan'
                         },
                         { 
                             data: 'nilai_buku', 
                             name: 'nilai_buku',
-                            className: 'text-end',
-                            render: function(data) {
-                                return 'Rp ' + formatNumber(parseNumber(data));
-                            }
+                            className: 'text-end'
                         },
                         { 
                             data: 'akumulasi_susut', 
-                            name: 'akumulasi_susut',
-                            className: 'text-end',
-                            render: function(data) {
-                                return 'Rp ' + formatNumber(parseNumber(data));
-                            }
+                            name: 'akumulasi_susut'
                         },
                         { 
                             data: 'status', 
                             name: 'status',
-                            className: 'text-center',
-                            render: function(data) {
-                                const badges = {
-                                    'aktif': 'bg-success',
-                                    'nonaktif': 'bg-warning',
-                                    'terjual': 'bg-info',
-                                    'hilang': 'bg-danger'
-                                };
-                                return `<span class="badge ${badges[data] || 'bg-secondary'}">${data}</span>`;
-                            }
+                            className: 'text-center'
                         },
                         { 
                             data: 'action', 
