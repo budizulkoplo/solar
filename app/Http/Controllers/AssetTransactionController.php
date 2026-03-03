@@ -496,7 +496,9 @@ class AssetTransactionController extends Controller
         return view('transaksi.asset.list');
     }
 
-    // Datatable untuk daftar aset
+    /**
+     * Datatable untuk daftar aset
+     */
     public function getAssetData(Request $request)
     {
         $query = Asset::with(['project', 'kodeTransaksi', 'depreciations' => function($q) {
@@ -525,15 +527,20 @@ class AssetTransactionController extends Controller
         if ($request->has('summary_only')) {
             $assets = $query->get();
             
+            $totalNilaiBuku = 0;
+            $totalDepresiasi = 0;
+            
+            foreach ($assets as $asset) {
+                $nilaiBuku = $asset->nilai_buku;
+                $totalNilaiBuku += $nilaiBuku;
+                $totalDepresiasi += ($asset->harga_perolehan - $nilaiBuku);
+            }
+            
             $summary = [
                 'total_assets' => $assets->count(),
                 'total_value' => $assets->sum('harga_perolehan'),
-                'total_book_value' => $assets->sum(function($asset) {
-                    return $asset->nilai_buku;
-                }),
-                'total_depreciation' => $assets->sum(function($asset) {
-                    return $asset->harga_perolehan - $asset->nilai_buku;
-                })
+                'total_book_value' => $totalNilaiBuku,
+                'total_depreciation' => $totalDepresiasi
             ];
             
             return response()->json(['summary' => $summary]);
@@ -542,6 +549,13 @@ class AssetTransactionController extends Controller
         return DataTables::eloquent($query)
             ->addIndexColumn()
             ->addColumn('action', function($row) {
+                $user = auth()->user();
+                $canDelete = $user->hasRole('direktur') || $user->hasRole('keuangan');
+                
+                $deleteBtn = $canDelete ? 
+                    '<button class="btn btn-sm btn-danger delete-asset" data-id="'.$row->id.'" data-name="'.$row->nama_aset.'"><i class="bi bi-trash"></i></button>' :
+                    '<button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>';
+                
                 return '<div class="btn-group">
                     <button class="btn btn-sm btn-info view-asset-detail" data-id="'.$row->id.'">
                         <i class="bi bi-eye"></i>
@@ -549,16 +563,21 @@ class AssetTransactionController extends Controller
                     <button class="btn btn-sm btn-warning edit-asset" data-id="'.$row->id.'">
                         <i class="bi bi-pencil"></i>
                     </button>
+                    '.$deleteBtn.'
                 </div>';
             })
+            ->editColumn('tanggal_pembelian', function($row) {
+                return $row->tanggal_pembelian ? date('d/m/Y', strtotime($row->tanggal_pembelian)) : '-';
+            })
             ->editColumn('harga_perolehan', function($row) {
-                return 'Rp ' . number_format($row->harga_perolehan, 0, ',', '.');
+                return floatval($row->harga_perolehan ?? 0);
             })
             ->editColumn('nilai_buku', function($row) {
-                return 'Rp ' . number_format($row->nilai_buku, 0, ',', '.');
+                return floatval($row->nilai_buku ?? 0);
             })
-            ->editColumn('tanggal_pembelian', function($row) {
-                return date('d/m/Y', strtotime($row->tanggal_pembelian));
+            ->addColumn('akumulasi_susut', function($row) {
+                $total = $row->depreciations->sum('nilai_penyusutan');
+                return floatval($total ?? 0);
             })
             ->editColumn('status', function($row) {
                 $badges = [
@@ -567,22 +586,7 @@ class AssetTransactionController extends Controller
                     'terjual' => 'bg-info',
                     'hilang' => 'bg-danger'
                 ];
-                return '<span class="badge '.$badges[$row->status].'">'.ucfirst($row->status).'</span>';
-            })
-            ->addColumn('akumulasi_susut', function($row) {
-                $total = $row->depreciations->sum('nilai_penyusutan');
-                return 'Rp ' . number_format($total, 0, ',', '.');
-            })
-            ->addColumn('calculate_monthly_depreciation', function($row) {
-                // Hitung penyusutan per bulan
-                if ($row->metode_penyusutan === 'garis_lurus') {
-                    return ($row->harga_perolehan - $row->nilai_residu) / $row->umur_ekonomis;
-                } 
-                elseif ($row->metode_penyusutan === 'saldo_menurun') {
-                    $ratePerBulan = ($row->persentase_susut ?? 20) / 100 / 12;
-                    return $row->nilai_buku * $ratePerBulan;
-                }
-                return 0;
+                return '<span class="badge '.($badges[$row->status] ?? 'bg-secondary').'">'.ucfirst($row->status).'</span>';
             })
             ->rawColumns(['action', 'status'])
             ->toJson();
@@ -750,6 +754,9 @@ class AssetTransactionController extends Controller
         }
     }
 
+    /**
+     * Get detail asset untuk view
+     */
     public function getAssetDetail($id)
     {
         try {
@@ -761,22 +768,65 @@ class AssetTransactionController extends Controller
                 }
             ])->findOrFail($id);
 
-            // Hitung penyusutan per bulan
+            // Hitung penyusutan per bulan dengan aman
             $monthlyDepreciation = 0;
             if ($asset->metode_penyusutan === 'garis_lurus') {
-                $monthlyDepreciation = ($asset->harga_perolehan - $asset->nilai_residu) / $asset->umur_ekonomis;
-            } elseif ($asset->metode_penyusutan === 'saldo_menurun') {
-                $ratePerBulan = ($asset->persentase_susut ?? 20) / 100 / 12;
-                $monthlyDepreciation = $asset->nilai_buku * $ratePerBulan;
+                $hargaPerolehan = floatval($asset->harga_perolehan ?? 0);
+                $nilaiResidu = floatval($asset->nilai_residu ?? 0);
+                $umurEkonomis = intval($asset->umur_ekonomis ?? 1);
+                
+                if ($umurEkonomis > 0) {
+                    $monthlyDepreciation = ($hargaPerolehan - $nilaiResidu) / $umurEkonomis;
+                }
+            } 
+            elseif ($asset->metode_penyusutan === 'saldo_menurun') {
+                $ratePerBulan = (floatval($asset->persentase_susut ?? 20) / 100 / 12);
+                $nilaiBuku = floatval($asset->nilai_buku);
+                $monthlyDepreciation = $nilaiBuku * $ratePerBulan;
             }
+
+            // Pastikan nilai_buku dihitung dengan benar
+            $totalDepreciation = $asset->depreciations()
+                ->where('status', 'terposting')
+                ->sum('nilai_penyusutan');
+            
+            $nilaiBuku = floatval($asset->harga_perolehan ?? 0) - floatval($totalDepreciation ?? 0);
 
             return response()->json([
                 'success' => true,
-                'asset' => $asset,
+                'asset' => [
+                    'id' => $asset->id,
+                    'kode_aset' => $asset->kode_aset,
+                    'nama_aset' => $asset->nama_aset,
+                    'tanggal_pembelian' => $asset->tanggal_pembelian ? $asset->tanggal_pembelian->format('Y-m-d') : null,
+                    'tanggal_mulai_susut' => $asset->tanggal_mulai_susut ? $asset->tanggal_mulai_susut->format('Y-m-d') : null,
+                    'harga_perolehan' => floatval($asset->harga_perolehan ?? 0),
+                    'nilai_residu' => floatval($asset->nilai_residu ?? 0),
+                    'umur_ekonomis' => intval($asset->umur_ekonomis ?? 0),
+                    'metode_penyusutan' => $asset->metode_penyusutan,
+                    'persentase_susut' => floatval($asset->persentase_susut ?? 0),
+                    'status' => $asset->status,
+                    'lokasi' => $asset->lokasi,
+                    'pic' => $asset->pic,
+                    'keterangan' => $asset->keterangan,
+                    'kode_transaksi' => $asset->kodeTransaksi ? $asset->kodeTransaksi->kodetransaksi : null,
+                    'nilai_buku' => $nilaiBuku,
+                    'depreciations' => $asset->depreciations->map(function($dep) {
+                        return [
+                            'periode' => $dep->periode ? $dep->periode->format('Y-m-d') : null,
+                            'bulan_ke' => $dep->bulan_ke,
+                            'nilai_penyusutan' => floatval($dep->nilai_penyusutan ?? 0),
+                            'akumulasi_penyusutan' => floatval($dep->akumulasi_penyusutan ?? 0),
+                            'nilai_buku' => floatval($dep->nilai_buku ?? 0),
+                            'status' => $dep->status
+                        ];
+                    })
+                ],
                 'calculate_monthly_depreciation' => $monthlyDepreciation
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Error getAssetDetail: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data asset: ' . $e->getMessage()
@@ -784,19 +834,34 @@ class AssetTransactionController extends Controller
         }
     }
 
-    /**
-     * Get detail asset untuk edit
-     */
     public function editAsset($id)
     {
         try {
             $asset = Asset::with(['project', 'kodeTransaksi'])->findOrFail($id);
             
+            // Format tanggal dengan benar untuk input date (Y-m-d)
+            $formattedAsset = [
+                'id' => $asset->id,
+                'kode_aset' => $asset->kode_aset,
+                'nama_aset' => $asset->nama_aset,
+                'tanggal_mulai_susut' => $asset->tanggal_mulai_susut ? $asset->tanggal_mulai_susut->format('Y-m-d') : null,
+                'umur_ekonomis' => $asset->umur_ekonomis,
+                'nilai_residu' => $asset->nilai_residu,
+                'metode_penyusutan' => $asset->metode_penyusutan,
+                'persentase_susut' => $asset->persentase_susut,
+                'status' => $asset->status,
+                'lokasi' => $asset->lokasi,
+                'pic' => $asset->pic,
+                'keterangan' => $asset->keterangan,
+            ];
+            
             return response()->json([
                 'success' => true,
-                'asset' => $asset
+                'asset' => $formattedAsset
             ]);
+            
         } catch (\Exception $e) {
+            \Log::error('Error editAsset: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data asset: ' . $e->getMessage()

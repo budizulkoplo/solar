@@ -335,7 +335,8 @@
                         },
                         { 
                             data: 'harga_perolehan', 
-                            name: 'harga_perolehan'
+                            name: 'harga_perolehan',
+                            className: 'text-end'
                         },
                         { 
                             data: 'nilai_buku', 
@@ -344,7 +345,8 @@
                         },
                         { 
                             data: 'akumulasi_susut', 
-                            name: 'akumulasi_susut'
+                            name: 'akumulasi_susut',
+                            className: 'text-end'
                         },
                         { 
                             data: 'status', 
@@ -458,7 +460,7 @@
                                         </tr>
                                         <tr>
                                             <th>Tanggal Mulai Susut</th>
-                                            <td>${asset.tanggal_mulai_susut ? new Date(asset.tanggal_mulai_susut).toLocaleDateString('id-ID') : '-'}</td>
+                                            <td>${asset.tanggal_mulai_susut ?? '-'}</td>
                                         </tr>
                                         <tr>
                                             <th>Harga Perolehan</th>
@@ -570,25 +572,41 @@
                 $.get(`/transaksi/asset/${assetId}/edit`, function(res) {
                     if (res.success) {
                         let asset = res.asset;
+                        
+                        // Log untuk debug
+                        console.log('Asset data:', asset);
+                        
                         $('#editAssetId').val(asset.id);
-                        $('#editKodeAsset').val(asset.kode_aset);
-                        $('#editNamaAsset').val(asset.nama_aset);
-                        $('#editTanggalSusut').val(asset.tanggal_mulai_susut ? asset.tanggal_mulai_susut.split(' ')[0] : '');
-                        $('#editUmurEkonomis').val(asset.umur_ekonomis);
-                        $('#editNilaiResidu').val(asset.nilai_residu);
-                        $('#editMetodePenyusutan').val(asset.metode_penyusutan);
+                        $('#editKodeAsset').val(asset.kode_aset || '');
+                        $('#editNamaAsset').val(asset.nama_aset || '');
+                        
+                        // Pastikan format tanggal benar (Y-m-d)
+                        if (asset.tanggal_mulai_susut) {
+                            // Jika sudah dalam format Y-m-d, langsung gunakan
+                            $('#editTanggalSusut').val(asset.tanggal_mulai_susut);
+                        } else {
+                            $('#editTanggalSusut').val('');
+                        }
+                        
+                        $('#editUmurEkonomis').val(asset.umur_ekonomis || '');
+                        $('#editNilaiResidu').val(asset.nilai_residu || 0);
+                        $('#editMetodePenyusutan').val(asset.metode_penyusutan || 'garis_lurus');
                         $('#editPersentaseSusut').val(asset.persentase_susut || '');
-                        $('#editStatus').val(asset.status);
+                        $('#editStatus').val(asset.status || 'aktif');
                         $('#editLokasi').val(asset.lokasi || '');
                         $('#editPic').val(asset.pic || '');
                         $('#editKeterangan').val(asset.keterangan || '');
+                        
+                        // Trigger change untuk metode penyusutan (untuk show/hide persentase)
+                        $('#editMetodePenyusutan').trigger('change');
                         
                         $('#modalEditAsset').modal('show');
                     } else {
                         Swal.fire('Error', res.message, 'error');
                     }
                 }).fail(function(xhr) {
-                    Swal.fire('Error', 'Gagal mengambil data asset', 'error');
+                    console.error('Error response:', xhr.responseJSON);
+                    Swal.fire('Error', 'Gagal mengambil data asset: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
                 });
             });
             
