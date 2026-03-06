@@ -671,41 +671,31 @@ class AdminDashboardController extends Controller
      */
     private function dashboardHRIS()
     {
-        $companyId = session('active_company_id');
-        
-        if (!$companyId) {
-            return redirect()->route('choose.project')
-                ->with('error', 'Silakan pilih PT terlebih dahulu.');
-        }
-        
-        $company = CompanyUnit::find($companyId);
-        
-        $statistikKaryawan = $this->getStatistikKaryawan($companyId);
+        $statistikKaryawan = $this->getStatistikKaryawan();
         $statistikPresensi = $this->getStatistikPresensi();
-        $statistikPayroll = $this->getStatistikPayroll();
-        $karyawanAktif = $this->getKaryawanAktif($companyId);
-        $presensiHariIni = $this->getPresensiHariIni();
-        $izinPending = $this->getIzinPending();
-        $chartData = $this->getChartDataHRIS();
-        
+        $statistikPayroll  = $this->getStatistikPayroll();
+        $karyawanAktif     = $this->getKaryawanAktif();
+        $presensiHariIni   = $this->getPresensiHariIni();
+        $izinPending       = $this->getIzinPending();
+        $chartData         = $this->getChartDataHRIS();
+
         $hrisInfo = [
-            'nama' => session('active_company_name') ?? 'Tidak diketahui',
-            'company' => session('active_company_name') ?? 'Tidak diketahui',
-            'module' => 'HRIS',
+            'nama'           => 'Human Resource',
+            'company'        => 'Semua Perusahaan',
+            'module'         => 'HRIS',
             'total_karyawan' => $statistikKaryawan['total'],
-            'periode' => Carbon::now()->translatedFormat('F Y')
+            'periode'        => Carbon::now()->translatedFormat('F Y')
         ];
 
         return view('dashboard.hris', compact(
             'statistikKaryawan',
-            'statistikPresensi', 
+            'statistikPresensi',
             'statistikPayroll',
             'karyawanAktif',
             'presensiHariIni',
             'izinPending',
             'chartData',
-            'hrisInfo',
-            'company'
+            'hrisInfo'
         ));
     }
 
