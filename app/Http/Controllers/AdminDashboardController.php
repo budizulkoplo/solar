@@ -24,6 +24,7 @@ use App\Models\Booking;
 use App\Models\Penjualan;
 use App\Models\Customer;
 use Yajra\DataTables\Facades\DataTables;
+use Carbon\CarbonPeriod;
 
 class AdminDashboardController extends Controller
 {
@@ -671,238 +672,203 @@ class AdminDashboardController extends Controller
      */
     private function dashboardHRIS()
     {
-        $companyId = session('active_company_id');
-        
-        if (!$companyId) {
-            return redirect()->route('choose.project')
-                ->with('error', 'Silakan pilih PT terlebih dahulu.');
-        }
-        
-        $company = CompanyUnit::find($companyId);
-        
-        $statistikKaryawan = $this->getStatistikKaryawan($companyId);
+        $statistikKaryawan = $this->getStatistikKaryawan();
         $statistikPresensi = $this->getStatistikPresensi();
-        $statistikPayroll = $this->getStatistikPayroll();
-        $karyawanAktif = $this->getKaryawanAktif($companyId);
-        $presensiHariIni = $this->getPresensiHariIni();
-        $izinPending = $this->getIzinPending();
-        $chartData = $this->getChartDataHRIS();
-        
+        $statistikPayroll  = $this->getStatistikPayroll();
+        $karyawanAktif     = $this->getKaryawanAktif();
+        $presensiHariIni   = $this->getPresensiHariIni();
+        $izinPending       = $this->getIzinPending();
+        $chartData         = $this->getChartDataHRIS();
+
         $hrisInfo = [
-            'nama' => session('active_company_name') ?? 'Tidak diketahui',
-            'company' => session('active_company_name') ?? 'Tidak diketahui',
-            'module' => 'HRIS',
+            'nama'           => 'Human Resource',
+            'company'        => 'Semua Perusahaan',
+            'module'         => 'HRIS',
             'total_karyawan' => $statistikKaryawan['total'],
-            'periode' => Carbon::now()->translatedFormat('F Y')
+            'periode'        => Carbon::now()->translatedFormat('F Y')
         ];
 
         return view('dashboard.hris', compact(
             'statistikKaryawan',
-            'statistikPresensi', 
+            'statistikPresensi',
             'statistikPayroll',
             'karyawanAktif',
             'presensiHariIni',
             'izinPending',
             'chartData',
-            'hrisInfo',
-            'company'
+            'hrisInfo'
         ));
     }
 
-    private function getStatistikKaryawan($companyId)
+    private function getStatistikKaryawan()
     {
-        $totalKaryawan = User::where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
+        $total = User::where('status', 'aktif')->count();
+
+        $baru = User::where('status', 'aktif')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
             ->count();
-        
-        $karyawanBaru = User::where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
-            ->whereMonth('created_at', Carbon::now()->month)
-            ->whereYear('created_at', Carbon::now()->year)
+
+        $laki = User::where('status','aktif')
+            ->whereHas('pegawaiDtl', fn($q)=>$q->where('jenis_kelamin','L'))
             ->count();
-        
-        $karyawanLaki = User::where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
-            ->whereHas('pegawaiDtl', function($query) {
-                $query->where('jenis_kelamin', 'L');
+
+        $perempuan = User::where('status','aktif')
+            ->whereHas('pegawaiDtl', fn($q)=>$q->where('jenis_kelamin','P'))
+            ->count();
+
+        $tetap = User::where('status','aktif')
+            ->whereHas('pegawaiDtl',function($q){
+                $q->whereNull('akhir_kontrak');
             })
             ->count();
-        
-        $karyawanPerempuan = User::where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
-            ->whereHas('pegawaiDtl', function($query) {
-                $query->where('jenis_kelamin', 'P');
-            })
-            ->count();
-        
-        $karyawanTetap = User::where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
-            ->whereHas('pegawaiDtl', function($query) {
-                $query->whereNotNull('akhir_kontrak')
-                    ->where('akhir_kontrak', '>', Carbon::now());
-            })
-            ->count();
-        
-        $karyawanKontrak = User::where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
-            ->whereHas('pegawaiDtl', function($query) {
-                $query->whereNotNull('akhir_kontrak')
-                    ->where('akhir_kontrak', '<=', Carbon::now());
+
+        $kontrak = User::where('status','aktif')
+            ->whereHas('pegawaiDtl',function($q){
+                $q->whereNotNull('akhir_kontrak');
             })
             ->count();
 
         return [
-            'total' => $totalKaryawan,
-            'baru_bulan_ini' => $karyawanBaru,
-            'laki_laki' => $karyawanLaki,
-            'perempuan' => $karyawanPerempuan,
-            'tetap' => $karyawanTetap,
-            'kontrak' => $karyawanKontrak,
-            'persentase_laki' => $totalKaryawan > 0 ? round(($karyawanLaki / $totalKaryawan) * 100, 1) : 0,
-            'persentase_perempuan' => $totalKaryawan > 0 ? round(($karyawanPerempuan / $totalKaryawan) * 100, 1) : 0
+            'total' => $total,
+            'baru_bulan_ini' => $baru,
+            'laki_laki' => $laki,
+            'perempuan' => $perempuan,
+            'tetap' => $tetap,
+            'kontrak' => $kontrak,
+            'persentase_laki' => $total ? round(($laki/$total)*100,1) : 0,
+            'persentase_perempuan' => $total ? round(($perempuan/$total)*100,1) : 0
         ];
     }
 
     private function getStatistikPresensi()
     {
-        $startDate = Carbon::now()->startOfMonth();
-        $endDate = Carbon::now()->endOfMonth();
-        
-        $totalHariKerja = 0;
-        $current = $startDate->copy();
-        while ($current->lte($endDate)) {
-            if (!$current->isWeekend()) {
-                $totalHariKerja++;
-            }
-            $current->addDay();
-        }
-        
-        $presensiHariIni = Presensi::whereDate('tgl_presensi', Carbon::today())
-            ->where('inoutmode', 1)
-            ->count();
-        
-        $totalPresensi = Presensi::whereBetween('tgl_presensi', [$startDate, $endDate])
-            ->where('inoutmode', 1)
-            ->count();
-        
-        $terlambatBulanIni = DB::table('presensi as p')
-            ->join('jadwal as j', function($join) {
-                $join->on('p.nik', '=', 'j.pegawai_nik')
-                     ->on('p.tgl_presensi', '=', 'j.tgl');
-            })
-            ->join('kelompokjam as k', 'j.shift', '=', 'k.shift')
-            ->whereBetween('p.tgl_presensi', [$startDate, $endDate])
-            ->where('p.inoutmode', 1)
-            ->whereRaw('TIME(p.jam_in) > TIME(k.jammasuk)')
-            ->count();
-        
-        $izinBulanIni = PengajuanIzin::where('status_approved', 1)
-            ->whereBetween('tgl_izin', [$startDate, $endDate])
-            ->count();
-        
-        $cutiBulanIni = PengajuanIzin::where('status', 'c')
-            ->where('status_approved', 1)
-            ->whereBetween('tgl_izin', [$startDate, $endDate])
+        $start = now()->startOfMonth();
+        $end = now()->endOfMonth();
+
+        $totalHariKerja = collect(
+            CarbonPeriod::create($start,$end)
+        )->filter(fn($date)=>!$date->isWeekend())->count();
+
+        $presensiHariIni = Presensi::whereDate('tgl_presensi',today())
+            ->where('inoutmode',1)
             ->count();
 
+        $totalPresensi = Presensi::whereBetween('tgl_presensi',[$start,$end])
+            ->where('inoutmode',1)
+            ->count();
+
+        $terlambat = DB::table('presensi as p')
+            ->join('jadwal as j',function($join){
+                $join->on('p.nik','=','j.pegawai_nik')
+                    ->on('p.tgl_presensi','=','j.tgl');
+            })
+            ->join('kelompokjam as k','j.shift','=','k.shift')
+            ->whereBetween('p.tgl_presensi',[$start,$end])
+            ->where('p.inoutmode',1)
+            ->whereRaw('TIME(p.jam_in) > TIME(k.jammasuk)')
+            ->count();
+
+        $izin = PengajuanIzin::where('status_approved',1)
+            ->whereBetween('tgl_izin',[$start,$end])
+            ->count();
+
+        $cuti = PengajuanIzin::where('status','c')
+            ->where('status_approved',1)
+            ->whereBetween('tgl_izin',[$start,$end])
+            ->count();
+
+        $totalKaryawan = User::where('status','aktif')->count();
+
         return [
-            'total_hari_kerja' => $totalHariKerja,
-            'presensi_hari_ini' => $presensiHariIni,
-            'total_presensi_bulan' => $totalPresensi,
-            'terlambat_bulan' => $terlambatBulanIni,
-            'izin_bulan' => $izinBulanIni,
-            'cuti_bulan' => $cutiBulanIni,
-            'persentase_hadir' => $totalHariKerja > 0 ? round(($totalPresensi / ($totalHariKerja * User::where('status', 'aktif')->count())) * 100, 1) : 0
+            'total_hari_kerja'=>$totalHariKerja,
+            'presensi_hari_ini'=>$presensiHariIni,
+            'total_presensi_bulan'=>$totalPresensi,
+            'terlambat_bulan'=>$terlambat,
+            'izin_bulan'=>$izin,
+            'cuti_bulan'=>$cuti,
+            'persentase_hadir'=> $totalHariKerja && $totalKaryawan
+                ? round(($totalPresensi/($totalHariKerja*$totalKaryawan))*100,1)
+                :0
         ];
     }
 
     private function getStatistikPayroll()
     {
-        $periode = Carbon::now()->format('Y-m');
-        $periodeLalu = Carbon::now()->subMonth()->format('Y-m');
-        
-        $payrollBulanIni = Payroll::where('periode', $periode)
-            ->select([
-                DB::raw('COUNT(*) as total_karyawan'),
-                DB::raw('SUM(gajipokok) as total_gaji_pokok'),
-                DB::raw('SUM(pek_tambahan) as total_tambahan'),
-                DB::raw('SUM(masakerja) as total_masakerja'),
-                DB::raw('SUM(transportasi) as total_transportasi'),
-                DB::raw('SUM(konsumsi) as total_konsumsi'),
-                DB::raw('SUM(tunj_asuransi) as total_tunj_asuransi'),
-                DB::raw('SUM(jabatan) as total_jabatan'),
-                DB::raw('SUM(cicilan) as total_cicilan'),
-                DB::raw('SUM(asuransi) as total_asuransi'),
-                DB::raw('SUM(zakat) as total_zakat')
-            ])
-            ->first();
-        
-        $payrollBulanLalu = Payroll::where('periode', $periodeLalu)
-            ->select([
-                DB::raw('SUM(gajipokok) as total_gaji_pokok'),
-                DB::raw('SUM(pek_tambahan) as total_tambahan'),
-                DB::raw('SUM(masakerja) as total_masakerja'),
-                DB::raw('SUM(transportasi) as total_transportasi'),
-                DB::raw('SUM(konsumsi) as total_konsumsi'),
-                DB::raw('SUM(tunj_asuransi) as total_tunj_asuransi'),
-                DB::raw('SUM(jabatan) as total_jabatan'),
-            ])
-            ->first();
-        
-        $totalPendapatan = ($payrollBulanIni->total_gaji_pokok ?? 0) +
-                          ($payrollBulanIni->total_tambahan ?? 0) +
-                          ($payrollBulanIni->total_masakerja ?? 0) +
-                          ($payrollBulanIni->total_transportasi ?? 0) +
-                          ($payrollBulanIni->total_konsumsi ?? 0) +
-                          ($payrollBulanIni->total_tunj_asuransi ?? 0) +
-                          ($payrollBulanIni->total_jabatan ?? 0);
-        
-        $totalPendapatanLalu = ($payrollBulanLalu->total_gaji_pokok ?? 0) +
-                              ($payrollBulanLalu->total_tambahan ?? 0) +
-                              ($payrollBulanLalu->total_masakerja ?? 0) +
-                              ($payrollBulanLalu->total_transportasi ?? 0) +
-                              ($payrollBulanLalu->total_konsumsi ?? 0) +
-                              ($payrollBulanLalu->total_tunj_asuransi ?? 0) +
-                              ($payrollBulanLalu->total_jabatan ?? 0);
-        
-        $percentage = 0;
-        if ($totalPendapatanLalu > 0) {
-            $percentage = (($totalPendapatan - $totalPendapatanLalu) / $totalPendapatanLalu) * 100;
-        }
-        
-        $rataGaji = $payrollBulanIni->total_karyawan > 0 ? 
-                   $totalPendapatan / $payrollBulanIni->total_karyawan : 0;
+        $periode = now()->format('Y-m');
+        $periodeLalu = now()->subMonth()->format('Y-m');
+
+        $bulanIni = Payroll::where('periode',$periode)
+            ->selectRaw("
+                COUNT(*) total_karyawan,
+                SUM(gajipokok) gaji,
+                SUM(pek_tambahan) tambahan,
+                SUM(masakerja) masakerja,
+                SUM(transportasi) transport,
+                SUM(konsumsi) konsumsi,
+                SUM(tunj_asuransi) asuransi_tunj,
+                SUM(jabatan) jabatan,
+                SUM(cicilan) cicilan,
+                SUM(asuransi) asuransi,
+                SUM(zakat) zakat
+            ")->first();
+
+        $bulanLalu = Payroll::where('periode',$periodeLalu)
+            ->selectRaw("
+                SUM(gajipokok)+
+                SUM(pek_tambahan)+
+                SUM(masakerja)+
+                SUM(transportasi)+
+                SUM(konsumsi)+
+                SUM(tunj_asuransi)+
+                SUM(jabatan) total
+            ")->value('total') ?? 0;
+
+        $totalPendapatan =
+            ($bulanIni->gaji ?? 0) +
+            ($bulanIni->tambahan ?? 0) +
+            ($bulanIni->masakerja ?? 0) +
+            ($bulanIni->transport ?? 0) +
+            ($bulanIni->konsumsi ?? 0) +
+            ($bulanIni->asuransi_tunj ?? 0) +
+            ($bulanIni->jabatan ?? 0);
+
+        $persen = $bulanLalu
+            ? (($totalPendapatan-$bulanLalu)/$bulanLalu)*100
+            : 0;
+
+        $rata = $bulanIni->total_karyawan
+            ? $totalPendapatan/$bulanIni->total_karyawan
+            :0;
 
         return [
-            'total_karyawan' => $payrollBulanIni->total_karyawan ?? 0,
-            'total_pendapatan' => $totalPendapatan,
-            'total_pendapatan_formatted' => number_format($totalPendapatan, 0, ',', '.'),
-            'total_potongan' => ($payrollBulanIni->total_cicilan ?? 0) +
-                               ($payrollBulanIni->total_asuransi ?? 0) +
-                               ($payrollBulanIni->total_zakat ?? 0),
-            'rata_gaji' => number_format($rataGaji, 0, ',', '.'),
-            'persentase_perubahan' => round($percentage, 1),
-            'trend' => $percentage >= 0 ? 'up' : 'down'
+            'total_karyawan'=>$bulanIni->total_karyawan ?? 0,
+            'total_pendapatan'=>$totalPendapatan,
+            'total_pendapatan_formatted'=>number_format($totalPendapatan,0,',','.'),
+            'total_potongan'=>($bulanIni->cicilan ?? 0)+($bulanIni->asuransi ?? 0)+($bulanIni->zakat ?? 0),
+            'rata_gaji'=>number_format($rata,0,',','.'),
+            'persentase_perubahan'=>round($persen,1),
+            'trend'=>$persen>=0?'up':'down'
         ];
     }
 
-    private function getKaryawanAktif($companyId)
+    private function getKaryawanAktif()
     {
-        return User::with(['pegawaiDtl', 'unitkerja'])
-            ->where('status', 'aktif')
-            ->where('id_unitkerja', $companyId)
+        return User::with(['pegawaiDtl','unitkerja'])
+            ->where('status','aktif')
             ->orderBy('name')
             ->limit(10)
             ->get()
-            ->map(function($user) {
+            ->map(function($u){
+
                 return [
-                    'nik' => $user->nik,
-                    'nip' => $user->nip,
-                    'nama' => $user->name,
-                    'unit_kerja' => $user->unitkerja->company_name ?? '-',
-                    'jabatan' => $user->pegawaiDtl->jabatan ?? '-',
-                    'status_kontrak' => $this->getStatusKontrak($user->pegawaiDtl),
-                    'foto' => $user->foto ?? 'default-avatar.jpg'
+                    'nik'=>$u->nik,
+                    'nip'=>$u->nip,
+                    'nama'=>$u->name,
+                    'unit_kerja'=>$u->unitkerja->company_name ?? '-',
+                    'jabatan'=>$u->pegawaiDtl->jabatan ?? '-',
+                    'status_kontrak'=>$this->getStatusKontrak($u->pegawaiDtl),
+                    'foto'=>$u->foto ?? 'default-avatar.jpg'
                 ];
             });
     }
@@ -1010,38 +976,42 @@ class AdminDashboardController extends Controller
 
     private function getChartDataHRIS()
     {
-        $data = [];
-        
-        for ($i = 5; $i >= 0; $i--) {
-            $month = Carbon::now()->subMonths($i);
-            $startDate = $month->copy()->startOfMonth();
-            $endDate = $month->copy()->endOfMonth();
-            
-            $totalPresensi = Presensi::whereBetween('tgl_presensi', [$startDate, $endDate])
-                ->where('inoutmode', 1)
+        $data=[
+            'labels'=>[],
+            'presensi'=>[],
+            'izin'=>[],
+            'terlambat'=>[]
+        ];
+
+        for($i=5;$i>=0;$i--){
+
+            $bulan=now()->subMonths($i);
+
+            $start=$bulan->copy()->startOfMonth();
+            $end=$bulan->copy()->endOfMonth();
+
+            $data['labels'][]=$bulan->format('M Y');
+
+            $data['presensi'][]=Presensi::whereBetween('tgl_presensi',[$start,$end])
+                ->where('inoutmode',1)
                 ->count();
-            
-            $totalIzin = PengajuanIzin::where('status_approved', 1)
-                ->whereBetween('tgl_izin', [$startDate, $endDate])
+
+            $data['izin'][]=PengajuanIzin::where('status_approved',1)
+                ->whereBetween('tgl_izin',[$start,$end])
                 ->count();
-            
-            $totalTerlambat = DB::table('presensi as p')
-                ->join('jadwal as j', function($join) {
-                    $join->on('p.nik', '=', 'j.pegawai_nik')
-                         ->on('p.tgl_presensi', '=', 'j.tgl');
+
+            $data['terlambat'][]=DB::table('presensi as p')
+                ->join('jadwal as j',function($join){
+                    $join->on('p.nik','=','j.pegawai_nik')
+                        ->on('p.tgl_presensi','=','j.tgl');
                 })
-                ->join('kelompokjam as k', 'j.shift', '=', 'k.shift')
-                ->whereBetween('p.tgl_presensi', [$startDate, $endDate])
-                ->where('p.inoutmode', 1)
+                ->join('kelompokjam as k','j.shift','=','k.shift')
+                ->whereBetween('p.tgl_presensi',[$start,$end])
+                ->where('p.inoutmode',1)
                 ->whereRaw('TIME(p.jam_in) > TIME(k.jammasuk)')
                 ->count();
-            
-            $data['labels'][] = $month->format('M Y');
-            $data['presensi'][] = $totalPresensi;
-            $data['izin'][] = $totalIzin;
-            $data['terlambat'][] = $totalTerlambat;
         }
-        
+
         return $data;
     }
 

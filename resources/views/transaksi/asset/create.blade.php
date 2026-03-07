@@ -494,9 +494,16 @@
                             }
                             return response;
                         }).catch(error => {
-                            Swal.showValidationMessage(
-                                `Error: ${error}`
-                            );
+
+                            let message = 'Terjadi kesalahan';
+
+                            if (error.responseJSON && error.responseJSON.message) {
+                                message = error.responseJSON.message;
+                            } else if (error.message) {
+                                message = error.message;
+                            }
+
+                            Swal.showValidationMessage(message);
                         });
                     }
                 }).then((result) => {
@@ -517,30 +524,30 @@
             calculateTotals();
         });
 
-    function generateNotaNumber() {
-        $.ajax({
-            url: "{{ route('transaksi.asset.generate-nota') }}",
-            type: 'GET',
-            success: function(res) {
-                if (res.success) {
-                    $('#nota_no').val(res.nota_no);
-                } else {
-                    console.error('Gagal generate nomor nota:', res.message);
+        function generateNotaNumber() {
+            $.ajax({
+                url: "{{ route('transaksi.asset.generate-nota') }}",
+                type: 'GET',
+                success: function(res) {
+                    if (res.success) {
+                        $('#nota_no').val(res.nota_no);
+                    } else {
+                        console.error('Gagal generate nomor nota:', res.message);
+                        // Fallback
+                        let projectId = "{{ session('active_project_id') }}";
+                        let yearMonth = new Date().toISOString().slice(0,7).replace('-', '');
+                        $('#nota_no').val(`AST-${projectId}-${yearMonth}-0001`);
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Error:', xhr.responseJSON);
                     // Fallback
                     let projectId = "{{ session('active_project_id') }}";
                     let yearMonth = new Date().toISOString().slice(0,7).replace('-', '');
                     $('#nota_no').val(`AST-${projectId}-${yearMonth}-0001`);
                 }
-            },
-            error: function(xhr) {
-                console.error('Error:', xhr.responseJSON);
-                // Fallback
-                let projectId = "{{ session('active_project_id') }}";
-                let yearMonth = new Date().toISOString().slice(0,7).replace('-', '');
-                $('#nota_no').val(`AST-${projectId}-${yearMonth}-0001`);
-            }
-        });
-    }
+            });
+        }
 
         </script>
     </x-slot>
