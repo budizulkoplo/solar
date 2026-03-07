@@ -343,9 +343,14 @@
                                                 
                                                 <div class="progress mb-3" style="height: 10px;">
                                                     @php
-                                                        $totalCashflow = $rekening['net_cashflow_raw'] + abs(min(0, $rekening['net_cashflow_raw']));
-                                                        $positivePercent = $totalCashflow > 0 ? ($rekening['total_in'] / $totalCashflow * 100) : 0;
-                                                        $negativePercent = $totalCashflow > 0 ? ($rekening['total_out'] / $totalCashflow * 100) : 0;
+                                                        $net = (float) ($rekening['net_cashflow_raw'] ?? 0);
+                                                        $totalIn = (float) ($rekening['total_in'] ?? 0);
+                                                        $totalOut = (float) ($rekening['total_out'] ?? 0);
+
+                                                        $totalCashflow = $net + abs(min(0, $net));
+
+                                                        $positivePercent = $totalCashflow > 0 ? ($totalIn / $totalCashflow * 100) : 0;
+                                                        $negativePercent = $totalCashflow > 0 ? ($totalOut / $totalCashflow * 100) : 0;
                                                     @endphp
                                                     <div class="progress-bar bg-success" role="progressbar" 
                                                          style="width: {{ $positivePercent }}%" 
