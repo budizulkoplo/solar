@@ -144,7 +144,7 @@ class AssetTransactionController extends Controller
                 'namatransaksi' => 'required|string|max:255',
                 'tanggal' => 'required|date',
                 'idrek' => 'required|exists:rekening,idrek',
-                'vendor_id' => 'required|exists:vendors,id',
+                
                 'paymen_method' => 'required|in:cash,tempo',
                 'transactions' => 'required|array|min:1',
                 'transactions.*.idkodetransaksi' => 'required|exists:kodetransaksi,id',
@@ -1033,7 +1033,7 @@ class AssetTransactionController extends Controller
                 'namatransaksi' => 'required|string|max:255',
                 'tanggal' => 'required|date',
                 'idrek' => 'required|exists:rekening,idrek',
-                'vendor_id' => 'required|exists:vendors,id',
+                
                 'paymen_method' => 'required|in:cash,tempo',
                 'ppn' => 'nullable|numeric|min:0',
                 'diskon' => 'nullable|numeric|min:0',

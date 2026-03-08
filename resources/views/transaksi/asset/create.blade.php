@@ -48,8 +48,8 @@
                                                value="{{ date('Y-m-d') }}" required>
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label">Vendor *</label>
-                                        <select class="form-select" name="vendor_id" required>
+                                        <label class="form-label">Vendor</label>
+                                        <select class="form-select" name="vendor_id">
                                             <option value="">-- Pilih Vendor --</option>
                                             @foreach(\App\Models\Vendor::all() as $vendor)
                                                 <option value="{{ $vendor->id }}">{{ $vendor->namavendor }}</option>
@@ -165,8 +165,8 @@
                                         <tr>
                                             <td colspan="3" class="text-end"><strong>Diskon:</strong></td>
                                             <td colspan="2">
-                                                <input type="text" class="form-control form-control-sm text-end" 
-                                                       name="diskon" id="diskon" value="0" readonly>
+                                                <input type="number" class="form-control form-control-sm text-end" 
+                                                       name="diskon" id="diskon" value="0" min="0">
                                             </td>
                                             <td></td>
                                         </tr>
@@ -248,6 +248,11 @@
             // Parse number
             function parseNumber(str) {
                 return parseFloat(str.replace(/[^\d.-]/g, '')) || 0;
+            }
+            
+            // Round to nearest thousand
+            function roundToThousand(num) {
+                return Math.round(num / 1000) * 1000;
             }
             
             // Calculate totals
@@ -450,6 +455,14 @@
             
             // Recalculate on input changes
             $(document).on('input', 'input[name*="[nominal]"], input[name*="[jml]"], #ppn, #diskon', function() {
+                calculateTotals();
+            });
+            
+            // Round to thousand on blur for nominal and nilai residu
+            $(document).on('blur', 'input[name*="[nominal]"], input[name*="[nilai_residu]"]', function() {
+                let val = parseNumber($(this).val());
+                let rounded = roundToThousand(val);
+                $(this).val(rounded);
                 calculateTotals();
             });
             
