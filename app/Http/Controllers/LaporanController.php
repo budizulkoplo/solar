@@ -1273,11 +1273,60 @@ class LaporanController extends Controller
      */
     private function buildNeracaFromSaldo(array $accounts): array
     {
-        $coaMap = KodeTransaksi::with('neraca')->get()->keyBy('kodetransaksi');
+        $neracaHdrList = \App\Models\NeracaHdr::query()->orderBy('id')->get();
+        $neracaHdrMap = $neracaHdrList->keyBy('id');
 
         $aktivaRows = [];
         $pasivaRows = [];
+        $aktivaGroups = [];
+        $pasivaGroups = [];
         $labaRugiBerjalan = 0;
+        $unmappedCount = 0;
+        $unmappedAccounts = [];
+
+        $kasHdr = $neracaHdrList->first(function ($row) {
+            return $this->normalizeNeracaFlag($row->aktiva ?? null)
+                && str_contains(strtolower((string) $row->rincian), 'kas');
+        });
+
+        $labaDitahanHdr = $neracaHdrList->first(function ($row) {
+            return $this->normalizeNeracaFlag($row->pasiva ?? null)
+                && str_contains(strtolower((string) $row->rincian), 'laba ditahan');
+        });
+
+        $addToGroup = function (array $row, string $targetSide, $groupId, string $groupName, int $order) use (&$aktivaGroups, &$pasivaGroups) {
+            $groupKey = (string) $groupId . '|' . $targetSide;
+            if ($targetSide === 'aktiva') {
+                if (!isset($aktivaGroups[$groupKey])) {
+                    $aktivaGroups[$groupKey] = [
+                        'id' => $groupId,
+                        'rincian' => $groupName,
+                        'order' => $order,
+                        'items' => [],
+                        'subtotal_raw' => 0,
+                        'subtotal' => '0'
+                    ];
+                }
+
+                $aktivaGroups[$groupKey]['items'][] = $row;
+                $aktivaGroups[$groupKey]['subtotal_raw'] += $row['nilai_raw'];
+                return;
+            }
+
+            if (!isset($pasivaGroups[$groupKey])) {
+                $pasivaGroups[$groupKey] = [
+                    'id' => $groupId,
+                    'rincian' => $groupName,
+                    'order' => $order,
+                    'items' => [],
+                    'subtotal_raw' => 0,
+                    'subtotal' => '0'
+                ];
+            }
+
+            $pasivaGroups[$groupKey]['items'][] = $row;
+            $pasivaGroups[$groupKey]['subtotal_raw'] += $row['nilai_raw'];
+        };
 
         foreach ($accounts as $account) {
             $kode = (string) ($account['kode'] ?? '');
@@ -1285,16 +1334,30 @@ class LaporanController extends Controller
             $debit = (float) ($account['debit_raw'] ?? 0);
             $kredit = (float) ($account['kredit_raw'] ?? 0);
             $isRekening = (bool) ($account['is_rekening'] ?? false);
+            $idNeraca = $account['idneraca'] ?? null;
 
             if ($isRekening) {
                 $amount = $debit - $kredit;
                 if (abs($amount) > 0) {
-                    $aktivaRows[] = [
+                    $row = [
                         'kode' => $kode,
                         'nama_akun' => $nama,
+                        'plotting' => 'Kas/Bank',
                         'nilai_raw' => abs($amount),
                         'nilai' => number_format(abs($amount), 0, ',', '.')
                     ];
+
+                    $target = $amount >= 0 ? 'aktiva' : 'pasiva';
+                    $groupId = $kasHdr->id ?? 'KAS-BANK';
+                    $groupName = $kasHdr->rincian ?? 'KAS / BANK';
+                    $groupOrder = (int) ($kasHdr->id ?? 9998);
+                    $addToGroup($row, $target, $groupId, $groupName, $groupOrder);
+
+                    if ($target === 'aktiva') {
+                        $aktivaRows[] = $row;
+                    } else {
+                        $pasivaRows[] = $row;
+                    }
                 }
                 continue;
             }
@@ -1305,7 +1368,17 @@ class LaporanController extends Controller
                 continue;
             }
 
-            $side = $this->resolveNeracaSide($kode, $coaMap);
+            if (!$idNeraca || !$neracaHdrMap->has($idNeraca)) {
+                $unmappedCount++;
+                $unmappedAccounts[] = [
+                    'kode' => $kode,
+                    'nama_akun' => $nama
+                ];
+                continue;
+            }
+
+            $neracaHdr = $neracaHdrMap->get($idNeraca);
+            $side = $this->resolveNeracaSide($neracaHdr);
             $nilaiAktiva = $debit - $kredit;
             $nilaiPasiva = $kredit - $debit;
 
@@ -1324,6 +1397,7 @@ class LaporanController extends Controller
             $row = [
                 'kode' => $kode,
                 'nama_akun' => $nama,
+                'plotting' => (string) ($neracaHdr->rincian ?? '-'),
                 'nilai_raw' => $amount,
                 'nilai' => number_format($amount, 0, ',', '.')
             ];
@@ -1333,25 +1407,63 @@ class LaporanController extends Controller
             } else {
                 $pasivaRows[] = $row;
             }
+
+            $addToGroup(
+                $row,
+                $target,
+                $neracaHdr->id,
+                (string) ($neracaHdr->rincian ?? '-'),
+                (int) ($neracaHdr->id ?? 9999)
+            );
         }
 
         if (abs($labaRugiBerjalan) > 0) {
             $row = [
                 'kode' => '3-LR',
                 'nama_akun' => $labaRugiBerjalan >= 0 ? 'Laba Berjalan' : 'Rugi Berjalan',
+                'plotting' => 'Laba Rugi Berjalan',
                 'nilai_raw' => abs($labaRugiBerjalan),
                 'nilai' => number_format(abs($labaRugiBerjalan), 0, ',', '.')
             ];
 
             if ($labaRugiBerjalan >= 0) {
                 $pasivaRows[] = $row;
+                $addToGroup(
+                    $row,
+                    'pasiva',
+                    $labaDitahanHdr->id ?? 'LABA-DITAHAN',
+                    $labaDitahanHdr->rincian ?? 'LABA DITAHAN',
+                    (int) ($labaDitahanHdr->id ?? 9999)
+                );
             } else {
                 $aktivaRows[] = $row;
+                $addToGroup(
+                    $row,
+                    'aktiva',
+                    'LABA-RUGI',
+                    'RUGI BERJALAN',
+                    9999
+                );
             }
         }
 
         usort($aktivaRows, fn($a, $b) => strcmp($a['kode'], $b['kode']));
         usort($pasivaRows, fn($a, $b) => strcmp($a['kode'], $b['kode']));
+
+        foreach ($aktivaGroups as &$group) {
+            usort($group['items'], fn($a, $b) => strcmp($a['kode'], $b['kode']));
+            $group['subtotal'] = number_format($group['subtotal_raw'], 0, ',', '.');
+        }
+        unset($group);
+
+        foreach ($pasivaGroups as &$group) {
+            usort($group['items'], fn($a, $b) => strcmp($a['kode'], $b['kode']));
+            $group['subtotal'] = number_format($group['subtotal_raw'], 0, ',', '.');
+        }
+        unset($group);
+
+        uasort($aktivaGroups, fn($a, $b) => $a['order'] <=> $b['order']);
+        uasort($pasivaGroups, fn($a, $b) => $a['order'] <=> $b['order']);
 
         $totalAktiva = array_sum(array_column($aktivaRows, 'nilai_raw'));
         $totalPasiva = array_sum(array_column($pasivaRows, 'nilai_raw'));
@@ -1359,7 +1471,9 @@ class LaporanController extends Controller
         return [
             'data' => [
                 'aktiva' => $aktivaRows,
-                'pasiva' => $pasivaRows
+                'pasiva' => $pasivaRows,
+                'aktiva_groups' => array_values($aktivaGroups),
+                'pasiva_groups' => array_values($pasivaGroups)
             ],
             'summary' => [
                 'total_aktiva_raw' => $totalAktiva,
@@ -1367,34 +1481,28 @@ class LaporanController extends Controller
                 'total_aktiva' => number_format($totalAktiva, 0, ',', '.'),
                 'total_pasiva' => number_format($totalPasiva, 0, ',', '.'),
                 'balance' => abs($totalAktiva - $totalPasiva) < 0.5,
+                'unmapped_accounts' => $unmappedCount,
+                'unmapped_account_list' => $unmappedAccounts,
                 'difference_raw' => abs($totalAktiva - $totalPasiva),
                 'difference' => number_format(abs($totalAktiva - $totalPasiva), 0, ',', '.')
             ]
         ];
     }
 
-    private function resolveNeracaSide(string $kode, $coaMap): string
+    private function resolveNeracaSide($neraca): string
     {
-        $coa = $coaMap->get($kode);
-        $neraca = $coa->neraca ?? null;
+        $isAktiva = $this->normalizeNeracaFlag($neraca->aktiva ?? null);
+        $isPasiva = $this->normalizeNeracaFlag($neraca->pasiva ?? null);
 
-        if ($neraca) {
-            $isAktiva = $this->normalizeNeracaFlag($neraca->aktiva);
-            $isPasiva = $this->normalizeNeracaFlag($neraca->pasiva);
-
-            if ($isAktiva && !$isPasiva) {
-                return 'aktiva';
-            }
-
-            if ($isPasiva && !$isAktiva) {
-                return 'pasiva';
-            }
-        }
-
-        if (str_starts_with($kode, '1')) {
+        if ($isAktiva && !$isPasiva) {
             return 'aktiva';
         }
 
+        if ($isPasiva && !$isAktiva) {
+            return 'pasiva';
+        }
+
+        // Default aman: pasiva jika flag tidak jelas
         return 'pasiva';
     }
 
@@ -1536,6 +1644,8 @@ class LaporanController extends Controller
             // Hanya tampilkan akun yang memiliki transaksi
             if ($debit > 0 || $kredit > 0) {
                 $accounts[] = [
+                    'idkodetransaksi' => $coa->id,
+                    'idneraca' => $coa->idneraca,
                     'kode' => $coa->kodetransaksi,
                     'nama_akun' => $coa->transaksi,
                     'jenis' => $coa->transaksi ?? 'lainnya',
@@ -1708,6 +1818,8 @@ class LaporanController extends Controller
             // Hanya tampilkan akun yang memiliki transaksi
             if ($debit > 0 || $kredit > 0) {
                 $accounts[] = [
+                    'idkodetransaksi' => $coa->id,
+                    'idneraca' => $coa->idneraca,
                     'kode' => $coa->kodetransaksi,
                     'nama_akun' => $coa->transaksi,
                     'jenis' => $coa->transaksi ?? 'lainnya',

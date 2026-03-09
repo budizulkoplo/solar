@@ -39,7 +39,7 @@
                             <table class="table table-sm table-bordered mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th width="20%">Kode</th>
+                                        <th width="10%">No</th>
                                         <th>Akun</th>
                                         <th width="30%" class="text-end">Nilai (Rp)</th>
                                     </tr>
@@ -65,7 +65,7 @@
                             <table class="table table-sm table-bordered mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th width="20%">Kode</th>
+                                        <th width="10%">No</th>
                                         <th>Akun</th>
                                         <th width="30%" class="text-end">Nilai (Rp)</th>
                                     </tr>
@@ -101,8 +101,8 @@
                 });
             }
 
-            function renderRows(selector, rows) {
-                if (!rows || rows.length === 0) {
+            function renderGroups(selector, groups, sideLabel) {
+                if (!groups || groups.length === 0) {
                     $(selector).html(
                         `<tr><td colspan="3" class="text-center text-muted">Tidak ada data</td></tr>`
                     );
@@ -110,12 +110,27 @@
                 }
 
                 let html = '';
-                rows.forEach(row => {
+                groups.forEach(group => {
                     html += `
-                        <tr>
-                            <td><span class="badge bg-secondary">${row.kode}</span></td>
-                            <td>${row.nama_akun}</td>
-                            <td class="text-end">${formatRupiah(row.nilai_raw)}</td>
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="3">${group.rincian}</td>
+                        </tr>
+                    `;
+
+                    group.items.forEach((row, idx) => {
+                        html += `
+                            <tr>
+                                <td class="text-center">${idx + 1}</td>
+                                <td>${row.nama_akun}</td>
+                                <td class="text-end">${formatRupiah(row.nilai_raw)}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                        <tr class="table-light fw-bold">
+                            <td colspan="2" class="text-end">Sub Total ${group.rincian}</td>
+                            <td class="text-end">${formatRupiah(group.subtotal_raw)}</td>
                         </tr>
                     `;
                 });
@@ -134,8 +149,8 @@
                         return;
                     }
 
-                    renderRows('#tbodyAktiva', response.data.aktiva);
-                    renderRows('#tbodyPasiva', response.data.pasiva);
+                    renderGroups('#tbodyAktiva', response.data.aktiva_groups, 'Aktiva');
+                    renderGroups('#tbodyPasiva', response.data.pasiva_groups, 'Pasiva');
 
                     $('#totalAktiva').text(formatRupiah(response.summary.total_aktiva_raw));
                     $('#totalPasiva').text(formatRupiah(response.summary.total_pasiva_raw));
@@ -151,6 +166,12 @@
                                 <span class="badge ${response.summary.balance ? 'bg-success' : 'bg-danger'}">
                                     ${response.summary.balance ? 'SEIMBANG' : 'TIDAK SEIMBANG'}
                                 </span>
+                                <small class="d-block mt-1 text-muted">Unmapped akun: ${response.summary.unmapped_accounts || 0}</small>
+                                ${(response.summary.unmapped_account_list || []).length ? `
+                                    <small class="d-block mt-1 text-muted">
+                                        ${response.summary.unmapped_account_list.slice(0, 5).map(x => `${x.kode} (${x.nama_akun})`).join(', ')}
+                                    </small>
+                                ` : ''}
                                 ${!response.summary.balance ? `
                                     <small class="d-block mt-1 text-danger">Selisih: ${formatRupiah(response.summary.difference_raw)}</small>
                                 ` : ''}
