@@ -226,6 +226,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('/export-penjualan-pdf', [LaporanController::class, 'exportPenjualanPDF'])->name('laporan.export.penjualan.pdf');
         Route::get('/statistics', [LaporanController::class, 'getStatistics'])->name('laporan.statistics');
 
+        Route::get('/neraca', [LaporanController::class, 'neraca'])->name('laporan.neraca');
+        Route::get('/neraca/data', [LaporanController::class, 'neracaData'])->name('laporan.neraca.data');
         Route::get('/neraca-saldo', [LaporanController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
         Route::get('/neraca-saldo/data', [LaporanController::class, 'neracaSaldoData'])->name('laporan.neraca-saldo.data');
         Route::post('/neraca-saldo/export-excel', [LaporanController::class, 'exportNeracaSaldoExcel'])->name('laporan.neraca-saldo.export-excel');

@@ -1203,6 +1203,211 @@ class LaporanController extends Controller
         ]);
     }
 
+    /**
+     * Halaman laporan Neraca
+     */
+    public function neraca()
+    {
+        $startDate = now()->startOfMonth()->format('Y-m-d');
+        $endDate = now()->endOfMonth()->format('Y-m-d');
+        $module = session('active_project_module');
+
+        return view('transaksi.laporan.neraca', compact('startDate', 'endDate', 'module'));
+    }
+
+    /**
+     * Data laporan Neraca (Aktiva vs Pasiva)
+     */
+    public function neracaData(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+
+        if (empty($startDate) || empty($endDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tanggal awal dan akhir harus diisi'
+            ], 400);
+        }
+
+        try {
+            if ($module == 'project') {
+                $saldoData = $this->getNeracaSaldoProject($startDate, $endDate);
+            } elseif ($module == 'company') {
+                $saldoData = $this->getNeracaSaldoCompany($startDate, $endDate);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Module tidak dikenali'
+                ], 400);
+            }
+
+            $neracaData = $this->buildNeracaFromSaldo($saldoData['accounts']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $neracaData['data'],
+                'summary' => $neracaData['summary'],
+                'period' => [
+                    'start' => $startDate,
+                    'end' => $endDate,
+                    'module' => $module
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error generating neraca:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bentuk struktur neraca dari data neraca saldo
+     */
+    private function buildNeracaFromSaldo(array $accounts): array
+    {
+        $coaMap = KodeTransaksi::with('neraca')->get()->keyBy('kodetransaksi');
+
+        $aktivaRows = [];
+        $pasivaRows = [];
+        $labaRugiBerjalan = 0;
+
+        foreach ($accounts as $account) {
+            $kode = (string) ($account['kode'] ?? '');
+            $nama = $account['nama_akun'] ?? '-';
+            $debit = (float) ($account['debit_raw'] ?? 0);
+            $kredit = (float) ($account['kredit_raw'] ?? 0);
+            $isRekening = (bool) ($account['is_rekening'] ?? false);
+
+            if ($isRekening) {
+                $amount = $debit - $kredit;
+                if (abs($amount) > 0) {
+                    $aktivaRows[] = [
+                        'kode' => $kode,
+                        'nama_akun' => $nama,
+                        'nilai_raw' => abs($amount),
+                        'nilai' => number_format(abs($amount), 0, ',', '.')
+                    ];
+                }
+                continue;
+            }
+
+            if (str_starts_with($kode, '4') || str_starts_with($kode, '5')) {
+                // Pendapatan/Beban digabung sebagai laba(rugi) berjalan
+                $labaRugiBerjalan += ($kredit - $debit);
+                continue;
+            }
+
+            $side = $this->resolveNeracaSide($kode, $coaMap);
+            $nilaiAktiva = $debit - $kredit;
+            $nilaiPasiva = $kredit - $debit;
+
+            if ($side === 'aktiva') {
+                $target = $nilaiAktiva >= 0 ? 'aktiva' : 'pasiva';
+                $amount = abs($nilaiAktiva);
+            } else {
+                $target = $nilaiPasiva >= 0 ? 'pasiva' : 'aktiva';
+                $amount = abs($nilaiPasiva);
+            }
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $row = [
+                'kode' => $kode,
+                'nama_akun' => $nama,
+                'nilai_raw' => $amount,
+                'nilai' => number_format($amount, 0, ',', '.')
+            ];
+
+            if ($target === 'aktiva') {
+                $aktivaRows[] = $row;
+            } else {
+                $pasivaRows[] = $row;
+            }
+        }
+
+        if (abs($labaRugiBerjalan) > 0) {
+            $row = [
+                'kode' => '3-LR',
+                'nama_akun' => $labaRugiBerjalan >= 0 ? 'Laba Berjalan' : 'Rugi Berjalan',
+                'nilai_raw' => abs($labaRugiBerjalan),
+                'nilai' => number_format(abs($labaRugiBerjalan), 0, ',', '.')
+            ];
+
+            if ($labaRugiBerjalan >= 0) {
+                $pasivaRows[] = $row;
+            } else {
+                $aktivaRows[] = $row;
+            }
+        }
+
+        usort($aktivaRows, fn($a, $b) => strcmp($a['kode'], $b['kode']));
+        usort($pasivaRows, fn($a, $b) => strcmp($a['kode'], $b['kode']));
+
+        $totalAktiva = array_sum(array_column($aktivaRows, 'nilai_raw'));
+        $totalPasiva = array_sum(array_column($pasivaRows, 'nilai_raw'));
+
+        return [
+            'data' => [
+                'aktiva' => $aktivaRows,
+                'pasiva' => $pasivaRows
+            ],
+            'summary' => [
+                'total_aktiva_raw' => $totalAktiva,
+                'total_pasiva_raw' => $totalPasiva,
+                'total_aktiva' => number_format($totalAktiva, 0, ',', '.'),
+                'total_pasiva' => number_format($totalPasiva, 0, ',', '.'),
+                'balance' => abs($totalAktiva - $totalPasiva) < 0.5,
+                'difference_raw' => abs($totalAktiva - $totalPasiva),
+                'difference' => number_format(abs($totalAktiva - $totalPasiva), 0, ',', '.')
+            ]
+        ];
+    }
+
+    private function resolveNeracaSide(string $kode, $coaMap): string
+    {
+        $coa = $coaMap->get($kode);
+        $neraca = $coa->neraca ?? null;
+
+        if ($neraca) {
+            $isAktiva = $this->normalizeNeracaFlag($neraca->aktiva);
+            $isPasiva = $this->normalizeNeracaFlag($neraca->pasiva);
+
+            if ($isAktiva && !$isPasiva) {
+                return 'aktiva';
+            }
+
+            if ($isPasiva && !$isAktiva) {
+                return 'pasiva';
+            }
+        }
+
+        if (str_starts_with($kode, '1')) {
+            return 'aktiva';
+        }
+
+        return 'pasiva';
+    }
+
+    private function normalizeNeracaFlag($value): bool
+    {
+        if (is_null($value)) {
+            return false;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['1', 'y', 'yes', 'true', 'aktiva', 'asset', 'aset'], true);
+    }
+
     public function neracaSaldo()
     {
         $startDate = now()->startOfMonth()->format('Y-m-d');
