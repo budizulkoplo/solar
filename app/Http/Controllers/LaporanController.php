@@ -1269,6 +1269,225 @@ class LaporanController extends Controller
     }
 
     /**
+     * Halaman laporan Laba Rugi
+     */
+    public function labaRugi()
+    {
+        $startDate = now()->startOfMonth()->format('Y-m-d');
+        $endDate = now()->endOfMonth()->format('Y-m-d');
+        $module = session('active_project_module');
+
+        return view('transaksi.laporan.laba_rugi', compact('startDate', 'endDate', 'module'));
+    }
+
+    /**
+     * Data laporan Laba Rugi
+     */
+    public function labaRugiData(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+
+        if (empty($startDate) || empty($endDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tanggal awal dan akhir harus diisi'
+            ], 400);
+        }
+
+        try {
+            $query = NotaTransaction::query()
+                ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+                ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+                ->leftJoin('labarugi_hdr', 'kodetransaksi.idlabarugi', '=', 'labarugi_hdr.id')
+                ->where('notas.status', 'paid')
+                ->whereBetween('notas.tanggal', [$startDate, $endDate]);
+
+            if ($module === 'project') {
+                $projectId = session('active_project_id');
+                if (!$projectId) {
+                    throw new \Exception('Project ID tidak ditemukan');
+                }
+                $query->where('notas.idproject', $projectId);
+            } elseif ($module === 'company') {
+                $companyId = session('active_company_id');
+                if (!$companyId) {
+                    throw new \Exception('Company ID tidak ditemukan');
+                }
+
+                $projects = Project::query()
+                    ->where('idcompany', $companyId)
+                    ->pluck('id');
+
+                $query->whereIn('notas.idproject', $projects);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Module tidak dikenali'
+                ], 400);
+            }
+
+            $rows = $query
+                ->selectRaw('
+                    kodetransaksi.id as id_kodetransaksi,
+                    kodetransaksi.kodetransaksi as kode_akun,
+                    kodetransaksi.transaksi as nama_akun,
+                    kodetransaksi.idlabarugi as id_labarugi,
+                    labarugi_hdr.rincian as rincian_labarugi,
+                    labarugi_hdr.cashflow as cashflow_labarugi,
+                    labarugi_hdr.kode_pemasukan as kode_pemasukan,
+                    labarugi_hdr.kode_pengeluaran as kode_pengeluaran,
+                    COALESCE(SUM(CASE WHEN notas.cashflow = "in" THEN nota_transactions.total ELSE 0 END), 0) as total_in,
+                    COALESCE(SUM(CASE WHEN notas.cashflow = "out" THEN nota_transactions.total ELSE 0 END), 0) as total_out
+                ')
+                ->groupBy([
+                    'kodetransaksi.id',
+                    'kodetransaksi.kodetransaksi',
+                    'kodetransaksi.transaksi',
+                    'kodetransaksi.idlabarugi',
+                    'labarugi_hdr.rincian',
+                    'labarugi_hdr.cashflow',
+                    'labarugi_hdr.kode_pemasukan',
+                    'labarugi_hdr.kode_pengeluaran'
+                ])
+                ->orderBy('kodetransaksi.kodetransaksi')
+                ->get();
+
+            $pendapatanGroups = [];
+            $bebanGroups = [];
+            $unmappedAccounts = [];
+            $totalPendapatan = 0;
+            $totalBeban = 0;
+            $totalHpp = 0;
+
+            foreach ($rows as $row) {
+                if (!$row->id_labarugi) {
+                    $unmappedAccounts[] = [
+                        'kode' => (string) $row->kode_akun,
+                        'nama_akun' => (string) $row->nama_akun
+                    ];
+                    continue;
+                }
+
+                $isPemasukan = strtolower((string) $row->cashflow_labarugi) === 'pemasukan';
+                $isPengeluaran = strtolower((string) $row->cashflow_labarugi) === 'pengeluaran';
+                $nominal = $isPemasukan
+                    ? ((float) $row->total_in - (float) $row->total_out)
+                    : ((float) $row->total_out - (float) $row->total_in);
+
+                if (abs($nominal) < 0.5) {
+                    continue;
+                }
+
+                $item = [
+                    'id_kodetransaksi' => (int) $row->id_kodetransaksi,
+                    'id_labarugi' => (int) $row->id_labarugi,
+                    'kode_akun' => (string) $row->kode_akun,
+                    'nama_akun' => (string) $row->nama_akun,
+                    'rincian' => (string) ($row->rincian_labarugi ?? '-'),
+                    'nominal_raw' => $nominal,
+                    'nominal' => number_format($nominal, 0, ',', '.'),
+                ];
+
+                if ($isPemasukan) {
+                    $groupName = (string) ($row->kode_pemasukan ?: 'PENDAPATAN LAINNYA');
+                    $groupKey = 'P-' . $groupName;
+
+                    if (!isset($pendapatanGroups[$groupKey])) {
+                        $pendapatanGroups[$groupKey] = [
+                            'kategori' => $groupName,
+                            'items' => [],
+                            'subtotal_raw' => 0,
+                            'subtotal' => '0'
+                        ];
+                    }
+
+                    $pendapatanGroups[$groupKey]['items'][] = $item;
+                    $pendapatanGroups[$groupKey]['subtotal_raw'] += $nominal;
+                    $totalPendapatan += $nominal;
+                    continue;
+                }
+
+                if ($isPengeluaran) {
+                    $groupName = (string) ($row->kode_pengeluaran ?: 'BEBAN LAINNYA');
+                    $groupKey = 'B-' . $groupName;
+
+                    if (!isset($bebanGroups[$groupKey])) {
+                        $bebanGroups[$groupKey] = [
+                            'kategori' => $groupName,
+                            'items' => [],
+                            'subtotal_raw' => 0,
+                            'subtotal' => '0'
+                        ];
+                    }
+
+                    $bebanGroups[$groupKey]['items'][] = $item;
+                    $bebanGroups[$groupKey]['subtotal_raw'] += $nominal;
+                    $totalBeban += $nominal;
+
+                    if (str_contains(strtolower($groupName), 'harga pokok penjualan')) {
+                        $totalHpp += $nominal;
+                    }
+                }
+            }
+
+            foreach ($pendapatanGroups as &$group) {
+                usort($group['items'], fn($a, $b) => strcmp($a['kode_akun'], $b['kode_akun']));
+                $group['subtotal'] = number_format($group['subtotal_raw'], 0, ',', '.');
+            }
+            unset($group);
+
+            foreach ($bebanGroups as &$group) {
+                usort($group['items'], fn($a, $b) => strcmp($a['kode_akun'], $b['kode_akun']));
+                $group['subtotal'] = number_format($group['subtotal_raw'], 0, ',', '.');
+            }
+            unset($group);
+
+            $labaKotor = $totalPendapatan - $totalHpp;
+            $labaBersih = $totalPendapatan - $totalBeban;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'pendapatan_groups' => array_values($pendapatanGroups),
+                    'beban_groups' => array_values($bebanGroups),
+                ],
+                'summary' => [
+                    'total_pendapatan_raw' => $totalPendapatan,
+                    'total_beban_raw' => $totalBeban,
+                    'total_hpp_raw' => $totalHpp,
+                    'laba_kotor_raw' => $labaKotor,
+                    'laba_bersih_raw' => $labaBersih,
+                    'total_pendapatan' => number_format($totalPendapatan, 0, ',', '.'),
+                    'total_beban' => number_format($totalBeban, 0, ',', '.'),
+                    'total_hpp' => number_format($totalHpp, 0, ',', '.'),
+                    'laba_kotor' => number_format($labaKotor, 0, ',', '.'),
+                    'laba_bersih' => number_format($labaBersih, 0, ',', '.'),
+                    'status' => $labaBersih >= 0 ? 'LABA' : 'RUGI',
+                    'unmapped_accounts' => count($unmappedAccounts),
+                    'unmapped_account_list' => $unmappedAccounts,
+                ],
+                'period' => [
+                    'start' => $startDate,
+                    'end' => $endDate,
+                    'module' => $module
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error generating laba rugi:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Bentuk struktur neraca dari data neraca saldo
      */
     private function buildNeracaFromSaldo(array $accounts): array
