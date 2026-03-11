@@ -490,10 +490,112 @@ class AssetTransactionController extends Controller
         }
     }
 
+    private function processCashReceipt($nota, $idrek, $jumlah, $tanggal)
+    {
+        $rekening = Rekening::find($idrek);
+        if (!$rekening) {
+            throw new \Exception("Rekening tidak ditemukan");
+        }
+
+        $saldoAwal = $rekening->saldo;
+        $rekening->saldo += $jumlah;
+        $rekening->save();
+
+        NotaPayment::create([
+            'idnota' => $nota->id,
+            'idrek' => $idrek,
+            'tanggal' => $tanggal,
+            'jumlah' => $jumlah
+        ]);
+
+        Cashflow::create([
+            'idrek' => $idrek,
+            'idnota' => $nota->id,
+            'tanggal' => $tanggal,
+            'cashflow' => 'in',
+            'nominal' => $jumlah,
+            'saldo_awal' => $saldoAwal,
+            'saldo_akhir' => $rekening->saldo,
+            'keterangan' => "Penerimaan asset {$nota->nota_no}"
+        ]);
+    }
+
+    private function createAssetIncomeNota(array $data)
+    {
+        $projectId = session('active_project_id');
+        $project = Project::find($projectId);
+
+        if (!$project) {
+            throw new \Exception('Project tidak ditemukan');
+        }
+
+        $user = auth()->user();
+        $nip = $user->nip ?? $user->id;
+        $namauser = $user->name;
+        $notaNo = $this->generateOperationNotaNumber($data['prefix'] ?? 'AST', $projectId);
+
+        $nota = Nota::create([
+            'nota_no' => $notaNo,
+            'namatransaksi' => $data['namatransaksi'],
+            'idproject' => $project->id,
+            'idcompany' => $project->idcompany ?? session('active_project_company_id'),
+            'idretail' => $project->idretail,
+            'idrek' => $data['idrek'],
+            'tanggal' => $data['tanggal'],
+            'cashflow' => 'in',
+            'paymen_method' => $data['paymen_method'],
+            'tgl_tempo' => $data['tgl_tempo'] ?? null,
+            'subtotal' => $data['nominal'],
+            'ppn' => 0,
+            'diskon' => 0,
+            'total' => $data['nominal'],
+            'status' => $data['paymen_method'] === 'cash' ? 'paid' : 'open',
+            'nip' => $nip,
+            'namauser' => $namauser,
+            'type' => $data['prefix'] === 'ASW' ? 'asset_sewa' : 'asset_penghapusan',
+        ]);
+
+        NotaTransaction::create([
+            'idnota' => $nota->id,
+            'idkodetransaksi' => $data['idkodetransaksi'],
+            'description' => $data['description'],
+            'nominal' => $data['nominal'],
+            'jml' => 1,
+            'total' => $data['nominal'],
+        ]);
+
+        if ($data['paymen_method'] === 'cash') {
+            $this->processCashReceipt($nota, $data['idrek'], $data['nominal'], $data['tanggal']);
+        }
+
+        return $nota;
+    }
+
+    private function generateOperationNotaNumber($prefix, $projectId)
+    {
+        $yearMonth = date('Ym');
+        $lastNota = Nota::where('idproject', $projectId)
+            ->where('nota_no', 'like', $prefix . '-%')
+            ->orderBy('nota_no', 'desc')
+            ->first();
+
+        $lastNumber = 0;
+        if ($lastNota) {
+            $parts = explode('-', $lastNota->nota_no);
+            $lastNumber = intval(end($parts));
+        }
+
+        return sprintf('%s-%s-%s-%04d', $prefix, $projectId, $yearMonth, $lastNumber + 1);
+    }
+
     // Halaman daftar aset
     public function assetList()
     {
-        return view('transaksi.asset.list');
+        $projectId = session('active_project_id');
+        $rekenings = Rekening::forProject($projectId)->get();
+        $kodeTransaksi = KodeTransaksi::orderBy('kodetransaksi')->get(['id', 'kodetransaksi', 'transaksi']);
+
+        return view('transaksi.asset.list', compact('rekenings', 'kodeTransaksi'));
     }
 
     /**
@@ -552,6 +654,25 @@ class AssetTransactionController extends Controller
                 $user = auth()->user();
                 $canDelete = $user->hasRole('direktur') || $user->hasRole('keuangan');
                 
+                $canDispose = !in_array($row->status, ['terjual', 'rusak'], true);
+                $canRent = !in_array($row->status, ['terjual', 'rusak'], true);
+
+                $disposalBtn = $canDispose
+                    ? '<button class="btn btn-sm btn-outline-danger dispose-asset" data-id="'.$row->id.'" data-name="'.e($row->nama_aset).'">
+                        <i class="bi bi-box-arrow-down"></i>
+                    </button>'
+                    : '<button class="btn btn-sm btn-outline-danger" disabled>
+                        <i class="bi bi-box-arrow-down"></i>
+                    </button>';
+
+                $rentBtn = $canRent
+                    ? '<button class="btn btn-sm btn-outline-success rent-asset" data-id="'.$row->id.'" data-name="'.e($row->nama_aset).'">
+                        <i class="bi bi-cash-coin"></i>
+                    </button>'
+                    : '<button class="btn btn-sm btn-outline-success" disabled>
+                        <i class="bi bi-cash-coin"></i>
+                    </button>';
+
                 $deleteBtn = $canDelete ? 
                     '<button class="btn btn-sm btn-danger delete-asset" data-id="'.$row->id.'" data-name="'.$row->nama_aset.'"><i class="bi bi-trash"></i></button>' :
                     '<button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>';
@@ -563,6 +684,8 @@ class AssetTransactionController extends Controller
                     <button class="btn btn-sm btn-warning edit-asset" data-id="'.$row->id.'">
                         <i class="bi bi-pencil"></i>
                     </button>
+                    '.$disposalBtn.'
+                    '.$rentBtn.'
                     '.$deleteBtn.'
                 </div>';
             })
@@ -584,7 +707,9 @@ class AssetTransactionController extends Controller
                     'aktif' => 'bg-success',
                     'nonaktif' => 'bg-warning',
                     'terjual' => 'bg-info',
-                    'hilang' => 'bg-danger'
+                    'hilang' => 'bg-danger',
+                    'rusak' => 'bg-danger',
+                    'disewakan' => 'bg-primary'
                 ];
                 return '<span class="badge '.($badges[$row->status] ?? 'bg-secondary').'">'.ucfirst($row->status).'</span>';
             })
@@ -883,7 +1008,7 @@ class AssetTransactionController extends Controller
                 'nilai_residu' => 'nullable|numeric|min:0',
                 'metode_penyusutan' => 'required|in:garis_lurus,saldo_menurun',
                 'persentase_susut' => 'nullable|numeric|min:0|max:100',
-                'status' => 'required|in:aktif,nonaktif,terjual,hilang',
+                'status' => 'required|in:aktif,nonaktif,terjual,hilang,rusak,disewakan',
                 'lokasi' => 'nullable|string|max:100',
                 'pic' => 'nullable|string|max:100',
                 'keterangan' => 'nullable|string',
@@ -926,6 +1051,146 @@ class AssetTransactionController extends Controller
                 'message' => 'Asset berhasil diupdate'
             ]);
 
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function disposeAsset(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'tipe_penghapusan' => 'required|in:rusak,terjual,lainnya',
+                'tanggal' => 'required|date',
+                'keterangan' => 'nullable|string',
+                'pihak_terkait' => 'nullable|string|max:255',
+                'nilai' => 'nullable|numeric|min:0',
+                'idrek' => 'nullable|exists:rekening,idrek',
+                'paymen_method' => 'nullable|in:cash,tempo',
+                'tgl_tempo' => 'nullable|date',
+                'idkodetransaksi' => 'nullable|exists:kodetransaksi,id',
+            ]);
+
+            $asset = Asset::findOrFail($id);
+
+            if (in_array($asset->status, ['terjual', 'rusak'], true)) {
+                throw new \Exception('Asset ini sudah diproses penghapusannya.');
+            }
+
+            $nota = null;
+            $nilai = (float) ($request->nilai ?? 0);
+            if ($request->tipe_penghapusan === 'terjual') {
+                if (!$request->idrek || !$request->paymen_method || !$request->idkodetransaksi || $nilai <= 0) {
+                    throw new \Exception('Untuk penghapusan terjual, rekening, payment method, kode transaksi, dan nilai jual wajib diisi.');
+                }
+
+                $nota = $this->createAssetIncomeNota([
+                    'prefix' => 'ASJ',
+                    'tanggal' => $request->tanggal,
+                    'namatransaksi' => 'Penjualan Asset - ' . $asset->nama_aset,
+                    'description' => 'Penjualan asset ' . $asset->nama_aset,
+                    'idrek' => $request->idrek,
+                    'paymen_method' => $request->paymen_method,
+                    'tgl_tempo' => $request->paymen_method === 'tempo' ? $request->tgl_tempo : null,
+                    'idkodetransaksi' => $request->idkodetransaksi,
+                    'nominal' => $nilai,
+                ]);
+            }
+
+            AssetMutation::create([
+                'asset_id' => $asset->id,
+                'tanggal' => $request->tanggal,
+                'jenis' => 'penghapusan',
+                'subjenis' => $request->tipe_penghapusan,
+                'nilai' => $nilai,
+                'pihak_terkait' => $request->pihak_terkait,
+                'keterangan' => $request->keterangan,
+                'idnota' => $nota?->id,
+            ]);
+
+            $asset->status = match ($request->tipe_penghapusan) {
+                'terjual' => 'terjual',
+                'rusak' => 'rusak',
+                default => 'nonaktif',
+            };
+            $asset->keterangan = trim(collect([
+                $asset->keterangan,
+                'Penghapusan aset (' . $request->tipe_penghapusan . ') tanggal ' . $request->tanggal . ($request->keterangan ? ': ' . $request->keterangan : '')
+            ])->filter()->implode(' | '));
+            $asset->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Penghapusan asset berhasil disimpan'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function rentAsset(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'tanggal' => 'required|date',
+                'tanggal_mulai' => 'required|date',
+                'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
+                'penyewa' => 'required|string|max:255',
+                'idrek' => 'required|exists:rekening,idrek',
+                'paymen_method' => 'required|in:cash,tempo',
+                'tgl_tempo' => 'nullable|date',
+                'idkodetransaksi' => 'required|exists:kodetransaksi,id',
+                'nilai_sewa' => 'required|numeric|min:0.01',
+                'keterangan' => 'nullable|string',
+            ]);
+
+            $asset = Asset::findOrFail($id);
+            if (in_array($asset->status, ['terjual', 'rusak'], true)) {
+                throw new \Exception('Asset dengan status ini tidak bisa disewakan.');
+            }
+
+            $nota = $this->createAssetIncomeNota([
+                'prefix' => 'ASW',
+                'tanggal' => $request->tanggal,
+                'namatransaksi' => 'Sewa Asset - ' . $asset->nama_aset,
+                'description' => 'Sewa asset ' . $asset->nama_aset . ' - ' . $request->penyewa,
+                'idrek' => $request->idrek,
+                'paymen_method' => $request->paymen_method,
+                'tgl_tempo' => $request->paymen_method === 'tempo' ? $request->tgl_tempo : null,
+                'idkodetransaksi' => $request->idkodetransaksi,
+                'nominal' => $request->nilai_sewa,
+            ]);
+
+            AssetMutation::create([
+                'asset_id' => $asset->id,
+                'tanggal' => $request->tanggal,
+                'jenis' => 'sewa',
+                'nilai' => $request->nilai_sewa,
+                'pihak_terkait' => $request->penyewa,
+                'tanggal_mulai' => $request->tanggal_mulai,
+                'tanggal_selesai' => $request->tanggal_selesai,
+                'keterangan' => $request->keterangan,
+                'idnota' => $nota->id,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi sewa asset berhasil disimpan'
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([

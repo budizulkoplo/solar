@@ -12,13 +12,19 @@ class AssetMutation extends Model
         'asset_id',
         'tanggal',
         'jenis',
+        'subjenis',
         'nilai',
+        'pihak_terkait',
+        'tanggal_mulai',
+        'tanggal_selesai',
         'keterangan',
         'idnota'
     ];
     
     protected $casts = [
         'tanggal' => 'date',
+        'tanggal_mulai' => 'date',
+        'tanggal_selesai' => 'date',
         'nilai' => 'decimal:2'
     ];
     
@@ -41,7 +47,9 @@ class AssetMutation extends Model
             'penambahan_nilai' => 'Penambahan Nilai',
             'penjualan' => 'Penjualan',
             'hibah' => 'Hibah',
-            'hilang' => 'Hilang/Rusak'
+            'hilang' => 'Hilang/Rusak',
+            'penghapusan' => 'Penghapusan',
+            'sewa' => 'Sewa Aset'
         ];
         
         return $types[$this->jenis] ?? $this->jenis;

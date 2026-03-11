@@ -361,6 +361,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
             Route::get('{id}/detail', [AssetTransactionController::class,'getAssetDetail'])->name('transaksi.asset.detail');
             Route::get('{id}/edit', [AssetTransactionController::class,'editAsset'])->name('transaksi.asset.edit');
             Route::put('{id}/update', [AssetTransactionController::class,'updateAsset'])->name('transaksi.asset.update');
+            Route::post('{id}/dispose', [AssetTransactionController::class,'disposeAsset'])->name('transaksi.asset.dispose');
+            Route::post('{id}/rent', [AssetTransactionController::class,'rentAsset'])->name('transaksi.asset.rent');
             Route::delete('{id}/destroy', [AssetTransactionController::class,'destroyAsset'])->name('transaksi.asset.destroy');
             // Di routes/web.php
             Route::get('generate-nota', [AssetTransactionController::class, 'generateNotaNumber'])->name('transaksi.asset.generate-nota');

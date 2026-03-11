@@ -107,6 +107,8 @@
                                 <option value="nonaktif">Non Aktif</option>
                                 <option value="terjual">Terjual</option>
                                 <option value="hilang">Hilang</option>
+                                <option value="rusak">Rusak</option>
+                                <option value="disewakan">Disewakan</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -154,6 +156,166 @@
                         </thead>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDisposeAsset" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Penghapusan Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="frmDisposeAsset">
+                    @csrf
+                    <input type="hidden" id="disposeAssetId">
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nama Asset</label>
+                                <input type="text" class="form-control" id="disposeAssetName" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tipe Penghapusan *</label>
+                                <select class="form-select" name="tipe_penghapusan" id="disposeType" required>
+                                    <option value="rusak">Rusak</option>
+                                    <option value="terjual">Terjual</option>
+                                    <option value="lainnya">Lainnya</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tanggal *</label>
+                                <input type="date" class="form-control" name="tanggal" id="disposeDate" required>
+                            </div>
+                            <div class="col-md-6 dispose-sale-only" style="display:none;">
+                                <label class="form-label">Pihak Pembeli</label>
+                                <input type="text" class="form-control" name="pihak_terkait" id="disposeBuyer">
+                            </div>
+                            <div class="col-md-6 dispose-sale-only" style="display:none;">
+                                <label class="form-label">Nilai Jual</label>
+                                <input type="number" class="form-control" name="nilai" id="disposeValue" min="0" step="0.01">
+                            </div>
+                            <div class="col-md-6 dispose-sale-only" style="display:none;">
+                                <label class="form-label">Kode Transaksi</label>
+                                <select class="form-select select2-asset" name="idkodetransaksi" id="disposeKodeTransaksi">
+                                    <option value="">-- Pilih Kode Transaksi --</option>
+                                    @foreach($kodeTransaksi as $kt)
+                                        <option value="{{ $kt->id }}">{{ $kt->kodetransaksi }} - {{ $kt->transaksi }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6 dispose-sale-only" style="display:none;">
+                                <label class="form-label">Rekening</label>
+                                <select class="form-select select2-asset" name="idrek" id="disposeRekening">
+                                    <option value="">-- Pilih Rekening --</option>
+                                    @foreach($rekenings as $rek)
+                                        <option value="{{ $rek->idrek }}">{{ $rek->norek }} - {{ $rek->namarek }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6 dispose-sale-only" style="display:none;">
+                                <label class="form-label">Payment Method</label>
+                                <select class="form-select" name="paymen_method" id="disposePaymentMethod">
+                                    <option value="cash">Cash</option>
+                                    <option value="tempo">Tempo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 dispose-sale-only" id="disposeTempoContainer" style="display:none;">
+                                <label class="form-label">Tanggal Tempo</label>
+                                <input type="date" class="form-control" name="tgl_tempo" id="disposeTempoDate">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Keterangan</label>
+                                <textarea class="form-control" name="keterangan" id="disposeKeterangan" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">Simpan Penghapusan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalRentAsset" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sewa Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="frmRentAsset">
+                    @csrf
+                    <input type="hidden" id="rentAssetId">
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nama Asset</label>
+                                <input type="text" class="form-control" id="rentAssetName" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tanggal Nota *</label>
+                                <input type="date" class="form-control" name="tanggal" id="rentDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Penyewa *</label>
+                                <input type="text" class="form-control" name="penyewa" id="rentPenyewa" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Mulai Sewa *</label>
+                                <input type="date" class="form-control" name="tanggal_mulai" id="rentStartDate" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Selesai Sewa *</label>
+                                <input type="date" class="form-control" name="tanggal_selesai" id="rentEndDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Kode Transaksi *</label>
+                                <select class="form-select select2-asset" name="idkodetransaksi" id="rentKodeTransaksi" required>
+                                    <option value="">-- Pilih Kode Transaksi --</option>
+                                    @foreach($kodeTransaksi as $kt)
+                                        <option value="{{ $kt->id }}">{{ $kt->kodetransaksi }} - {{ $kt->transaksi }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Nilai Sewa *</label>
+                                <input type="number" class="form-control" name="nilai_sewa" id="rentValue" min="0" step="0.01" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Rekening *</label>
+                                <select class="form-select select2-asset" name="idrek" id="rentRekening" required>
+                                    <option value="">-- Pilih Rekening --</option>
+                                    @foreach($rekenings as $rek)
+                                        <option value="{{ $rek->idrek }}">{{ $rek->norek }} - {{ $rek->namarek }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Method *</label>
+                                <select class="form-select" name="paymen_method" id="rentPaymentMethod" required>
+                                    <option value="cash">Cash</option>
+                                    <option value="tempo">Tempo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" id="rentTempoContainer" style="display:none;">
+                                <label class="form-label">Tanggal Tempo</label>
+                                <input type="date" class="form-control" name="tgl_tempo" id="rentTempoDate">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Keterangan</label>
+                                <textarea class="form-control" name="keterangan" id="rentKeterangan" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-success">Simpan Sewa</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -257,6 +419,8 @@
                                     <option value="nonaktif">Non Aktif</option>
                                     <option value="terjual">Terjual</option>
                                     <option value="hilang">Hilang</option>
+                                    <option value="rusak">Rusak</option>
+                                    <option value="disewakan">Disewakan</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -286,6 +450,42 @@
         <script>
         $(document).ready(function() {
             let tbAssets = null;
+
+            function initSelect2Asset() {
+                if ($.fn.select2) {
+                    $('.select2-asset').each(function() {
+                        $(this).select2({
+                            width: '100%',
+                            dropdownParent: $(this).closest('.modal')
+                        });
+                    });
+                }
+            }
+
+            function resetDisposeForm() {
+                $('#frmDisposeAsset')[0].reset();
+                $('#disposeAssetId').val('');
+                $('#disposeDate').val(new Date().toISOString().split('T')[0]);
+                $('#disposeTempoContainer').hide();
+                $('.dispose-sale-only').hide();
+                $('#disposeKodeTransaksi, #disposeRekening').val('').trigger('change');
+            }
+
+            function resetRentForm() {
+                $('#frmRentAsset')[0].reset();
+                $('#rentAssetId').val('');
+                let today = new Date().toISOString().split('T')[0];
+                $('#rentDate, #rentStartDate, #rentEndDate').val(today);
+                $('#rentTempoContainer').hide();
+                $('#rentKodeTransaksi, #rentRekening').val('').trigger('change');
+            }
+
+            function toggleDisposeType() {
+                let isSale = $('#disposeType').val() === 'terjual';
+                $('.dispose-sale-only').toggle(isSale);
+                $('#disposeKodeTransaksi, #disposeRekening, #disposePaymentMethod, #disposeValue').prop('required', isSale);
+                $('#disposeBuyer').prop('required', isSale);
+            }
             
             // Format number
             function formatNumber(num) {
@@ -442,6 +642,14 @@
                 $.get(`/transaksi/asset/${assetId}/detail`, function(res) {
                     if (res.success) {
                         let asset = res.asset;
+                        let statusClass = {
+                            aktif: 'bg-success',
+                            nonaktif: 'bg-warning',
+                            terjual: 'bg-info',
+                            hilang: 'bg-danger',
+                            rusak: 'bg-danger',
+                            disewakan: 'bg-primary'
+                        };
                         let html = `
                             <div class="row">
                                 <div class="col-md-6">
@@ -488,7 +696,7 @@
                                         </tr>` : ''}
                                         <tr>
                                             <th>Status</th>
-                                            <td><span class="badge ${asset.status === 'aktif' ? 'bg-success' : 'bg-warning'}">${asset.status}</span></td>
+                                            <td><span class="badge ${statusClass[asset.status] || 'bg-secondary'}">${asset.status}</span></td>
                                         </tr>
                                         <tr>
                                             <th>Lokasi</th>
@@ -661,6 +869,83 @@
                 });
             });
 
+            $(document).on('click', '.dispose-asset', function() {
+                resetDisposeForm();
+                $('#disposeAssetId').val($(this).data('id'));
+                $('#disposeAssetName').val($(this).data('name'));
+                toggleDisposeType();
+                $('#modalDisposeAsset').modal('show');
+            });
+
+            $(document).on('click', '.rent-asset', function() {
+                resetRentForm();
+                $('#rentAssetId').val($(this).data('id'));
+                $('#rentAssetName').val($(this).data('name'));
+                $('#modalRentAsset').modal('show');
+            });
+
+            $('#disposeType').change(function() {
+                toggleDisposeType();
+            });
+
+            $('#disposePaymentMethod').change(function() {
+                let showTempo = $(this).val() === 'tempo';
+                $('#disposeTempoContainer').toggle(showTempo);
+                $('#disposeTempoDate').prop('required', showTempo);
+            });
+
+            $('#rentPaymentMethod').change(function() {
+                let showTempo = $(this).val() === 'tempo';
+                $('#rentTempoContainer').toggle(showTempo);
+                $('#rentTempoDate').prop('required', showTempo);
+            });
+
+            $('#frmDisposeAsset').submit(function(e) {
+                e.preventDefault();
+                const assetId = $('#disposeAssetId').val();
+
+                $.ajax({
+                    url: `/transaksi/asset/${assetId}/dispose`,
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(res) {
+                        if (res.success) {
+                            Swal.fire('Berhasil!', res.message, 'success');
+                            $('#modalDisposeAsset').modal('hide');
+                            initDataTable();
+                        } else {
+                            Swal.fire('Error', res.message, 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Gagal menyimpan penghapusan asset', 'error');
+                    }
+                });
+            });
+
+            $('#frmRentAsset').submit(function(e) {
+                e.preventDefault();
+                const assetId = $('#rentAssetId').val();
+
+                $.ajax({
+                    url: `/transaksi/asset/${assetId}/rent`,
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(res) {
+                        if (res.success) {
+                            Swal.fire('Berhasil!', res.message, 'success');
+                            $('#modalRentAsset').modal('hide');
+                            initDataTable();
+                        } else {
+                            Swal.fire('Error', res.message, 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Gagal menyimpan transaksi sewa asset', 'error');
+                    }
+                });
+            });
+            
             // Delete asset
             $(document).on('click', '.delete-asset', function() {
                 let assetId = $(this).data('id');
@@ -727,6 +1012,9 @@
             });
             
             // Initialize
+            initSelect2Asset();
+            resetDisposeForm();
+            resetRentForm();
             initDataTable();
             
             // Set default dates
