@@ -158,7 +158,7 @@
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="form-label">Harga Satuan</label>
+                                <label class="form-label">Harga Jual Satuan</label>
                                 <input type="number" class="form-control form-control-sm text-end" 
                                        name="harga_satuan" id="harga_satuan" min="0" step="0.01">
                             </div>
