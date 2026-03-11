@@ -92,7 +92,7 @@
                                         <strong>Lokasi:</strong> {{ $pekerjaan->lokasi ?? '-' }}
                                     </div>
                                     <div class="col-md-3">
-                                        <strong>Jenis:</strong> {{ $jenisPekerjaan[$pekerjaan->jenis_pekerjaan] ?? $pekerjaan->jenis_pekerjaan }}
+                                        <strong>Kode:</strong> {{ $pekerjaan->kodeTransaksi?->kodetransaksi }} - {{ $pekerjaan->kodeTransaksi?->transaksi }}
                                     </div>
                                 </div>
                             </div>

@@ -65,7 +65,7 @@ class ConstructionTransactionController extends Controller
      */
     public function showTransactions($pekerjaanId)
     {
-        $pekerjaan = PekerjaanKonstruksi::with(['project'])->findOrFail($pekerjaanId);
+        $pekerjaan = PekerjaanKonstruksi::with(['project', 'kodeTransaksi'])->findOrFail($pekerjaanId);
         
         // Cek apakah pekerjaan milik project yang aktif
         if (session('active_project_id') && $pekerjaan->idproject != session('active_project_id')) {
@@ -364,7 +364,7 @@ class ConstructionTransactionController extends Controller
      */
     public function edit($pekerjaanId, $notaId)
     {
-        $pekerjaan = PekerjaanKonstruksi::findOrFail($pekerjaanId);
+        $pekerjaan = PekerjaanKonstruksi::with('kodeTransaksi')->findOrFail($pekerjaanId);
         $nota = Nota::with([
             'vendor',
             'transactions' => function($q) {

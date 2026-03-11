@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Kodetransaksi;
 
 class PekerjaanKonstruksi extends Model
 {
@@ -14,13 +15,16 @@ class PekerjaanKonstruksi extends Model
         'idproject',
         'nama_pekerjaan',
         'jenis_pekerjaan',
+        'idkodetransaksi',
         'lokasi',
         'volume',
         'satuan',
         'anggaran',
+        'realisasi_anggaran',
         'tanggal_mulai',
         'tanggal_selesai',
         'jumlah',
+        'harga_satuan',
         'status',
         'keterangan'
     ];
@@ -28,6 +32,8 @@ class PekerjaanKonstruksi extends Model
     protected $casts = [
         'volume' => 'decimal:2',
         'anggaran' => 'decimal:2',
+        'realisasi_anggaran' => 'decimal:2',
+        'harga_satuan' => 'decimal:2',
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
         'jumlah' => 'integer'
@@ -39,10 +45,15 @@ class PekerjaanKonstruksi extends Model
         return $this->belongsTo(Project::class, 'idproject');
     }
 
+    public function kodeTransaksi()
+    {
+        return $this->belongsTo(Kodetransaksi::class, 'idkodetransaksi');
+    }
+
     // Scope untuk jenis pekerjaan
     public function scopeJenis($query, $jenis)
     {
-        return $query->where('jenis_pekerjaan', $jenis);
+        return $query->where('idkodetransaksi', $jenis);
     }
 
     // Scope untuk status
@@ -131,5 +142,14 @@ class PekerjaanKonstruksi extends Model
         } else {
             return $daysRemaining . ' hari lagi';
         }
+    }
+
+    public function getKodeTransaksiLabelAttribute()
+    {
+        if ($this->kodeTransaksi) {
+            return trim($this->kodeTransaksi->kodetransaksi . ' - ' . $this->kodeTransaksi->transaksi);
+        }
+
+        return $this->jenis_pekerjaan ?: '-';
     }
 }

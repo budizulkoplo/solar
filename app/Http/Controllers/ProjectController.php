@@ -10,6 +10,7 @@ use App\Models\KodeTransaksi;
 use App\Models\Rekening;
 use App\Models\Vendor;
 use App\Models\Project;
+use App\Models\PekerjaanKonstruksi;
 use App\Models\TransUpdateLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,15 @@ class ProjectController extends Controller
     // Halaman transaksi masuk (in)
     public function in()
     {
-        return view('transaksi.project.in');
+        $projectId = session('active_project_id');
+        $project = Project::find($projectId);
+        $isConstructionProject = (int) ($project->idretail ?? 0) === 5;
+        $kodeTransaksi = KodeTransaksi::orderBy('kodetransaksi')->get(['id', 'kodetransaksi', 'transaksi']);
+        $constructionJobs = $isConstructionProject
+            ? $this->getConstructionJobsForReceipt($projectId)
+            : collect();
+
+        return view('transaksi.project.in', compact('isConstructionProject', 'kodeTransaksi', 'constructionJobs'));
     }
 
     // Halaman transaksi keluar (out)
@@ -139,6 +148,7 @@ class ProjectController extends Controller
 
             $idcompany = $project->idcompany ?? session('active_project_company_id');
             $idretail = $project->idretail;
+            $isConstructionProject = (int) $idretail === 5;
 
             // Handle upload bukti nota
             $buktiNotaPath = null;
@@ -149,9 +159,25 @@ class ProjectController extends Controller
             }
 
             // Gunakan subtotal dari form
+            $transactions = $request->transactions;
             $subtotal = $request->subtotal ?? 0;
             $ppn = $request->ppn ?? 0;
             $diskon = $request->diskon ?? 0;
+
+            $selectedPekerjaan = null;
+            if ($isConstructionProject && $type === 'in' && $request->transaction_source === 'pekerjaan') {
+                $request->validate([
+                    'pekerjaan_konstruksi_id' => 'required|exists:pekerjaan_kontruksi,id',
+                ]);
+
+                $selectedPekerjaan = PekerjaanKonstruksi::where('idproject', $project->id)
+                    ->findOrFail($request->pekerjaan_konstruksi_id);
+                $transactions = $this->normalizeConstructionReceiptTransactions($request, $selectedPekerjaan);
+                $subtotal = collect($transactions)->sum(function ($transaction) {
+                    return (float) $transaction['nominal'] * (float) $transaction['jml'];
+                });
+            }
+
             $total = $subtotal + $ppn - $diskon;
 
             // Data untuk nota header
@@ -175,13 +201,15 @@ class ProjectController extends Controller
                 'bukti_nota' => $buktiNotaPath,
                 'nip' => $nip,
                 'namauser' => $namauser,
+                'type' => $selectedPekerjaan ? 'konstruksi' : null,
+                'pekerjaan_konstruksi_id' => $selectedPekerjaan?->id,
             ];
 
             // Buat nota header
             $nota = Nota::create($notaData);
 
             // Simpan detail transaksi regular
-            foreach ($request->transactions as $transaction) {
+            foreach ($transactions as $transaction) {
                 $itemTotal = $transaction['nominal'] * $transaction['jml'];
                 
                 NotaTransaction::create([
@@ -532,6 +560,113 @@ class ProjectController extends Controller
         }
     }
 
+    private function getConstructionJobsForReceipt($projectId, $excludeNotaId = null, $includePekerjaanId = null)
+    {
+        $jobs = PekerjaanKonstruksi::with('kodeTransaksi')
+            ->where('idproject', $projectId)
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'canceled')
+            ->orderBy('nama_pekerjaan')
+            ->get([
+                'id',
+                'idproject',
+                'nama_pekerjaan',
+                'idkodetransaksi',
+                'lokasi',
+                'volume',
+                'satuan',
+                'anggaran',
+                'harga_satuan',
+                'status'
+            ]);
+
+        $receivedMap = NotaTransaction::query()
+            ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+            ->where('notas.idproject', $projectId)
+            ->where('notas.cashflow', 'in')
+            ->where('notas.type', 'konstruksi')
+            ->where('notas.status', '!=', 'cancel')
+            ->whereNotNull('notas.pekerjaan_konstruksi_id')
+            ->when($excludeNotaId, function ($query) use ($excludeNotaId) {
+                $query->where('notas.id', '!=', $excludeNotaId);
+            })
+            ->groupBy('notas.pekerjaan_konstruksi_id')
+            ->select('notas.pekerjaan_konstruksi_id', DB::raw('SUM(nota_transactions.jml) as total_jml'))
+            ->pluck('total_jml', 'notas.pekerjaan_konstruksi_id');
+
+        return $jobs->map(function ($job) use ($receivedMap) {
+            $targetVolume = (float) ($job->volume ?? 0);
+            if ($targetVolume <= 0) {
+                $targetVolume = 1;
+            }
+
+            $receivedVolume = (float) ($receivedMap[$job->id] ?? 0);
+            $remainingVolume = max($targetVolume - $receivedVolume, 0);
+
+            $job->target_volume = $targetVolume;
+            $job->received_volume = $receivedVolume;
+            $job->remaining_volume = $remainingVolume;
+            $job->is_completed_receipt = $remainingVolume <= 0.000001;
+
+            return $job;
+        })->filter(function ($job) use ($includePekerjaanId) {
+            if ((int) $job->id === (int) $includePekerjaanId) {
+                return true;
+            }
+
+            return !$job->is_completed_receipt;
+        })->values();
+    }
+
+    private function normalizeConstructionReceiptTransactions(Request $request, PekerjaanKonstruksi $pekerjaan, $excludeNotaId = null)
+    {
+        $transactions = $request->input('transactions', []);
+        $firstTransaction = $transactions[0] ?? null;
+
+        if (!$firstTransaction) {
+            throw new \Exception('Detail penerimaan pekerjaan konstruksi wajib diisi.');
+        }
+
+        $qty = (float) ($firstTransaction['jml'] ?? 0);
+        if ($qty <= 0) {
+            throw new \Exception('Qty penerimaan pekerjaan konstruksi harus lebih dari 0.');
+        }
+
+        $remainingVolume = $this->getConstructionJobsForReceipt($pekerjaan->idproject, $excludeNotaId, $pekerjaan->id)
+            ->firstWhere('id', $pekerjaan->id)?->remaining_volume ?? 0;
+
+        if ($qty - $remainingVolume > 0.000001) {
+            throw new \Exception('Qty penerimaan melebihi sisa volume pekerjaan. Sisa saat ini: ' . rtrim(rtrim(number_format($remainingVolume, 2, '.', ''), '0'), '.'));
+        }
+
+        $targetVolume = (float) ($pekerjaan->volume ?? 0);
+        if ($targetVolume <= 0) {
+            $targetVolume = 1;
+        }
+
+        $nominal = (float) ($pekerjaan->harga_satuan ?? 0);
+        if ($nominal <= 0) {
+            $nominal = (float) ($firstTransaction['nominal'] ?? 0);
+        }
+        if ($nominal <= 0 && (float) ($pekerjaan->anggaran ?? 0) > 0) {
+            $nominal = (float) $pekerjaan->anggaran / $targetVolume;
+        }
+
+        $description = trim((string) ($firstTransaction['description'] ?? ''));
+        if ($description === '') {
+            $description = collect([$pekerjaan->nama_pekerjaan, $pekerjaan->lokasi])
+                ->filter()
+                ->implode(' - ');
+        }
+
+        return [[
+            'idkodetransaksi' => $pekerjaan->idkodetransaksi,
+            'description' => $description,
+            'nominal' => $nominal,
+            'jml' => $qty,
+        ]];
+    }
+
     // Ambil saldo rekening
     public function saldoRekening($id)
     {
@@ -559,6 +694,7 @@ class ProjectController extends Controller
                 'project',
                 'vendor', 
                 'rekening',
+                'pekerjaanKonstruksi.kodeTransaksi',
                 'transactions' => function($q) {
                     $q->with('kodeTransaksi')
                       ->orderBy('id');
@@ -614,6 +750,7 @@ class ProjectController extends Controller
         try {
             $nota = Nota::with([
                 'vendor',
+                'pekerjaanKonstruksi.kodeTransaksi',
                 'transactions' => function($q) {
                     $q->with('kodeTransaksi')
                       ->orderBy('id');
@@ -628,9 +765,20 @@ class ProjectController extends Controller
                 return true;
             })->values();
 
+            $project = Project::find(session('active_project_id'));
+            $availableJobs = collect();
+            if ((int) ($project->idretail ?? 0) === 5) {
+                $availableJobs = $this->getConstructionJobsForReceipt(
+                    session('active_project_id'),
+                    $nota->id,
+                    $nota->pekerjaan_konstruksi_id
+                );
+            }
+
             $data = [
                 'nota' => $nota,
-                'transactions' => $regularTransactions
+                'transactions' => $regularTransactions,
+                'available_jobs' => $availableJobs,
             ];
 
             return response()->json([
@@ -681,6 +829,8 @@ class ProjectController extends Controller
 
             // Cari nota yang akan diupdate
             $nota = Nota::with(['payments', 'cashflows'])->findOrFail($id);
+            $project = Project::find(session('active_project_id'));
+            $isConstructionProject = (int) ($project->idretail ?? 0) === 5;
             
             // Simpan data lama untuk logging dan rollback
             $oldData = $nota->toArray();
@@ -711,9 +861,25 @@ class ProjectController extends Controller
             }
 
             // Gunakan subtotal dari form
+            $transactions = $request->transactions;
             $subtotal = $request->subtotal ?? 0;
             $ppn = $request->ppn ?? 0;
             $diskon = $request->diskon ?? 0;
+
+            $selectedPekerjaan = null;
+            if ($isConstructionProject && $type === 'in' && $request->transaction_source === 'pekerjaan') {
+                $request->validate([
+                    'pekerjaan_konstruksi_id' => 'required|exists:pekerjaan_kontruksi,id',
+                ]);
+
+                $selectedPekerjaan = PekerjaanKonstruksi::where('idproject', session('active_project_id'))
+                    ->findOrFail($request->pekerjaan_konstruksi_id);
+                $transactions = $this->normalizeConstructionReceiptTransactions($request, $selectedPekerjaan, $nota->id);
+                $subtotal = collect($transactions)->sum(function ($transaction) {
+                    return (float) $transaction['nominal'] * (float) $transaction['jml'];
+                });
+            }
+
             $newTotal = $subtotal + $ppn - $diskon;
 
             \Log::info('New calculation:', [
@@ -756,6 +922,8 @@ class ProjectController extends Controller
                 'total' => $newTotal,
                 'status' => $request->paymen_method == 'cash' ? 'paid' : 'open',
                 'bukti_nota' => $buktiNotaPath,
+                'type' => $selectedPekerjaan ? 'konstruksi' : null,
+                'pekerjaan_konstruksi_id' => $selectedPekerjaan?->id,
             ];
 
             $nota->update($updateData);
@@ -764,7 +932,7 @@ class ProjectController extends Controller
             NotaTransaction::where('idnota', $nota->id)->delete();
 
             // Simpan detail transaksi regular
-            foreach ($request->transactions as $transaction) {
+            foreach ($transactions as $transaction) {
                 NotaTransaction::create([
                     'idnota' => $nota->id,
                     'idkodetransaksi' => $transaction['idkodetransaksi'],
@@ -807,7 +975,7 @@ class ProjectController extends Controller
 
             // Log perubahan
             $newData = array_merge($updateData, [
-                'transactions' => $request->transactions
+                'transactions' => $transactions
             ]);
             
             $changes = $this->getChangesForLog($oldData, $newData, $nota->id);

@@ -51,6 +51,7 @@
                             <input type="hidden" name="idproject" value="{{ session('active_project_id') }}">
                             <input type="hidden" name="old_rekening" id="oldRekening">
                             <input type="hidden" name="old_grand_total" id="oldGrandTotal">
+                            <input type="hidden" name="pekerjaan_konstruksi_id" id="pekerjaanKonstruksiId">
 
                             <div class="modal-header">
                                 <h6 class="modal-title" id="modalNotaTitle">Form Nota Masuk</h6>
@@ -78,6 +79,31 @@
                                         <label class="form-label">Project</label>
                                         <input type="text" class="form-control form-control-sm" value="{{ session('active_project_name') }}" disabled>
                                     </div>
+
+                                    @if($isConstructionProject)
+                                    <div class="col-md-4">
+                                        <label class="form-label">Sumber Penerimaan *</label>
+                                        <select class="form-select form-select-sm" name="transaction_source" id="transactionSource">
+                                            <option value="kode_transaksi">By Kode Transaksi</option>
+                                            <option value="pekerjaan">By Pekerjaan Konstruksi</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-8" id="pekerjaanSourceContainer" style="display:none;">
+                                        <label class="form-label">Pekerjaan Konstruksi *</label>
+                                        <select class="form-select form-select-sm select2" id="pekerjaanKonstruksiSelect" style="width:100%;">
+                                            <option value="">-- Pilih Pekerjaan Konstruksi --</option>
+                                            @foreach($constructionJobs as $job)
+                                                <option value="{{ $job->id }}">
+                                                    {{ $job->nama_pekerjaan }}
+                                                    @if($job->kodeTransaksi)
+                                                        - {{ $job->kodeTransaksi->kodetransaksi }} - {{ $job->kodeTransaksi->transaksi }}
+                                                    @endif
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    @endif
 
                                     {{-- Payment Method --}}
                                     <div class="col-md-4">
@@ -157,7 +183,7 @@
                                             <td>
                                                 <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[0][idkodetransaksi]" style="width:100%;" required>
                                                     <option value="">-- Pilih Kode Transaksi --</option>
-                                                    @foreach(\App\Models\KodeTransaksi::all() as $kt)
+                                                    @foreach($kodeTransaksi as $kt)
                                                         <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
                                                             {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
                                                         </option>
@@ -699,6 +725,116 @@
             let oldRekening = null;
             let oldGrandTotal = 0;
             let rowIndex = 1;
+            const isConstructionProject = @json($isConstructionProject);
+            let constructionJobs = @json($constructionJobs);
+            const kodeTransaksiOptions = `{!! collect($kodeTransaksi)->map(function ($kt) {
+                return '<option value="' . e($kt->id) . '" data-kode="' . e($kt->kodetransaksi) . '">' . e($kt->kodetransaksi . ' - ' . $kt->transaksi) . '</option>';
+            })->implode('') !!}`;
+
+            function buildDetailRow(index, transaction = {}) {
+                return `<tr>
+                    <td>
+                        <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[${index}][idkodetransaksi]" style="width:100%;" required>
+                            <option value="">-- Pilih Kode Transaksi --</option>
+                            ${kodeTransaksiOptions}
+                        </select>
+                    </td>
+                    <td><input type="text" class="form-control form-control-sm" name="transactions[${index}][description]" value="${transaction.description || ''}" required></td>
+                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${transaction.jml || 1}" min="0.01" step="0.01"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${index}][nominal]" value="${transaction.nominal || 0}"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${transaction.total || 0}" readonly></td>
+                    <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
+                </tr>`;
+            }
+
+            function setSelectedKodeTransaksi($row, selectedId) {
+                if (!selectedId) {
+                    return;
+                }
+
+                $row.find('.kode-transaksi').val(String(selectedId));
+            }
+
+            function refreshConstructionJobOptions(selectedId = '') {
+                if (!isConstructionProject) {
+                    return;
+                }
+
+                let html = '<option value="">-- Pilih Pekerjaan Konstruksi --</option>';
+                constructionJobs.forEach(function(job) {
+                    const remaining = parseFloat(job.remaining_volume ?? 0);
+                    const satuan = job.satuan ? ` ${job.satuan}` : '';
+                    const kode = job.kode_transaksi
+                        ? `${job.kode_transaksi.kodetransaksi} - ${job.kode_transaksi.transaksi}`
+                        : '-';
+                    html += `<option value="${job.id}">${job.nama_pekerjaan} - ${kode} - sisa ${remaining}${satuan}</option>`;
+                });
+
+                $('#pekerjaanKonstruksiSelect').html(html);
+                if (selectedId) {
+                    $('#pekerjaanKonstruksiSelect').val(String(selectedId));
+                }
+            }
+
+            function applyPekerjaanToForm(pekerjaanId) {
+                const pekerjaan = constructionJobs.find(item => String(item.id) === String(pekerjaanId));
+                $('#pekerjaanKonstruksiId').val(pekerjaan ? pekerjaan.id : '');
+
+                if (!pekerjaan) {
+                    return;
+                }
+
+                if (!$('#namatransaksi').val() || $('#transactionSource').val() === 'pekerjaan') {
+                    $('#namatransaksi').val(pekerjaan.nama_pekerjaan || '');
+                }
+
+                const qty = parseFloat(pekerjaan.remaining_volume ?? 0) > 0
+                    ? pekerjaan.remaining_volume
+                    : (parseFloat(pekerjaan.volume ?? 0) > 0 ? pekerjaan.volume : 1);
+                const nominal = parseFloat(pekerjaan.harga_satuan ?? 0) > 0
+                    ? pekerjaan.harga_satuan
+                    : parseFloat(pekerjaan.anggaran ?? 0);
+                const description = [pekerjaan.nama_pekerjaan, pekerjaan.lokasi].filter(Boolean).join(' - ');
+                const total = qty * nominal;
+
+                $('#tblDetail tbody').html(buildDetailRow(0, {
+                    description,
+                    jml: qty,
+                    nominal,
+                    total,
+                }));
+
+                const $firstRow = $('#tblDetail tbody tr:first');
+                setSelectedKodeTransaksi($firstRow, pekerjaan.idkodetransaksi);
+                $firstRow.find('.jml')
+                    .attr('max', pekerjaan.remaining_volume ?? qty)
+                    .attr('step', '0.01')
+                    .data('remaining', parseFloat(pekerjaan.remaining_volume ?? qty));
+
+                setTimeout(() => {
+                    initAutoNumeric();
+                    initializeSelect2();
+                    calculateSubtotal();
+                }, 100);
+            }
+
+            function toggleTransactionSource() {
+                if (!isConstructionProject) {
+                    return;
+                }
+
+                const source = $('#transactionSource').val();
+                const byPekerjaan = source === 'pekerjaan';
+                $('#pekerjaanSourceContainer').toggle(byPekerjaan);
+                $('#pekerjaanKonstruksiSelect').prop('required', byPekerjaan);
+                $('#pekerjaanKonstruksiId').val(byPekerjaan ? $('#pekerjaanKonstruksiSelect').val() : '');
+                $('#addRow').prop('disabled', byPekerjaan);
+
+                if (byPekerjaan) {
+                    refreshConstructionJobOptions($('#pekerjaanKonstruksiId').val());
+                    applyPekerjaanToForm($('#pekerjaanKonstruksiSelect').val());
+                }
+            }
 
             // ============= SELECT2 =============
             function initializeSelect2() {
@@ -738,25 +874,7 @@
                 
                 $('#buktiNota').prop('required', false);
                 
-                $('#tblDetail tbody').html(`
-                    <tr>
-                        <td>
-                            <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[0][idkodetransaksi]" style="width:100%;" required>
-                                <option value="">-- Pilih Kode Transaksi --</option>
-                                @foreach(\App\Models\KodeTransaksi::all() as $kt)
-                                    <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
-                                        {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </td>
-                        <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
-                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1"></td>
-                        <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0"></td>
-                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
-                        <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                    </tr>
-                `);
+                $('#tblDetail tbody').html(buildDetailRow(0));
                 
                 $('#grandTotal').val('0');
                 
@@ -770,12 +888,21 @@
                 
                 $('#chkManualNo').prop('checked', false);
                 $('#notaNo').prop('readonly', true);
+                $('#pekerjaanKonstruksiId').val('');
+                if (isConstructionProject) {
+                    refreshConstructionJobOptions();
+                    $('#transactionSource').val('kode_transaksi');
+                    $('#pekerjaanKonstruksiSelect').val('').trigger('change');
+                    $('#pekerjaanSourceContainer').hide();
+                    $('#addRow').prop('disabled', false);
+                }
                 
                 $('#updateLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
                 
                 setTimeout(() => {
                     initAutoNumeric();
                     initializeSelect2();
+                    toggleTransactionSource();
                     rowIndex = 1;
                 }, 300);
             }
@@ -980,6 +1107,10 @@
                             
                             let nota = res.data.nota;
                             let transactions = res.data.transactions || [];
+                            if (isConstructionProject && Array.isArray(res.data.available_jobs)) {
+                                constructionJobs = res.data.available_jobs;
+                                refreshConstructionJobOptions(nota.pekerjaan_konstruksi_id || '');
+                            }
                             
                             $('#idNota').val(nota.id);
                             $('#oldRekening').val(nota.idrek);
@@ -1002,32 +1133,20 @@
                             
                             $('#chkManualNo').prop('checked', true);
                             $('#notaNo').prop('readonly', false);
+                            if (isConstructionProject) {
+                                const source = nota.pekerjaan_konstruksi_id ? 'pekerjaan' : 'kode_transaksi';
+                                $('#transactionSource').val(source);
+                                $('#pekerjaanKonstruksiId').val(nota.pekerjaan_konstruksi_id || '');
+                                toggleTransactionSource();
+                            }
                             
                             // Hapus semua row
                             $('#tblDetail tbody').empty();
                             
                             if (transactions.length > 0) {
                                 transactions.forEach(function(transaction, index) {
-                                    let html = `
-                                        <tr>
-                                            <td>
-                                                <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[${index}][idkodetransaksi]" style="width:100%;" required>
-                                                    <option value="">-- Pilih Kode Transaksi --</option>
-                                                    @foreach(\App\Models\KodeTransaksi::all() as $kt)
-                                                        <option value="{{ $kt->id }}" ${transaction.idkodetransaksi == {{ $kt->id }} ? 'selected' : ''}>
-                                                            {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </td>
-                                            <td><input type="text" class="form-control form-control-sm" name="transactions[${index}][description]" value="${transaction.description || ''}" required></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${transaction.jml || 1}" min="1"></td>
-                                            <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${index}][nominal]" value="${transaction.nominal || 0}"></td>
-                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${transaction.total || 0}" readonly></td>
-                                            <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                                        </tr>
-                                    `;
-                                    $('#tblDetail tbody').append(html);
+                                    $('#tblDetail tbody').append(buildDetailRow(index, transaction));
+                                    setSelectedKodeTransaksi($('#tblDetail tbody tr:last'), transaction.idkodetransaksi);
                                 });
                             }
                             
@@ -1094,8 +1213,13 @@
                             success: function(res) {
                                 Swal.close();
                                 if (res.success) {
-                                    tbNotas.ajax.reload(null, false);
-                                    Swal.fire('Berhasil!', res.message, 'success');
+                                    Swal.fire('Berhasil!', res.message, 'success').then(() => {
+                                        if (isConstructionProject) {
+                                            window.location.reload();
+                                            return;
+                                        }
+                                        tbNotas.ajax.reload(null, false);
+                                    });
                                 } else {
                                     Swal.fire('Error!', res.message, 'error');
                                 }
@@ -1113,26 +1237,12 @@
 
             // ============= TAMBAH ROW =============
             $('#addRow').click(function() {
+                if (isConstructionProject && $('#transactionSource').val() === 'pekerjaan') {
+                    return;
+                }
+
                 let currentRowCount = $('#tblDetail tbody tr').length;
-                let html = `<tr>
-                    <td>
-                        <select class="form-select form-select-sm select2 kode-transaksi" name="transactions[${currentRowCount}][idkodetransaksi]" style="width:100%;" required>
-                            <option value="">-- Pilih Kode Transaksi --</option>
-                            @foreach(\App\Models\KodeTransaksi::all() as $kt)
-                                <option value="{{ $kt->id }}" data-kode="{{ $kt->kodetransaksi }}">
-                                    {{ $kt->kodetransaksi }} - {{ $kt->transaksi }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </td>
-                    <td><input type="text" class="form-control form-control-sm" name="transactions[${currentRowCount}][description]" required></td>
-                    <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${currentRowCount}][jml]" value="1" min="1"></td>
-                    <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${currentRowCount}][nominal]" value="0"></td>
-                    <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${currentRowCount}][total]" value="0" readonly></td>
-                    <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                </tr>`;
-                
-                $('#tblDetail tbody').append(html);
+                $('#tblDetail tbody').append(buildDetailRow(currentRowCount));
                 
                 let newNominal = $('#tblDetail tbody tr:last-child .nominal');
                 newNominal.attr('type', 'text');
@@ -1172,6 +1282,11 @@
             $(document).on('input', '.jml', function() {
                 let row = $(this).closest('tr');
                 let jml = $(this).val() || 1;
+                let remaining = parseFloat($(this).data('remaining'));
+                if (!isNaN(remaining) && parseFloat(jml) > remaining) {
+                    jml = remaining;
+                    $(this).val(remaining);
+                }
                 let nominal = parseNumber(row.find('.nominal'));
                 let total = jml * nominal;
                 row.find('.total').val(total);
@@ -1202,6 +1317,14 @@
                     $('#tglTempoContainer').hide();
                     $('#tglTempo').prop('required', false);
                 }
+            });
+
+            $('#transactionSource').change(function() {
+                toggleTransactionSource();
+            });
+
+            $('#pekerjaanKonstruksiSelect').change(function() {
+                applyPekerjaanToForm($(this).val());
             });
 
             $('#buktiNota').change(function() {
@@ -1304,6 +1427,11 @@
                     return;
                 }
 
+                if (isConstructionProject && $('#transactionSource').val() === 'pekerjaan' && !$('#pekerjaanKonstruksiSelect').val()) {
+                    Swal.fire('Peringatan', 'Pekerjaan konstruksi harus dipilih', 'warning');
+                    return;
+                }
+
                 submitFormData(formElement);
             }
 
@@ -1364,8 +1492,13 @@
                         
                         if (res.success) {
                             $('#modalNota').modal('hide');
-                            tbNotas.ajax.reload(null, false);
-                            Swal.fire('Berhasil!', res.message, 'success');
+                            Swal.fire('Berhasil!', res.message, 'success').then(() => {
+                                if (isConstructionProject) {
+                                    window.location.reload();
+                                    return;
+                                }
+                                tbNotas.ajax.reload(null, false);
+                            });
                         } else {
                             Swal.fire('Error!', res.message, 'error');
                         }
@@ -1414,9 +1547,11 @@
             // INIT
             setDefaultDate();
             setAutoNotaNo();
+            refreshConstructionJobOptions();
             setTimeout(() => {
                 initAutoNumeric();
                 initializeSelect2();
+                toggleTransactionSource();
             }, 500);
 
         });

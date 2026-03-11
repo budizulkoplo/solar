@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PekerjaanKonstruksi;
 use App\Models\Project;
+use App\Models\Kodetransaksi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -31,15 +32,11 @@ class PekerjaanKonstruksiController extends Controller
                 ->get(['id', 'namaproject']);
         }
 
-        $jenisPekerjaan = [
-            'irigasi' => 'Pembuatan Irigasi',
-            'renovasi' => 'Renovasi Bangunan',
-            'jalan' => 'Pembuatan Jalan',
-            'bangunan' => 'Bangunan Baru',
-            'jembatan' => 'Pembangunan Jembatan',
-            'drainase' => 'Sistem Drainase',
-            'lainnya' => 'Lainnya'
-        ];
+        $kodeTransaksi = Kodetransaksi::orderBy('kodetransaksi')
+            ->get(['id', 'kodetransaksi', 'transaksi']);
+        $jenisPekerjaan = $kodeTransaksi->mapWithKeys(function ($item) {
+            return [$item->id => $item->kodetransaksi . ' - ' . $item->transaksi];
+        })->all();
 
         $statusPekerjaan = [
             'planning' => 'Planning',
@@ -48,13 +45,13 @@ class PekerjaanKonstruksiController extends Controller
             'canceled' => 'Dibatalkan'
         ];
 
-        return view('construction.index', compact('projects', 'jenisPekerjaan', 'statusPekerjaan'));
+        return view('construction.index', compact('projects', 'kodeTransaksi', 'jenisPekerjaan', 'statusPekerjaan'));
     }
 
     public function getData(Request $request)
     {
         try {
-            $query = PekerjaanKonstruksi::with(['project'])
+            $query = PekerjaanKonstruksi::with(['project', 'kodeTransaksi'])
                 ->select('pekerjaan_kontruksi.*');
             
             // Filter berdasarkan project jika ada
@@ -63,8 +60,9 @@ class PekerjaanKonstruksiController extends Controller
             }
             
             // Filter berdasarkan jenis pekerjaan
-            if ($request->has('jenis_pekerjaan') && !empty($request->jenis_pekerjaan)) {
-                $query->where('jenis_pekerjaan', $request->jenis_pekerjaan);
+            $kodeTransaksiId = $request->idkodetransaksi ?? $request->jenis_pekerjaan;
+            if (!empty($kodeTransaksiId)) {
+                $query->where('idkodetransaksi', $kodeTransaksiId);
             }
             
             // Filter berdasarkan status
@@ -79,17 +77,16 @@ class PekerjaanKonstruksiController extends Controller
                 ->addColumn('project', function($row) {
                     return $row->project ? $row->project->namaproject : '-';
                 })
-                ->addColumn('jenis_pekerjaan_formatted', function($row) {
-                    $jenis = [
-                        'irigasi' => '<span class="badge bg-info">Irigasi</span>',
-                        'renovasi' => '<span class="badge bg-warning">Renovasi</span>',
-                        'jalan' => '<span class="badge bg-success">Jalan</span>',
-                        'bangunan' => '<span class="badge bg-primary">Bangunan</span>',
-                        'jembatan' => '<span class="badge bg-secondary">Jembatan</span>',
-                        'drainase' => '<span class="badge bg-dark">Drainase</span>',
-                        'lainnya' => '<span class="badge bg-light text-dark">Lainnya</span>'
-                    ];
-                    return $jenis[$row->jenis_pekerjaan] ?? '<span class="badge bg-light text-dark">'.$row->jenis_pekerjaan.'</span>';
+                ->addColumn('kode_transaksi_formatted', function($row) {
+                    if ($row->kodeTransaksi) {
+                        return '<span class="badge bg-info text-dark">'
+                            . e($row->kodeTransaksi->kodetransaksi)
+                            . '</span><br><small>'
+                            . e($row->kodeTransaksi->transaksi)
+                            . '</small>';
+                    }
+
+                    return '<span class="badge bg-secondary">-</span>';
                 })
                 ->addColumn('status_formatted', function($row) {
                     $status = [
@@ -145,7 +142,7 @@ class PekerjaanKonstruksiController extends Controller
                     ';
                     return $buttons;
                 })
-                ->rawColumns(['jenis_pekerjaan_formatted', 'status_formatted', 'progress', 'action'])
+                ->rawColumns(['kode_transaksi_formatted', 'status_formatted', 'progress', 'action'])
                 ->make(true);
                 
         } catch (\Exception $e) {
@@ -160,19 +157,22 @@ class PekerjaanKonstruksiController extends Controller
             $validated = $request->validate([
                 'idproject' => 'required|integer|exists:projects,id',
                 'nama_pekerjaan' => 'required|string|max:255',
-                'jenis_pekerjaan' => 'required|in:irigasi,renovasi,jalan,bangunan,jembatan,drainase,lainnya',
+                'idkodetransaksi' => 'required|exists:kodetransaksi,id',
                 'lokasi' => 'nullable|string|max:255',
                 'volume' => 'nullable|numeric|min:0',
                 'satuan' => 'nullable|string|max:50',
                 'anggaran' => 'required|numeric|min:0',
                 'tanggal_mulai' => 'nullable|date',
                 'tanggal_selesai' => 'nullable|date|after_or_equal:tanggal_mulai',
-                'jumlah' => 'required|integer|min:1',
+                'harga_satuan' => 'nullable|numeric|min:0',
                 'status' => 'required|in:planning,ongoing,completed,canceled',
                 'keterangan' => 'nullable|string'
             ]);
 
             DB::beginTransaction();
+
+            $validated['jenis_pekerjaan'] = (string) $validated['idkodetransaksi'];
+            $validated['jumlah'] = 0;
 
             $pekerjaan = PekerjaanKonstruksi::create($validated);
 
@@ -200,7 +200,7 @@ class PekerjaanKonstruksiController extends Controller
     public function edit($id)
     {
         try {
-            $pekerjaan = PekerjaanKonstruksi::find($id);
+            $pekerjaan = PekerjaanKonstruksi::with('kodeTransaksi')->find($id);
             
             if (!$pekerjaan) {
                 return response()->json([
@@ -226,7 +226,7 @@ class PekerjaanKonstruksiController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $pekerjaan = PekerjaanKonstruksi::find($id);
+            $pekerjaan = PekerjaanKonstruksi::with('kodeTransaksi')->find($id);
             
             if (!$pekerjaan) {
                 return response()->json([
@@ -238,19 +238,22 @@ class PekerjaanKonstruksiController extends Controller
             $validated = $request->validate([
                 'idproject' => 'required|integer|exists:projects,id',
                 'nama_pekerjaan' => 'required|string|max:255',
-                'jenis_pekerjaan' => 'required|in:irigasi,renovasi,jalan,bangunan,jembatan,drainase,lainnya',
+                'idkodetransaksi' => 'required|exists:kodetransaksi,id',
                 'lokasi' => 'nullable|string|max:255',
                 'volume' => 'nullable|numeric|min:0',
                 'satuan' => 'nullable|string|max:50',
                 'anggaran' => 'required|numeric|min:0',
                 'tanggal_mulai' => 'nullable|date',
                 'tanggal_selesai' => 'nullable|date|after_or_equal:tanggal_mulai',
-                'jumlah' => 'required|integer|min:1',
+                'harga_satuan' => 'nullable|numeric|min:0',
                 'status' => 'required|in:planning,ongoing,completed,canceled',
                 'keterangan' => 'nullable|string'
             ]);
 
             DB::beginTransaction();
+
+            $validated['jenis_pekerjaan'] = (string) $validated['idkodetransaksi'];
+            $validated['jumlah'] = 0;
 
             $pekerjaan->update($validated);
 
@@ -320,11 +323,22 @@ class PekerjaanKonstruksiController extends Controller
     public function getByProject($projectId)
     {
         try {
-            $pekerjaan = PekerjaanKonstruksi::where('idproject', $projectId)
+            $pekerjaan = PekerjaanKonstruksi::with('kodeTransaksi')
+                ->where('idproject', $projectId)
                 ->where('status', '!=', 'canceled')
                 ->whereNull('deleted_at')
                 ->orderBy('nama_pekerjaan')
-                ->get(['id', 'nama_pekerjaan', 'jenis_pekerjaan', 'lokasi']);
+                ->get([
+                    'id',
+                    'nama_pekerjaan',
+                    'jenis_pekerjaan',
+                    'idkodetransaksi',
+                    'lokasi',
+                    'volume',
+                    'satuan',
+                    'anggaran',
+                    'harga_satuan'
+                ]);
             
             return response()->json([
                 'success' => true,
@@ -378,15 +392,16 @@ class PekerjaanKonstruksiController extends Controller
 
     public function report(Request $request)
     {
-        $query = PekerjaanKonstruksi::with(['project']);
+        $query = PekerjaanKonstruksi::with(['project', 'kodeTransaksi']);
         
         // Filter
         if ($request->has('project_id') && !empty($request->project_id)) {
             $query->where('idproject', $request->project_id);
         }
         
-        if ($request->has('jenis_pekerjaan') && !empty($request->jenis_pekerjaan)) {
-            $query->where('jenis_pekerjaan', $request->jenis_pekerjaan);
+        $kodeTransaksiId = $request->idkodetransaksi ?? $request->jenis_pekerjaan;
+        if (!empty($kodeTransaksiId)) {
+            $query->where('idkodetransaksi', $kodeTransaksiId);
         }
         
         if ($request->has('status') && !empty($request->status)) {
@@ -413,20 +428,17 @@ class PekerjaanKonstruksiController extends Controller
         
         $projects = Project::orderBy('namaproject')->get(['id', 'namaproject']);
         
-        $jenisPekerjaan = [
-            'irigasi' => 'Pembuatan Irigasi',
-            'renovasi' => 'Renovasi Bangunan',
-            'jalan' => 'Pembuatan Jalan',
-            'bangunan' => 'Bangunan Baru',
-            'jembatan' => 'Pembangunan Jembatan',
-            'drainase' => 'Sistem Drainase',
-            'lainnya' => 'Lainnya'
-        ];
+        $kodeTransaksi = Kodetransaksi::orderBy('kodetransaksi')
+            ->get(['id', 'kodetransaksi', 'transaksi']);
+        $jenisPekerjaan = $kodeTransaksi->mapWithKeys(function ($item) {
+            return [$item->id => $item->kodetransaksi . ' - ' . $item->transaksi];
+        })->all();
         
         // PASTIKAN SEMUA VARIABLE DIPASS KE VIEW
         return view('construction.report', compact(
             'pekerjaan',
             'projects',
+            'kodeTransaksi',
             'jenisPekerjaan',
             'totalPekerjaan',      // ← INI HARUS ADA
             'totalAnggaran',       // ← INI HARUS ADA
@@ -442,7 +454,7 @@ class PekerjaanKonstruksiController extends Controller
     public function show($id)
     {
         try {
-            $pekerjaan = PekerjaanKonstruksi::with(['project'])->find($id);
+            $pekerjaan = PekerjaanKonstruksi::with(['project', 'kodeTransaksi'])->find($id);
             
             if (!$pekerjaan) {
                 return response()->json([
@@ -499,7 +511,7 @@ class PekerjaanKonstruksiController extends Controller
     public function getProgressData(Request $request)
     {
         try {
-            $query = PekerjaanKonstruksi::with(['project'])
+            $query = PekerjaanKonstruksi::with(['project', 'kodeTransaksi'])
                 ->select('pekerjaan_kontruksi.*');
             // HAPUS FILTER INI: ->whereIn('status', ['ongoing', 'completed']);
             
@@ -514,8 +526,9 @@ class PekerjaanKonstruksiController extends Controller
             }
             
             // Filter berdasarkan jenis pekerjaan
-            if ($request->has('jenis_pekerjaan') && !empty($request->jenis_pekerjaan)) {
-                $query->where('jenis_pekerjaan', $request->jenis_pekerjaan);
+            $kodeTransaksiId = $request->idkodetransaksi ?? $request->jenis_pekerjaan;
+            if (!empty($kodeTransaksiId)) {
+                $query->where('idkodetransaksi', $kodeTransaksiId);
             }
             
             $data = $query->orderBy('created_at', 'desc')->get();
@@ -525,17 +538,16 @@ class PekerjaanKonstruksiController extends Controller
                 ->addColumn('project', function($row) {
                     return $row->project ? $row->project->namaproject : '-';
                 })
-                ->addColumn('jenis_pekerjaan_formatted', function($row) {
-                    $jenis = [
-                        'irigasi' => '<span class="badge bg-info">Irigasi</span>',
-                        'renovasi' => '<span class="badge bg-warning">Renovasi</span>',
-                        'jalan' => '<span class="badge bg-success">Jalan</span>',
-                        'bangunan' => '<span class="badge bg-primary">Bangunan</span>',
-                        'jembatan' => '<span class="badge bg-secondary">Jembatan</span>',
-                        'drainase' => '<span class="badge bg-dark">Drainase</span>',
-                        'lainnya' => '<span class="badge bg-light text-dark">Lainnya</span>'
-                    ];
-                    return $jenis[$row->jenis_pekerjaan] ?? '<span class="badge bg-light text-dark">'.$row->jenis_pekerjaan.'</span>';
+                ->addColumn('kode_transaksi_formatted', function($row) {
+                    if ($row->kodeTransaksi) {
+                        return '<span class="badge bg-info text-dark">'
+                            . e($row->kodeTransaksi->kodetransaksi)
+                            . '</span><br><small>'
+                            . e($row->kodeTransaksi->transaksi)
+                            . '</small>';
+                    }
+
+                    return '<span class="badge bg-secondary">-</span>';
                 })
                 ->addColumn('status_formatted', function($row) {
                     $status = [
@@ -628,7 +640,7 @@ class PekerjaanKonstruksiController extends Controller
                     $buttons .= '</div>';
                     return $buttons;
                 })
-                ->rawColumns(['jenis_pekerjaan_formatted', 'status_formatted', 'progress_bar', 'time_remaining', 'action'])
+                ->rawColumns(['kode_transaksi_formatted', 'status_formatted', 'progress_bar', 'time_remaining', 'action'])
                 ->make(true);
                 
         } catch (\Exception $e) {
@@ -640,7 +652,7 @@ class PekerjaanKonstruksiController extends Controller
     public function getProgressDetail($id)
     {
         try {
-            $pekerjaan = PekerjaanKonstruksi::with(['project'])->find($id);
+            $pekerjaan = PekerjaanKonstruksi::with(['project', 'kodeTransaksi'])->find($id);
             
             if (!$pekerjaan) {
                 return response()->json([

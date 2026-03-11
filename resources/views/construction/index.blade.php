@@ -37,11 +37,11 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Jenis Pekerjaan</label>
-                            <select class="form-select form-select-sm" id="filterJenis">
-                                <option value="">Semua Jenis</option>
-                                @foreach($jenisPekerjaan as $key => $value)
-                                    <option value="{{ $key }}">{{ $value }}</option>
+                            <label class="form-label">Kode Transaksi</label>
+                            <select class="form-select form-select-sm select2-filter" id="filterJenis">
+                                <option value="">Semua Kode</option>
+                                @foreach($kodeTransaksi as $item)
+                                    <option value="{{ $item->id }}">{{ $item->kodetransaksi }} - {{ $item->transaksi }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -76,7 +76,7 @@
                                 <th class="text-center">No</th>
                                 <th>Project</th>
                                 <th>Nama Pekerjaan</th>
-                                <th>Jenis</th>
+                                <th>Kode Transaksi</th>
                                 <th>Lokasi</th>
                                 <th>Volume</th>
                                 <th class="text-end">Anggaran</th>
@@ -118,11 +118,11 @@
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="form-label">Jenis Pekerjaan *</label>
-                                <select class="form-select form-select-sm" name="jenis_pekerjaan" id="jenis_pekerjaan" required>
-                                    <option value="">-- Pilih Jenis --</option>
-                                    @foreach($jenisPekerjaan as $key => $value)
-                                        <option value="{{ $key }}">{{ $value }}</option>
+                                <label class="form-label">Kode Transaksi *</label>
+                                <select class="form-select form-select-sm select2-kode-transaksi" name="idkodetransaksi" id="idkodetransaksi" required>
+                                    <option value="">-- Pilih Kode Transaksi --</option>
+                                    @foreach($kodeTransaksi as $item)
+                                        <option value="{{ $item->id }}">{{ $item->kodetransaksi }} - {{ $item->transaksi }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -158,10 +158,9 @@
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="form-label">Jumlah *</label>
+                                <label class="form-label">Harga Satuan</label>
                                 <input type="number" class="form-control form-control-sm text-end" 
-                                       name="jumlah" id="jumlah" required min="1" value="1">
-                                <small class="text-muted">Jumlah item/unit pekerjaan yang sama</small>
+                                       name="harga_satuan" id="harga_satuan" min="0" step="0.01">
                             </div>
                             
                             <div class="col-md-6">
@@ -229,8 +228,8 @@
                                     <td id="viewNamaPekerjaan">-</td>
                                 </tr>
                                 <tr>
-                                    <th>Jenis Pekerjaan</th>
-                                    <td id="viewJenisPekerjaan">-</td>
+                                    <th>Kode Transaksi</th>
+                                    <td id="viewKodeTransaksi">-</td>
                                 </tr>
                                 <tr>
                                     <th>Lokasi</th>
@@ -249,8 +248,8 @@
                                     <td id="viewAnggaran">-</td>
                                 </tr>
                                 <tr>
-                                    <th>Jumlah</th>
-                                    <td id="viewJumlah">-</td>
+                                    <th>Harga Satuan</th>
+                                    <td id="viewHargaSatuan">-</td>
                                 </tr>
                                 <tr>
                                     <th>Durasi</th>
@@ -286,6 +285,24 @@
     <x-slot name="jscustom">
         <script>
         $(document).ready(function() {
+            function initSelect2() {
+                if ($.fn.select2) {
+                    $('#filterJenis').select2({
+                        width: '100%',
+                        placeholder: 'Semua Kode',
+                        allowClear: true
+                    });
+
+                    $('#idkodetransaksi').select2({
+                        dropdownParent: $('#modalPekerjaan'),
+                        width: '100%',
+                        placeholder: '-- Pilih Kode Transaksi --'
+                    });
+                }
+            }
+
+            initSelect2();
+
             // DataTable
             let tbPekerjaan = $('#tbPekerjaan').DataTable({
                 processing: true,
@@ -294,7 +311,7 @@
                     url: "{{ route('pekerjaan-konstruksi.get-data') }}",
                     data: function(d) {
                         d.project_id = $('#filterProject').val();
-                        d.jenis_pekerjaan = $('#filterJenis').val();
+                        d.idkodetransaksi = $('#filterJenis').val();
                         d.status = $('#filterStatus').val();
                     }
                 },
@@ -308,7 +325,7 @@
                     },
                     { data: 'project', name: 'project' },
                     { data: 'nama_pekerjaan', name: 'nama_pekerjaan' },
-                    { data: 'jenis_pekerjaan_formatted', name: 'jenis_pekerjaan' },
+                    { data: 'kode_transaksi_formatted', name: 'idkodetransaksi' },
                     { data: 'lokasi', name: 'lokasi' },
                     { 
                         data: 'volume', 
@@ -342,6 +359,7 @@
             $('#btnTambah').click(function() {
                 $('#formPekerjaan')[0].reset();
                 $('#idPekerjaan').val('');
+                $('#idkodetransaksi').val('').trigger('change');
                 $('#modalTitle').text('Tambah Pekerjaan Konstruksi');
                 $('#modalPekerjaan').modal('show');
             });
@@ -379,13 +397,13 @@
                         
                         $('#idPekerjaan').val(data.id);
                         $('#idproject').val(data.idproject);
-                        $('#jenis_pekerjaan').val(data.jenis_pekerjaan);
+                        $('#idkodetransaksi').val(data.idkodetransaksi).trigger('change');
                         $('#nama_pekerjaan').val(data.nama_pekerjaan);
                         $('#lokasi').val(data.lokasi);
                         $('#volume').val(data.volume);
                         $('#satuan').val(data.satuan);
                         $('#anggaran').val(data.anggaran);
-                        $('#jumlah').val(data.jumlah);
+                        $('#harga_satuan').val(data.harga_satuan);
                         
                         // PERBAIKAN: Format tanggal untuk input date
                         $('#tanggal_mulai').val(formatDateForInput(data.tanggal_mulai));
@@ -552,17 +570,6 @@
                         return num ? 'Rp ' + num.toLocaleString('id-ID') : 'Rp 0';
                     }
                     
-                    // Format jenis pekerjaan
-                    let jenisMap = {
-                        'irigasi': 'Irigasi',
-                        'renovasi': 'Renovasi',
-                        'jalan': 'Jalan',
-                        'bangunan': 'Bangunan',
-                        'jembatan': 'Jembatan',
-                        'drainase': 'Drainase',
-                        'lainnya': 'Lainnya'
-                    };
-                    
                     // Format status
                     let statusMap = {
                         'planning': '<span class="badge bg-secondary">Planning</span>',
@@ -574,7 +581,11 @@
                     // Isi data ke modal
                     $('#viewProject').text(data.project?.namaproject || '-');
                     $('#viewNamaPekerjaan').text(data.nama_pekerjaan || '-');
-                    $('#viewJenisPekerjaan').text(jenisMap[data.jenis_pekerjaan] || data.jenis_pekerjaan);
+                    $('#viewKodeTransaksi').text(
+                        data.kode_transaksi?.kodetransaksi
+                        ? `${data.kode_transaksi.kodetransaksi} - ${data.kode_transaksi.transaksi}`
+                        : '-'
+                    );
                     $('#viewLokasi').text(data.lokasi || '-');
                     
                     // Volume dengan satuan
@@ -587,7 +598,7 @@
                     $('#viewVolume').text(volumeText);
                     
                     $('#viewAnggaran').html(formatNumber(data.anggaran || 0));
-                    $('#viewJumlah').text(data.jumlah || 1);
+                    $('#viewHargaSatuan').html(formatNumber(data.harga_satuan || 0));
                     
                     // Durasi
                     let durasiText = '-';

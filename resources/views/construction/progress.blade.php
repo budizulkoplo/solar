@@ -341,7 +341,7 @@
                         { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                         { data: 'nama_pekerjaan', name: 'nama_pekerjaan' },
                         { data: 'project', name: 'project' },
-                        { data: 'jenis_pekerjaan_formatted', name: 'jenis_pekerjaan' },
+                        { data: 'kode_transaksi_formatted', name: 'idkodetransaksi' },
                         { data: 'durasi', name: 'durasi' },
                         { data: 'anggaran_formatted', name: 'anggaran' },
                         { data: 'progress_bar', name: 'progress' },
