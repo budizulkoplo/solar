@@ -394,9 +394,11 @@
                 const kodeTransaksiOptions = @json($kodeTransaksi->map(function ($item) {
                     return ['id' => $item->id, 'label' => $item->kodetransaksi . ' - ' . $item->transaksi];
                 })->values());
+                
                 let createRowIndex = 0;
                 let editRowIndex = 0;
 
+                // ==================== HELPER FUNCTIONS ====================
                 function formatNumber(num) {
                     return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(num || 0);
                 }
@@ -412,42 +414,6 @@
                 function statusBadge(status) {
                     const map = { open: 'bg-warning', paid: 'bg-success', partial: 'bg-info', cancel: 'bg-danger' };
                     return `<span class="badge ${map[status] || 'bg-secondary'}">${status}</span>`;
-                }
-
-                function kodeTransaksiSelect(name, selectedId = '') {
-                    let options = '<option value="">-- Pilih Kode Transaksi --</option>';
-                    kodeTransaksiOptions.forEach(item => {
-                        options += `<option value="${item.id}" ${String(selectedId) === String(item.id) ? 'selected' : ''}>${item.label}</option>`;
-                    });
-                    return `<select class="form-select form-select-sm kode-transaksi" name="${name}" required>${options}</select>`;
-                }
-
-                function buildRow(index, mode = 'create', data = {}) {
-                    const qty = data.jml || data.qty || 1;
-                    const harga = data.nominal || data.harga_jual || 0;
-                    const total = data.total || (qty * harga);
-                    return `
-                        <tr>
-                            <td>${kodeTransaksiSelect(`transactions[${index}][idkodetransaksi]`, data.idkodetransaksi || '')}</td>
-                            <td><input type="text" class="form-control form-control-sm description" name="transactions[${index}][description]" value="${data.description || ''}" required></td>
-                            <td><input type="number" class="form-control form-control-sm text-end qty" name="transactions[${index}][qty]" value="${qty}" min="0.01" step="0.01"></td>
-                            <td><input type="number" class="form-control form-control-sm text-end harga-jual" name="transactions[${index}][harga_jual]" value="${harga}" min="0"></td>
-                            <td><input type="text" class="form-control form-control-sm text-end total" value="${formatRupiah(total)}" readonly></td>
-                            <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
-                        </tr>
-                    `;
-                }
-
-                function recalcTable(tableSelector, totalSelector) {
-                    let grandTotal = 0;
-                    $(`${tableSelector} tbody tr`).each(function() {
-                        const qty = parseFloat($(this).find('.qty').val()) || 0;
-                        const harga = parseFloat($(this).find('.harga-jual').val()) || 0;
-                        const total = qty * harga;
-                        $(this).find('.total').val(formatRupiah(total));
-                        grandTotal += total;
-                    });
-                    $(totalSelector).val(formatRupiah(grandTotal));
                 }
 
                 function setLoading(buttonSelector, loading) {
@@ -492,6 +458,41 @@
                     return `JUAL-${date}-${Math.floor(Math.random() * 90000) + 10000}`;
                 }
 
+                function customerText(nota) {
+                    const customer = nota.customer_toko || nota.customer;
+                    if (!customer) return nota.keterangan_customer || '-';
+                    return customer.nama_lengkap + (nota.keterangan_customer ? ` | ${nota.keterangan_customer}` : '');
+                }
+
+                // ==================== SELECT2 FUNCTIONS ====================
+                function kodeTransaksiSelect(name, selectedId = '', mode = 'create') {
+                    let options = '<option value="">-- Pilih Kode Transaksi --</option>';
+                    kodeTransaksiOptions.forEach(item => {
+                        options += `<option value="${item.id}" ${String(selectedId) === String(item.id) ? 'selected' : ''}>${item.label}</option>`;
+                    });
+                    
+                    const selectClass = mode === 'create' ? 'kode-transaksi-select' : 'edit-kode-transaksi-select';
+                    
+                    return `<select class="form-select form-select-sm ${selectClass}" name="${name}" required style="width:100%;">${options}</select>`;
+                }
+
+                function initKodeSelect2(container, mode = 'create') {
+                    const selector = mode === 'create' ? '.kode-transaksi-select' : '.edit-kode-transaksi-select';
+                    const dropdownParent = mode === 'create' ? $('#modalPenjualan') : $('#modalEditPenjualan');
+                    
+                    $(container).find(selector).each(function() {
+                        if ($(this).data('select2')) {
+                            $(this).select2('destroy');
+                        }
+                        $(this).select2({
+                            dropdownParent: dropdownParent,
+                            width: '100%',
+                            placeholder: '-- Pilih Kode Transaksi --',
+                            allowClear: true
+                        });
+                    });
+                }
+
                 function initCustomerSelect(selector, modalSelector) {
                     $(selector).select2({
                         dropdownParent: $(modalSelector),
@@ -508,6 +509,37 @@
                     });
                 }
 
+                // ==================== TABLE FUNCTIONS ====================
+                function buildRow(index, mode = 'create', data = {}) {
+                    const qty = data.jml || data.qty || 1;
+                    const harga = data.nominal || data.harga_jual || 0;
+                    const total = data.total || (qty * harga);
+                    
+                    return `
+                        <tr>
+                            <td>${kodeTransaksiSelect(`transactions[${index}][idkodetransaksi]`, data.idkodetransaksi || '', mode)}</td>
+                            <td><input type="text" class="form-control form-control-sm description" name="transactions[${index}][description]" value="${data.description || ''}" required></td>
+                            <td><input type="number" class="form-control form-control-sm text-end qty" name="transactions[${index}][qty]" value="${qty}" min="0.01" step="0.01"></td>
+                            <td><input type="number" class="form-control form-control-sm text-end harga-jual" name="transactions[${index}][harga_jual]" value="${harga}" min="0"></td>
+                            <td><input type="text" class="form-control form-control-sm text-end total" value="${formatRupiah(total)}" readonly></td>
+                            <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
+                        </tr>
+                    `;
+                }
+
+                function recalcTable(tableSelector, totalSelector) {
+                    let grandTotal = 0;
+                    $(`${tableSelector} tbody tr`).each(function() {
+                        const qty = parseFloat($(this).find('.qty').val()) || 0;
+                        const harga = parseFloat($(this).find('.harga-jual').val()) || 0;
+                        const total = qty * harga;
+                        $(this).find('.total').val(formatRupiah(total));
+                        grandTotal += total;
+                    });
+                    $(totalSelector).val(formatRupiah(grandTotal));
+                }
+
+                // ==================== FORM RESET FUNCTIONS ====================
                 function resetCreateForm() {
                     $('#frmPenjualan')[0].reset();
                     $('#tanggalPenjualan').val(new Date().toISOString().split('T')[0]);
@@ -515,8 +547,14 @@
                     $('#namaTransaksi').val('Penjualan Barang');
                     $('#customerId').empty().trigger('change');
                     $('#projectTujuanId').val('').trigger('change');
+                    
                     createRowIndex = 0;
-                    $('#tblDetailBarang tbody').html(buildRow(0));
+                    $('#tblDetailBarang tbody').html(buildRow(0, 'create'));
+                    
+                    setTimeout(function() {
+                        initKodeSelect2('#tblDetailBarang', 'create');
+                    }, 100);
+                    
                     recalcTable('#tblDetailBarang', '#grandTotal');
                     toggleCreateProject();
                     toggleCreateTempo();
@@ -529,6 +567,7 @@
                     $('#editProjectTujuanId').val('').trigger('change');
                     $('#tblEditDetailBarang tbody').empty();
                     $('#editLogContainer').html('<p class="text-muted small mb-0">Tidak ada riwayat perubahan</p>');
+                    
                     editRowIndex = 0;
                     recalcTable('#tblEditDetailBarang', '#editGrandTotal');
                     toggleEditProject();
@@ -536,6 +575,7 @@
                     setSaldo('#editIdRekening', '#editSaldoInfo');
                 }
 
+                // ==================== LOG FUNCTIONS ====================
                 function loadLogs(id, targetSelector) {
                     $.get(`/toko/${id}/logs`, function(res) {
                         if (res.success && res.data.length) {
@@ -552,12 +592,7 @@
                     });
                 }
 
-                function customerText(nota) {
-                    const customer = nota.customer_toko || nota.customer;
-                    if (!customer) return nota.keterangan_customer || '-';
-                    return customer.nama_lengkap + (nota.keterangan_customer ? ` | ${nota.keterangan_customer}` : '');
-                }
-
+                // ==================== INIT DATATABLE ====================
                 const tbPenjualan = $('#tbPenjualan').DataTable({
                     processing: true,
                     serverSide: true,
@@ -575,7 +610,12 @@
                                 return `<span class="badge bg-success">${row.jenis_penjualan === 'project' ? 'Ke Project' : 'Toko'}</span>`;
                             }
                         },
-                        { data: 'total', name: 'total', className: 'text-end' },
+                        { 
+                            data: 'total', 
+                            name: 'total', 
+                            className: 'text-end'
+                           
+                        },
                         {
                             data: 'status',
                             name: 'status',
@@ -583,50 +623,118 @@
                            
                         },
                         { data: 'namauser', name: 'namauser', className: 'text-center' },
-                        { data: 'action', orderable: false, searchable: false, className: 'text-center' }
+                        { 
+                            data: 'action', 
+                            orderable: false, 
+                            searchable: false, 
+                            className: 'text-center',
+                            render: function(data, type, row) {
+                                return `
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-info view-btn" data-id="${row.id}"><i class="bi bi-eye"></i></button>
+                                        <button class="btn btn-sm btn-warning edit-btn" data-id="${row.id}"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-danger delete-btn" data-id="${row.id}"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                `;
+                            }
+                        }
                     ],
                     order: [[3, 'desc']]
                 });
 
+                // ==================== INIT SELECT2 ====================
                 $('.select2-modal').select2({ dropdownParent: $('#modalPenjualan'), width: '100%' });
                 $('.select2-edit').select2({ dropdownParent: $('#modalEditPenjualan'), width: '100%' });
                 initCustomerSelect('#customerId', '#modalPenjualan');
                 initCustomerSelect('#editCustomerId', '#modalEditPenjualan');
 
+                // ==================== EVENT HANDLERS ====================
+                // Tombol Hapus
+                $(document).on('click', '.delete-btn', function() {
+                    const id = $(this).data('id');
+                    
+                    Swal.fire({
+                        title: 'Konfirmasi Hapus',
+                        text: 'Apakah Anda yakin ingin menghapus transaksi ini?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Ya, Hapus!',
+                        cancelButtonText: 'Batal'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.ajax({
+                                url: `/toko/${id}`,
+                                type: 'DELETE',
+                                data: {
+                                    _token: "{{ csrf_token() }}"
+                                },
+                                success: function(res) {
+                                    if (res.success) {
+                                        Swal.fire('Berhasil!', res.message, 'success');
+                                        tbPenjualan.ajax.reload();
+                                    } else {
+                                        Swal.fire('Error!', res.message, 'error');
+                                    }
+                                },
+                                error: function(xhr) {
+                                    Swal.fire('Error!', xhr.responseJSON?.message || 'Terjadi kesalahan', 'error');
+                                }
+                            });
+                        }
+                    });
+                });
+
+                // Tombol Tambah Penjualan
                 $('#btnTambahPenjualan').on('click', function() {
                     resetCreateForm();
                     $('#modalPenjualan').modal('show');
                 });
 
+                // Generate No Nota saat tanggal berubah
                 $('#tanggalPenjualan').on('change', function() {
                     $('#notaNo').val(generateNotaNo());
                 });
 
+                // Toggle Project
                 $('#jenisPenjualan').on('change', toggleCreateProject);
                 $('#editJenisPenjualan').on('change', toggleEditProject);
+                
+                // Toggle Tempo
                 $('#paymentMethod').on('change', toggleCreateTempo);
                 $('#editPaymentMethod').on('change', toggleEditTempo);
+                
+                // Update Saldo
                 $('#idRekening').on('change', function() { setSaldo('#idRekening', '#saldoInfo'); });
                 $('#editIdRekening').on('change', function() { setSaldo('#editIdRekening', '#editSaldoInfo'); });
 
+                // Tambah Baris Item
                 $('#addBarangRow').on('click', function() {
                     createRowIndex++;
-                    $('#tblDetailBarang tbody').append(buildRow(createRowIndex));
+                    const newRow = buildRow(createRowIndex, 'create');
+                    $('#tblDetailBarang tbody').append(newRow);
+                    initKodeSelect2('#tblDetailBarang tbody tr:last', 'create');
                 });
 
                 $('#addEditBarangRow').on('click', function() {
                     editRowIndex++;
-                    $('#tblEditDetailBarang tbody').append(buildRow(editRowIndex, 'edit'));
+                    const newRow = buildRow(editRowIndex, 'edit');
+                    $('#tblEditDetailBarang tbody').append(newRow);
+                    initKodeSelect2('#tblEditDetailBarang tbody tr:last', 'edit');
                 });
 
+                // Hapus Baris Item
                 $(document).on('click', '.removeRow', function() {
                     const table = $(this).closest('table');
                     if (table.find('tbody tr').length > 1) {
                         $(this).closest('tr').remove();
-                        recalcTable(table.attr('id') === 'tblEditDetailBarang' ? '#tblEditDetailBarang' : '#tblDetailBarang', table.attr('id') === 'tblEditDetailBarang' ? '#editGrandTotal' : '#grandTotal');
+                        recalcTable(table.attr('id') === 'tblEditDetailBarang' ? '#tblEditDetailBarang' : '#tblDetailBarang', 
+                                   table.attr('id') === 'tblEditDetailBarang' ? '#editGrandTotal' : '#grandTotal');
                     }
                 });
 
+                // Hitung Ulang Total
                 $(document).on('input', '.qty, .harga-jual', function() {
                     if ($(this).closest('#tblEditDetailBarang').length) {
                         recalcTable('#tblEditDetailBarang', '#editGrandTotal');
@@ -635,17 +743,24 @@
                     }
                 });
 
+                // Customer Select
                 $('#customerId').on('select2:select', function(e) {
-                    if (!$('#keteranganCustomer').val()) $('#keteranganCustomer').val((e.params.data.text || '').split('|')[0].trim());
+                    if (!$('#keteranganCustomer').val()) {
+                        $('#keteranganCustomer').val((e.params.data.text || '').split('|')[0].trim());
+                    }
                 });
 
                 $('#editCustomerId').on('select2:select', function(e) {
-                    if (!$('#editKeteranganCustomer').val()) $('#editKeteranganCustomer').val((e.params.data.text || '').split('|')[0].trim());
+                    if (!$('#editKeteranganCustomer').val()) {
+                        $('#editKeteranganCustomer').val((e.params.data.text || '').split('|')[0].trim());
+                    }
                 });
 
+                // Submit Form Create
                 $('#frmPenjualan').on('submit', function(e) {
                     e.preventDefault();
                     setLoading('#btnSubmit', true);
+                    
                     $.ajax({
                         url: "{{ route('toko.penjualan.store') }}",
                         type: 'POST',
@@ -670,10 +785,13 @@
                     });
                 });
 
+                // View Detail
                 $(document).on('click', '.view-btn', function() {
                     const id = $(this).data('id');
+                    
                     $.get(`/toko/${id}`, function(res) {
                         if (!res.success) return Swal.fire('Error', res.message, 'error');
+                        
                         const nota = res.data;
                         $('#viewNotaNo').text(nota.nota_no || '-');
                         $('#viewTanggal').text(formatTanggal(nota.tanggal));
@@ -692,11 +810,19 @@
                         let html = '';
                         (nota.transactions || []).forEach(function(item) {
                             const kode = item.kode_transaksi ? `(${item.kode_transaksi.kodetransaksi}) ${item.kode_transaksi.transaksi}` : '-';
-                            html += `<tr><td>${kode}</td><td>${item.description || '-'}</td><td class="text-center">${item.jml || 0}</td><td class="text-end">${formatRupiah(item.nominal)}</td><td class="text-end">${formatRupiah(item.total)}</td></tr>`;
+                            html += `<tr>
+                                <td>${kode}</td>
+                                <td>${item.description || '-'}</td>
+                                <td class="text-center">${item.jml || 0}</td>
+                                <td class="text-end">${formatRupiah(item.nominal)}</td>
+                                <td class="text-end">${formatRupiah(item.total)}</td>
+                            </tr>`;
                         });
+                        
                         $('#tblViewDetail tbody').html(html || '<tr><td colspan="5" class="text-center text-muted">Tidak ada item</td></tr>');
                         $('#viewSubtotal').text(formatRupiah(nota.subtotal));
                         $('#viewGrandTotal').text(formatRupiah(nota.total));
+                        
                         loadLogs(id, '#viewLogContainer');
                         $('#modalViewPenjualan').modal('show');
                     }).fail(function() {
@@ -704,12 +830,16 @@
                     });
                 });
 
+                // Edit
                 $(document).on('click', '.edit-btn', function() {
                     const id = $(this).data('id');
+                    
                     $.get(`/toko/${id}/edit`, function(res) {
                         if (!res.success) return Swal.fire('Error', res.message, 'error');
+                        
                         const nota = res.data;
                         resetEditForm();
+                        
                         $('#editIdPenjualan').val(nota.id);
                         $('#editNotaNo').val(nota.nota_no);
                         $('#editNamaTransaksi').val(nota.namatransaksi);
@@ -720,16 +850,24 @@
                         $('#editKeteranganCustomer').val(nota.keterangan_customer || '');
                         $('#editIdRekening').val(nota.idrek).trigger('change');
                         $('#editProjectTujuanId').val(nota.project_tujuan_id).trigger('change');
+                        
                         const customer = nota.customer_toko || nota.customer;
                         if (customer) {
                             $('#editCustomerId').append(new Option(`${customer.nama_lengkap} | ${customer.no_hp || ''}`, customer.id, true, true)).trigger('change');
                         }
+                        
                         let html = '';
                         (nota.transactions || []).forEach(function(item, index) {
                             html += buildRow(index, 'edit', item);
                             editRowIndex = index;
                         });
+                        
                         $('#tblEditDetailBarang tbody').html(html || buildRow(0, 'edit'));
+                        
+                        setTimeout(function() {
+                            initKodeSelect2('#tblEditDetailBarang', 'edit');
+                        }, 100);
+                        
                         recalcTable('#tblEditDetailBarang', '#editGrandTotal');
                         loadLogs(id, '#editLogContainer');
                         $('#modalEditPenjualan').modal('show');
@@ -738,10 +876,13 @@
                     });
                 });
 
+                // Submit Form Edit
                 $('#frmEditPenjualan').on('submit', function(e) {
                     e.preventDefault();
+                    
                     const id = $('#editIdPenjualan').val();
                     setLoading('#btnEditSubmit', true);
+                    
                     $.ajax({
                         url: `/toko/${id}`,
                         type: 'POST',
@@ -766,6 +907,7 @@
                     });
                 });
 
+                // Modal Customer
                 $('#btnTambahCustomerToko, #btnTambahCustomerTokoEdit').on('click', function() {
                     $('#frmCustomerToko')[0].reset();
                     $('#customerTokoError').addClass('d-none').text('');
@@ -774,20 +916,25 @@
 
                 $('#frmCustomerToko').on('submit', function(e) {
                     e.preventDefault();
+                    
                     const btn = $('#btnSubmitCustomerToko');
                     btn.prop('disabled', true).text('Menyimpan...');
+                    
                     $.ajax({
                         url: "{{ route('toko.customers.store') }}",
                         type: 'POST',
                         data: $(this).serialize(),
                         success: function(res) {
                             btn.prop('disabled', false).text('Simpan Customer');
+                            
                             if (!res.success) {
                                 $('#customerTokoError').removeClass('d-none').text(res.message);
                                 return;
                             }
+                            
                             const customer = res.data;
                             const label = `${customer.nama_lengkap} | ${customer.no_hp || ''}`;
+                            
                             $('#customerId').append(new Option(label, customer.id, true, true)).trigger('change');
                             $('#editCustomerId').append(new Option(label, customer.id, true, true)).trigger('change');
                             $('#keteranganCustomer').val(customer.nama_lengkap);
@@ -797,13 +944,27 @@
                         },
                         error: function(xhr) {
                             btn.prop('disabled', false).text('Simpan Customer');
+                            
                             let msg = xhr.responseJSON?.message || 'Gagal menambahkan customer';
-                            if (xhr.responseJSON?.errors) msg = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                            if (xhr.responseJSON?.errors) {
+                                msg = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                            }
+                            
                             $('#customerTokoError').removeClass('d-none').text(msg);
                         }
                     });
                 });
 
+                // Inisialisasi Select2 saat modal ditampilkan
+                $('#modalPenjualan').on('shown.bs.modal', function() {
+                    initKodeSelect2('#tblDetailBarang', 'create');
+                });
+
+                $('#modalEditPenjualan').on('shown.bs.modal', function() {
+                    initKodeSelect2('#tblEditDetailBarang', 'edit');
+                });
+
+                // Reset form create
                 resetCreateForm();
             });
         </script>
