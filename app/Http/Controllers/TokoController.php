@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Models\Project;
 use App\Models\Barang;
 use App\Models\Customer;
+use App\Models\CustomerToko;
 use App\Models\StockProject;
 use App\Models\StockHistory;
 use App\Models\TransUpdateLog;
@@ -31,7 +32,10 @@ class TokoController extends Controller
     // Halaman transaksi penjualan (out)
     public function penjualan()
     {
-        return view('transaksi.toko.penjualan');
+        $kodeTransaksi = KodeTransaksi::orderBy('kodetransaksi')
+            ->get(['id', 'kodetransaksi', 'transaksi']);
+
+        return view('transaksi.toko.penjualan', compact('kodeTransaksi'));
     }
 
     // Halaman stock management
@@ -117,10 +121,11 @@ class TokoController extends Controller
         $query = Nota::with([
                 'project:id,namaproject',
                 'vendor:id,namavendor',
-                'customer:id,nama_lengkap,no_hp'
+                'customer:id,nama_lengkap,no_hp',
+                'customerToko:id,nama_lengkap,no_hp'
             ])
-            ->where('cashflow', 'out')
             ->where('type', 'toko')
+            ->whereNotNull('jenis_penjualan')
             ->where('idproject', session('active_project_id'));
 
         return DataTables::eloquent($query)
@@ -167,6 +172,11 @@ class TokoController extends Controller
                         ->orWhere('keterangan_customer', 'like', "%{$search}%")
                         ->orWhere('total', 'like', "%{$search}%")
                         ->orWhere('namauser', 'like', "%{$search}%")
+                        ->orWhereHas('customerToko', function($q) use ($search) {
+                            $q->where('nama_lengkap', 'like', "%{$search}%")
+                              ->orWhere('no_hp', 'like', "%{$search}%")
+                              ->orWhere('kode_customer', 'like', "%{$search}%");
+                        })
                         ->orWhereHas('customer', function($q) use ($search) {
                             $q->where('nama_lengkap', 'like', "%{$search}%")
                               ->orWhere('no_hp', 'like', "%{$search}%");
@@ -473,10 +483,13 @@ class TokoController extends Controller
                 'idrek' => 'required|exists:rekening,idrek',
                 'paymen_method' => 'required|in:cash,tempo',
                 'tgl_tempo' => 'nullable|date|required_if:paymen_method,tempo',
-                'customer_id' => 'nullable|exists:customers,id',
+                'customer_toko_id' => 'nullable|exists:customer_toko,id',
                 'keterangan_customer' => 'nullable|string|max:255',
                 'transactions' => 'required|array|min:1',
-                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                'transactions.*.idkodetransaksi' => 'required|exists:kodetransaksi,id',
+                'transactions.*.description' => 'required|string|max:255',
+                'transactions.*.qty' => 'required|numeric|min:0.01',
+                'transactions.*.harga_jual' => 'required|numeric|min:0',
                 'jenis_penjualan' => 'required|in:toko,project',
                 'project_tujuan_id' => 'nullable|exists:projects,id|required_if:jenis_penjualan,project',
             ]);
@@ -497,14 +510,6 @@ class TokoController extends Controller
             $idcompany = $projectToko->idcompany ?? session('active_project_company_id');
             $idretail = $projectToko->idretail;
 
-            // Handle upload bukti nota
-            $buktiNotaPath = null;
-            if ($request->hasFile('bukti_nota')) {
-                $file = $request->file('bukti_nota');
-                $filename = 'nota_penjualan_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
-            }
-
             // Hitung total
             $subtotal = 0;
             foreach ($request->transactions as $transaction) {
@@ -522,10 +527,10 @@ class TokoController extends Controller
                 'idcompany' => $idcompany,
                 'idretail' => $idretail,
                 'idrek' => $request->idrek,
-                'customer_id' => $request->customer_id,
+                'customer_toko_id' => $request->customer_toko_id,
                 'keterangan_customer' => $request->keterangan_customer,
                 'tanggal' => $request->tanggal,
-                'cashflow' => 'out',
+                'cashflow' => 'in',
                 'type' => 'toko',
                 'jenis_penjualan' => $request->jenis_penjualan,
                 'paymen_method' => $request->paymen_method,
@@ -535,7 +540,7 @@ class TokoController extends Controller
                 'diskon' => 0,
                 'total' => $total,
                 'status' => $request->paymen_method === 'cash' ? 'paid' : 'open',
-                'bukti_nota' => $buktiNotaPath,
+                'bukti_nota' => null,
                 'nip' => $nip,
                 'namauser' => $namauser,
             ];
@@ -543,96 +548,30 @@ class TokoController extends Controller
             // Buat nota header
             $nota = Nota::create($notaData);
 
-            // Simpan detail transaksi dan update stock
+            // Simpan detail transaksi penjualan berbasis kode transaksi
             foreach ($request->transactions as $transaction) {
-                $barang = Barang::find($transaction['idbarang']);
-                if (!$barang) {
-                    throw new \Exception("Barang dengan ID {$transaction['idbarang']} tidak ditemukan");
-                }
-
-                // Cek stock cukup di toko
-                $stockToko = StockProject::where('barang_id', $barang->idbarang)
-                    ->where('project_id', $projectTokoId)
-                    ->first();
-                
-                if (!$stockToko || $stockToko->stock < $transaction['qty']) {
-                    throw new \Exception("Stock barang {$barang->nama_barang} tidak cukup. Stock tersedia: " . ($stockToko->stock ?? 0));
-                }
-
                 $itemTotal = $transaction['qty'] * $transaction['harga_jual'];
-                
-                // Simpan transaksi
+
                 NotaTransaction::create([
                     'idnota' => $nota->id,
-                    'idbarang' => $barang->idbarang,
-                    'idkodetransaksi' => "78",
-                    'description' => $barang->nama_barang,
+                    'idbarang' => null,
+                    'idkodetransaksi' => $transaction['idkodetransaksi'],
+                    'description' => $transaction['description'],
                     'nominal' => $transaction['harga_jual'],
                     'jml' => $transaction['qty'],
                     'total' => $itemTotal,
                 ]);
-
-                // Update harga jual jika berbeda
-                if ($barang->harga_jual != $transaction['harga_jual']) {
-                    $barang->update(['harga_jual' => $transaction['harga_jual']]);
-                }
-
-                // Kurangi stock toko
-                $stockSebelum = $stockToko->stock;
-                $stockToko->stock -= $transaction['qty'];
-                $stockToko->save();
-
-                // Catat history stock toko (keluar)
-                StockHistory::create([
-                    'barang_id' => $barang->idbarang,
-                    'project_id' => $projectTokoId,
-                    'tipe' => 'keluar',
-                    'qty' => $transaction['qty'],
-                    'qty_sebelum' => $stockSebelum,
-                    'qty_sesudah' => $stockToko->stock,
-                    'keterangan' => "Penjualan - Nota: {$nota->nota_no}",
-                    'idnota' => $nota->id,
-                    'created_by' => $user->id
-                ]);
-
-                // Jika penjualan ke project, tambah stock project tujuan
-                if ($request->jenis_penjualan == 'project' && $request->project_tujuan_id) {
-                    $stockProject = StockProject::firstOrCreate(
-                        [
-                            'barang_id' => $barang->idbarang,
-                            'project_id' => $request->project_tujuan_id
-                        ],
-                        ['stock' => 0]
-                    );
-
-                    $stockSebelumProject = $stockProject->stock;
-                    $stockProject->stock += $transaction['qty'];
-                    $stockProject->save();
-
-                    // Catat history stock project (masuk)
-                    StockHistory::create([
-                        'barang_id' => $barang->idbarang,
-                        'project_id' => $request->project_tujuan_id,
-                        'tipe' => 'masuk',
-                        'qty' => $transaction['qty'],
-                        'qty_sebelum' => $stockSebelumProject,
-                        'qty_sesudah' => $stockProject->stock,
-                        'keterangan' => "Transfer dari toko - Nota: {$nota->nota_no}",
-                        'idnota' => $nota->id,
-                        'created_by' => $user->id
-                    ]);
-                }
             }
 
             // Proses pembayaran
             if ($request->paymen_method === 'cash') {
-                $this->processPayment($nota, $request->idrek, $total, $request->tanggal, 'out');
+                $this->processPayment($nota, $request->idrek, $total, $request->tanggal, 'in');
             }
 
             // Buat log
             $customerName = null;
-            if ($request->customer_id) {
-                $customerName = Customer::find($request->customer_id)?->nama_lengkap;
+            if ($request->customer_toko_id) {
+                $customerName = CustomerToko::find($request->customer_toko_id)?->nama_lengkap;
             }
 
             $this->createUpdateLog($nota->id, $nota->nota_no, 
@@ -645,7 +584,8 @@ class TokoController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Transaksi penjualan berhasil disimpan',
-                'nota_id' => $nota->id
+                'nota_id' => $nota->id,
+                'invoice_url' => route('toko.invoice', $nota->id),
             ]);
 
         } catch (\Exception $e) {
@@ -695,7 +635,7 @@ class TokoController extends Controller
     {
         $search = $request->get('search');
 
-        $customers = Customer::query()
+        $customers = CustomerToko::query()
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nama_lengkap', 'like', "%{$search}%")
@@ -705,12 +645,13 @@ class TokoController extends Controller
             })
             ->orderBy('nama_lengkap')
             ->limit(20)
-            ->get(['id', 'kode_customer', 'nama_lengkap', 'no_hp', 'alamat_ktp']);
+            ->get(['id', 'kode_customer', 'nama_lengkap', 'no_hp', 'alamat']);
 
         return response()->json($customers->map(function ($customer) {
             return [
                 'id' => $customer->id,
-                'text' => trim("{$customer->nama_lengkap} | {$customer->no_hp}")
+                'text' => trim("{$customer->nama_lengkap} | {$customer->no_hp}"),
+                'alamat' => $customer->alamat,
             ];
         })->values());
     }
@@ -719,7 +660,7 @@ class TokoController extends Controller
     {
         $validator = validator($request->all(), [
             'nama_lengkap' => 'required|string|max:255',
-            'alamat_ktp' => 'required|string',
+            'alamat' => 'required|string',
             'no_hp' => 'required|string|max:20',
         ]);
 
@@ -733,19 +674,10 @@ class TokoController extends Controller
 
         DB::beginTransaction();
         try {
-            $customer = Customer::create([
+            $customer = CustomerToko::create([
                 'nama_lengkap' => $request->nama_lengkap,
-                'tempat_lahir' => '-',
-                'tanggal_lahir' => now()->toDateString(),
-                'jenis_kelamin' => 'L',
-                'nik' => $this->generateSimpleCustomerNik(),
-                'alamat_ktp' => $request->alamat_ktp,
-                'rt_rw_ktp' => '-',
-                'kelurahan_ktp' => '-',
-                'kecamatan_ktp' => '-',
-                'kota_ktp' => '-',
+                'alamat' => $request->alamat,
                 'no_hp' => $request->no_hp,
-                'pekerjaan' => 'Customer Toko',
             ]);
 
             DB::commit();
@@ -763,15 +695,6 @@ class TokoController extends Controller
                 'message' => 'Gagal menambahkan customer: ' . $e->getMessage(),
             ], 500);
         }
-    }
-
-    private function generateSimpleCustomerNik(): string
-    {
-        do {
-            $nik = now()->format('ymdHis') . str_pad((string) random_int(0, 99), 2, '0', STR_PAD_LEFT);
-        } while (Customer::where('nik', $nik)->exists());
-
-        return $nik;
     }
 
     // Get detail barang
@@ -934,10 +857,11 @@ class TokoController extends Controller
                 'project',
                 'vendor',
                 'customer',
+                'customerToko',
                 'projectTujuan',
                 'rekening',
                 'transactions' => function($q) {
-                    $q->with('barang')
+                    $q->with(['barang', 'kodeTransaksi'])
                       ->orderBy('id');
                 },
                 'payments.rekening',
@@ -967,9 +891,10 @@ class TokoController extends Controller
             $nota = Nota::with([
                 'vendor',
                 'customer',
+                'customerToko',
                 'projectTujuan',
                 'transactions' => function($q) {
-                    $q->with('barang')
+                    $q->with(['barang', 'kodeTransaksi'])
                       ->orderBy('id');
                 }
             ])->findOrFail($id);
@@ -1080,6 +1005,157 @@ class TokoController extends Controller
             'nota_no' => $notaNo,
             'update_log' => $logMessage
         ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $request->validate([
+                'nota_no' => 'required|string|max:50',
+                'namatransaksi' => 'required|string|max:255',
+                'tanggal' => 'required|date',
+                'idrek' => 'required|exists:rekening,idrek',
+                'paymen_method' => 'required|in:cash,tempo',
+                'tgl_tempo' => 'nullable|date|required_if:paymen_method,tempo',
+                'customer_toko_id' => 'nullable|exists:customer_toko,id',
+                'keterangan_customer' => 'nullable|string|max:255',
+                'transactions' => 'required|array|min:1',
+                'transactions.*.idkodetransaksi' => 'required|exists:kodetransaksi,id',
+                'transactions.*.description' => 'required|string|max:255',
+                'transactions.*.qty' => 'required|numeric|min:0.01',
+                'transactions.*.harga_jual' => 'required|numeric|min:0',
+                'jenis_penjualan' => 'required|in:toko,project',
+                'project_tujuan_id' => 'nullable|exists:projects,id|required_if:jenis_penjualan,project',
+            ]);
+
+            $nota = Nota::with(['payments', 'cashflows'])->findOrFail($id);
+            $projectToko = Project::find(session('active_project_id'));
+
+            if (!$projectToko) {
+                throw new \Exception("Project toko tidak ditemukan");
+            }
+
+            $subtotal = collect($request->transactions)->sum(function ($transaction) {
+                return (float) $transaction['qty'] * (float) $transaction['harga_jual'];
+            });
+
+            $this->rollbackPayments($nota);
+
+            $nota->update([
+                'nota_no' => $request->nota_no,
+                'namatransaksi' => $request->namatransaksi,
+                'project_tujuan_id' => $request->project_tujuan_id,
+                'idrek' => $request->idrek,
+                'customer_toko_id' => $request->customer_toko_id,
+                'keterangan_customer' => $request->keterangan_customer,
+                'tanggal' => $request->tanggal,
+                'cashflow' => 'in',
+                'jenis_penjualan' => $request->jenis_penjualan,
+                'paymen_method' => $request->paymen_method,
+                'tgl_tempo' => $request->paymen_method === 'tempo' ? $request->tgl_tempo : null,
+                'subtotal' => $subtotal,
+                'total' => $subtotal,
+                'status' => $request->paymen_method === 'cash' ? 'paid' : 'open',
+            ]);
+
+            NotaTransaction::where('idnota', $nota->id)->delete();
+            foreach ($request->transactions as $transaction) {
+                NotaTransaction::create([
+                    'idnota' => $nota->id,
+                    'idbarang' => null,
+                    'idkodetransaksi' => $transaction['idkodetransaksi'],
+                    'description' => $transaction['description'],
+                    'nominal' => $transaction['harga_jual'],
+                    'jml' => $transaction['qty'],
+                    'total' => $transaction['qty'] * $transaction['harga_jual'],
+                ]);
+            }
+
+            StockHistory::where('idnota', $nota->id)->delete();
+
+            if ($request->paymen_method === 'cash') {
+                $this->processPayment($nota, $request->idrek, $subtotal, $request->tanggal, 'in');
+            }
+
+            $customerName = $request->customer_toko_id
+                ? CustomerToko::find($request->customer_toko_id)?->nama_lengkap
+                : null;
+
+            $this->createUpdateLog(
+                $nota->id,
+                $nota->nota_no,
+                "Penjualan diupdate - No: {$nota->nota_no}, Total: Rp " .
+                number_format($subtotal, 0, ',', '.') .
+                ($customerName ? ", Customer: {$customerName}" : '')
+            );
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi penjualan berhasil diupdate',
+                'invoice_url' => route('toko.invoice', $nota->id),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function invoicePdf($id)
+    {
+        $nota = Nota::with([
+            'project.companyUnit',
+            'customerToko',
+            'rekening',
+            'transactions.kodeTransaksi',
+        ])->findOrFail($id);
+
+        $company = $nota->project?->companyUnit;
+        $logoPath = null;
+
+        if (!empty($company?->logo)) {
+            $candidate = public_path('storage/' . $company->logo);
+            if (file_exists($candidate)) {
+                $logoPath = $candidate;
+            }
+        }
+
+        $pdf = \PDF::loadView('transaksi.toko.invoice_pdf', [
+            'nota' => $nota,
+            'company' => $company,
+            'logoPath' => $logoPath,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('invoice-' . $nota->nota_no . '.pdf');
+    }
+
+    private function rollbackPayments(Nota $nota): void
+    {
+        $cashflows = Cashflow::where('idnota', $nota->id)->get();
+
+        foreach ($cashflows as $cashflow) {
+            $rekening = Rekening::find($cashflow->idrek);
+            if (!$rekening) {
+                continue;
+            }
+
+            if ($cashflow->cashflow === 'in') {
+                $rekening->saldo -= $cashflow->nominal;
+            } else {
+                $rekening->saldo += $cashflow->nominal;
+            }
+
+            $rekening->save();
+        }
+
+        NotaPayment::where('idnota', $nota->id)->delete();
+        Cashflow::where('idnota', $nota->id)->delete();
     }
 
     private function processPayment($nota, $idrek, $jumlah, $tanggal, $cashflow)

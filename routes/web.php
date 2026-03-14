@@ -719,6 +719,8 @@ Route::prefix('toko')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|
     Route::get('/barang/{id}', [TokoController::class, 'getDetailBarang'])->name('toko.barang.detail');
     Route::put('/barang/{id}', [TokoController::class, 'updateBarang'])->name('toko.barang.update');
     Route::get('/stock/history/{barangId}', [TokoController::class, 'getStockHistory'])->name('toko.stock.history');
+    Route::put('/{id}', [TokoController::class, 'update'])->name('toko.update');
+    Route::get('/{id}/invoice', [TokoController::class, 'invoicePdf'])->name('toko.invoice');
 
     // Common
     Route::get('/{id}', [TokoController::class, 'show'])->name('toko.show');

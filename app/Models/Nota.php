@@ -15,7 +15,7 @@ class Nota extends Model
         'vendor_id', 'idrek', 'tanggal', 'cashflow', 'paymen_method',
         'tgl_tempo', 'subtotal', 'ppn', 'diskon', 'total', 'status',
         'bukti_nota', 'nip', 'namauser', 'type', 'unit_detail_id',
-        'pekerjaan_konstruksi_id', 'customer_id', 'keterangan_customer',
+        'pekerjaan_konstruksi_id', 'customer_id', 'customer_toko_id', 'keterangan_customer',
         'project_tujuan_id', 'jenis_penjualan'
     ];
 
@@ -46,6 +46,11 @@ class Nota extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function customerToko()
+    {
+        return $this->belongsTo(CustomerToko::class, 'customer_toko_id');
     }
 
     public function rekening()
