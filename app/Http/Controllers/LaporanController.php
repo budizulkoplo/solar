@@ -359,6 +359,29 @@ class LaporanController extends Controller
             ]);
         }
         
+        $kodeTransaksiSubquery = DB::table('nota_transactions as nt')
+            ->leftJoin('kodetransaksi as kt', 'nt.idkodetransaksi', '=', 'kt.id')
+            ->select(
+                'nt.idnota',
+                DB::raw("
+                    SUBSTRING_INDEX(
+                        GROUP_CONCAT(
+                            CONCAT('(', COALESCE(kt.kodetransaksi, '-'), ') ', COALESCE(kt.transaksi, '-'))
+                            ORDER BY
+                                CASE
+                                    WHEN nt.description IN ('PPN', 'Diskon') THEN 1
+                                    ELSE 0
+                                END,
+                                nt.id
+                            SEPARATOR '||'
+                        ),
+                        '||',
+                        1
+                    ) as kode_transaksi_display
+                ")
+            )
+            ->groupBy('nt.idnota');
+
         // Query data transaksi Project (idproject tidak null)
         $data = DB::table('notas as n')
             ->select(
@@ -366,6 +389,7 @@ class LaporanController extends Controller
                 'np.id as id_payment',
                 'n.nota_no',
                 'n.tanggal',
+                DB::raw('COALESCE(kts.kode_transaksi_display, "-") as kodetransaksi'),
                 DB::raw('"Transaksi" as kategori'),
                 'n.namatransaksi',
                 'np.jumlah as jumlah_transaksi',
@@ -381,7 +405,10 @@ class LaporanController extends Controller
             ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
             ->leftJoin('rekening as r', 'np.idrek', '=', 'r.idrek')
             ->leftJoin('projects as p', 'n.idproject', '=', 'p.id')
-            ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota') 
+            ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota')
+            ->leftJoinSub($kodeTransaksiSubquery, 'kts', function ($join) {
+                $join->on('n.id', '=', 'kts.idnota');
+            })
             ->where('n.status', 'paid')
             ->where('n.idproject', session('active_project_id'))
             ->whereNotNull('n.idproject') // Hanya yang punya project
@@ -587,6 +614,29 @@ class LaporanController extends Controller
             ]);
         }
 
+        $kodeTransaksiSubquery = DB::table('nota_transactions as nt')
+            ->leftJoin('kodetransaksi as kt', 'nt.idkodetransaksi', '=', 'kt.id')
+            ->select(
+                'nt.idnota',
+                DB::raw("
+                    SUBSTRING_INDEX(
+                        GROUP_CONCAT(
+                            CONCAT('(', COALESCE(kt.kodetransaksi, '-'), ') ', COALESCE(kt.transaksi, '-'))
+                            ORDER BY
+                                CASE
+                                    WHEN nt.description IN ('PPN', 'Diskon') THEN 1
+                                    ELSE 0
+                                END,
+                                nt.id
+                            SEPARATOR '||'
+                        ),
+                        '||',
+                        1
+                    ) as kode_transaksi_display
+                ")
+            )
+            ->groupBy('nt.idnota');
+
         /**
          * ==================================================
          * 1. TRANSAKSI NOTA (PT)
@@ -598,6 +648,7 @@ class LaporanController extends Controller
                 'np.id as id_payment',
                 'n.nota_no',
                 'n.tanggal',
+                DB::raw('COALESCE(kts.kode_transaksi_display, "-") as kodetransaksi'),
                 DB::raw('"Transaksi" as kategori'),
                 'n.namatransaksi',
                 'np.jumlah as jumlah_transaksi',
@@ -614,6 +665,9 @@ class LaporanController extends Controller
             ->leftJoin('rekening as r', 'np.idrek', '=', 'r.idrek')
             ->leftJoin('company_units as cu', 'n.idcompany', '=', 'cu.id')
             ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota')
+            ->leftJoinSub($kodeTransaksiSubquery, 'kts', function ($join) {
+                $join->on('n.id', '=', 'kts.idnota');
+            })
             ->where('n.status', 'paid')
             ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
@@ -631,6 +685,7 @@ class LaporanController extends Controller
                 DB::raw('NULL as id_payment'),
                 'pbk.kode_transaksi as nota_no',
                 'pbk.tanggal',
+                DB::raw("CONCAT('(', pbk.kode_transaksi, ') Pindah Buku') as kodetransaksi"),
                 DB::raw('"Pindah Buku" as kategori'),
                 'pbk.keterangan as namatransaksi',
                 'pbk.nominal as jumlah_transaksi',
@@ -660,6 +715,7 @@ class LaporanController extends Controller
                 DB::raw('NULL as id_payment'),
                 'pbk.kode_transaksi as nota_no',
                 'pbk.tanggal',
+                DB::raw("CONCAT('(', pbk.kode_transaksi, ') Pindah Buku') as kodetransaksi"),
                 DB::raw('"Pindah Buku" as kategori'),
                 'pbk.keterangan as namatransaksi',
                 'pbk.nominal as jumlah_transaksi',

@@ -11,6 +11,7 @@ use App\Models\Rekening;
 use App\Models\Vendor;
 use App\Models\Project;
 use App\Models\Barang;
+use App\Models\Customer;
 use App\Models\StockProject;
 use App\Models\StockHistory;
 use App\Models\TransUpdateLog;
@@ -115,7 +116,8 @@ class TokoController extends Controller
     {
         $query = Nota::with([
                 'project:id,namaproject',
-                'vendor:id,namavendor'
+                'vendor:id,namavendor',
+                'customer:id,nama_lengkap,no_hp'
             ])
             ->where('cashflow', 'out')
             ->where('type', 'toko')
@@ -140,6 +142,9 @@ class TokoController extends Controller
             ->editColumn('tanggal', function($row) {
                 return date('d/m/Y', strtotime($row->tanggal));
             })
+            ->editColumn('type', function($row) {
+                return $row->jenis_penjualan ?? 'toko';
+            })
             ->editColumn('total', function($row) {
                 return 'Rp ' . number_format($row->total, 0, ',', '.');
             })
@@ -159,8 +164,13 @@ class TokoController extends Controller
                     $query->where(function($q) use ($search) {
                         $q->where('nota_no', 'like', "%{$search}%")
                         ->orWhere('namatransaksi', 'like', "%{$search}%")
+                        ->orWhere('keterangan_customer', 'like', "%{$search}%")
                         ->orWhere('total', 'like', "%{$search}%")
                         ->orWhere('namauser', 'like', "%{$search}%")
+                        ->orWhereHas('customer', function($q) use ($search) {
+                            $q->where('nama_lengkap', 'like', "%{$search}%")
+                              ->orWhere('no_hp', 'like', "%{$search}%");
+                        })
                         ->orWhereHas('vendor', function($q) use ($search) {
                             $q->where('namavendor', 'like', "%{$search}%");
                         })
@@ -461,10 +471,14 @@ class TokoController extends Controller
                 'namatransaksi' => 'required|string|max:255',
                 'tanggal' => 'required|date',
                 'idrek' => 'required|exists:rekening,idrek',
+                'paymen_method' => 'required|in:cash,tempo',
+                'tgl_tempo' => 'nullable|date|required_if:paymen_method,tempo',
+                'customer_id' => 'nullable|exists:customers,id',
+                'keterangan_customer' => 'nullable|string|max:255',
                 'transactions' => 'required|array|min:1',
                 'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
                 'jenis_penjualan' => 'required|in:toko,project',
-
+                'project_tujuan_id' => 'nullable|exists:projects,id|required_if:jenis_penjualan,project',
             ]);
 
             // Ambil user yang login
@@ -504,19 +518,23 @@ class TokoController extends Controller
                 'nota_no' => $request->nota_no,
                 'namatransaksi' => $request->namatransaksi,
                 'idproject' => $projectToko->id,
+                'project_tujuan_id' => $request->project_tujuan_id,
                 'idcompany' => $idcompany,
                 'idretail' => $idretail,
                 'idrek' => $request->idrek,
+                'customer_id' => $request->customer_id,
+                'keterangan_customer' => $request->keterangan_customer,
                 'tanggal' => $request->tanggal,
                 'cashflow' => 'out',
                 'type' => 'toko',
-                'paymen_method' => $request->paymen_method ?? 'cash',
+                'jenis_penjualan' => $request->jenis_penjualan,
+                'paymen_method' => $request->paymen_method,
                 'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
                 'subtotal' => $subtotal,
                 'ppn' => 0,
                 'diskon' => 0,
                 'total' => $total,
-                'status' => 'paid',
+                'status' => $request->paymen_method === 'cash' ? 'paid' : 'open',
                 'bukti_nota' => $buktiNotaPath,
                 'nip' => $nip,
                 'namauser' => $namauser,
@@ -607,11 +625,20 @@ class TokoController extends Controller
             }
 
             // Proses pembayaran
-            $this->processPayment($nota, $request->idrek, $total, $request->tanggal, 'out');
+            if ($request->paymen_method === 'cash') {
+                $this->processPayment($nota, $request->idrek, $total, $request->tanggal, 'out');
+            }
 
             // Buat log
+            $customerName = null;
+            if ($request->customer_id) {
+                $customerName = Customer::find($request->customer_id)?->nama_lengkap;
+            }
+
             $this->createUpdateLog($nota->id, $nota->nota_no, 
-                "Penjualan {$request->jenis_penjualan} - No: {$nota->nota_no}, Total: Rp " . number_format($total, 0, ',', '.'));
+                "Penjualan {$request->jenis_penjualan} ({$request->paymen_method}) - No: {$nota->nota_no}, Total: Rp " .
+                number_format($total, 0, ',', '.') .
+                ($customerName ? ", Customer: {$customerName}" : ''));
 
             DB::commit();
 
@@ -662,6 +689,89 @@ class TokoController extends Controller
         }
         
         return response()->json($data);
+    }
+
+    public function getCustomers(Request $request)
+    {
+        $search = $request->get('search');
+
+        $customers = Customer::query()
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nama_lengkap', 'like', "%{$search}%")
+                        ->orWhere('kode_customer', 'like', "%{$search}%")
+                        ->orWhere('no_hp', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('nama_lengkap')
+            ->limit(20)
+            ->get(['id', 'kode_customer', 'nama_lengkap', 'no_hp', 'alamat_ktp']);
+
+        return response()->json($customers->map(function ($customer) {
+            return [
+                'id' => $customer->id,
+                'text' => trim("{$customer->nama_lengkap} | {$customer->no_hp}")
+            ];
+        })->values());
+    }
+
+    public function storeCustomer(Request $request)
+    {
+        $validator = validator($request->all(), [
+            'nama_lengkap' => 'required|string|max:255',
+            'alamat_ktp' => 'required|string',
+            'no_hp' => 'required|string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $customer = Customer::create([
+                'nama_lengkap' => $request->nama_lengkap,
+                'tempat_lahir' => '-',
+                'tanggal_lahir' => now()->toDateString(),
+                'jenis_kelamin' => 'L',
+                'nik' => $this->generateSimpleCustomerNik(),
+                'alamat_ktp' => $request->alamat_ktp,
+                'rt_rw_ktp' => '-',
+                'kelurahan_ktp' => '-',
+                'kecamatan_ktp' => '-',
+                'kota_ktp' => '-',
+                'no_hp' => $request->no_hp,
+                'pekerjaan' => 'Customer Toko',
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Customer toko berhasil ditambahkan',
+                'data' => $customer,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menambahkan customer: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function generateSimpleCustomerNik(): string
+    {
+        do {
+            $nik = now()->format('ymdHis') . str_pad((string) random_int(0, 99), 2, '0', STR_PAD_LEFT);
+        } while (Customer::where('nik', $nik)->exists());
+
+        return $nik;
     }
 
     // Get detail barang
@@ -822,7 +932,9 @@ class TokoController extends Controller
         try {
             $nota = Nota::with([
                 'project',
-                'vendor', 
+                'vendor',
+                'customer',
+                'projectTujuan',
                 'rekening',
                 'transactions' => function($q) {
                     $q->with('barang')
@@ -854,6 +966,8 @@ class TokoController extends Controller
         try {
             $nota = Nota::with([
                 'vendor',
+                'customer',
+                'projectTujuan',
                 'transactions' => function($q) {
                     $q->with('barang')
                       ->orderBy('id');

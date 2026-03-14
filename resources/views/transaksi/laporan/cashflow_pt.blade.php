@@ -98,6 +98,7 @@
                                 <th width="30">No</th>
                                 <th width="200">No. Nota</th>
                                 <th width="90">Tgl. Trans</th>
+                                <th width="130">Kode Transaksi</th>
                                 <th>Nama Transaksi</th>
                                 <th width="120" class="text-end">Pemasukan</th>
                                 <th width="120" class="text-end">Pengeluaran</th>
@@ -111,18 +112,19 @@
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="1"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="2"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="3"></th>
-                                <th><input type="text" class="filter-input" placeholder="Cari..." data-column="4" style="text-align: right;"></th>
+                                <th><input type="text" class="filter-input" placeholder="Cari..." data-column="4"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="5" style="text-align: right;"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="6" style="text-align: right;"></th>
-                                <th><input type="text" class="filter-input" placeholder="Cari..." data-column="7"></th>
+                                <th><input type="text" class="filter-input" placeholder="Cari..." data-column="7" style="text-align: right;"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="8"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="9"></th>
+                                <th><input type="text" class="filter-input" placeholder="Cari..." data-column="10"></th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                         <tfoot class="table-info">
                             <tr>
-                                <th colspan="4" class="text-end"><strong>TOTAL</strong></th>
+                                <th colspan="5" class="text-end"><strong>TOTAL</strong></th>
                                 <th id="totalPemasukan" class="text-end"></th>
                                 <th id="totalPengeluaran" class="text-end"></th>
                                 <th id="saldoAkhir" class="text-end"></th>
@@ -544,6 +546,10 @@
                             }
                         },
                         { 
+                            data: 'kodetransaksi',
+                            className: 'text-center'
+                        },
+                        { 
                             data: 'namatransaksi'
                         },
                         { 
@@ -602,14 +608,14 @@
                                             return span ? span.textContent : data;
                                         }
                                         
-                                        // Kolom nominal (Pemasukan index 4, Pengeluaran index 5, Saldo index 6)
-                                        if (column === 4 || column === 5 || column === 6) {
+                                        // Kolom nominal (Pemasukan index 5, Pengeluaran index 6, Saldo index 7)
+                                        if (column === 5 || column === 6 || column === 7) {
                                             // Ambil data asli dari row, bukan dari HTML yang sudah diformat
                                             const rowData = table.row(row).data();
                                             
-                                            if (column === 4) return rowData.pemasukan || 0;
-                                            if (column === 5) return rowData.pengeluaran || 0;
-                                            if (column === 6) return rowData.saldo || 0;
+                                            if (column === 5) return rowData.pemasukan || 0;
+                                            if (column === 6) return rowData.pengeluaran || 0;
+                                            if (column === 7) return rowData.saldo || 0;
                                         }
                                         
                                         return data;
@@ -635,13 +641,13 @@
                                 const sheet = xlsx.xl.worksheets['sheet1.xml'];
                                 
                                 // Format kolom nominal sebagai angka
-                                $('row c[r^="E"]', sheet).each(function() {
+                                $('row c[r^="F"]', sheet).each(function() {
                                     $(this).attr('s', '2'); // Format number
                                 });
-                                $('row c[r^="F"]', sheet).each(function() {
+                                $('row c[r^="G"]', sheet).each(function() {
                                     $(this).attr('s', '2');
                                 });
-                                $('row c[r^="G"]', sheet).each(function() {
+                                $('row c[r^="H"]', sheet).each(function() {
                                     $(this).attr('s', '2');
                                 });
                             }

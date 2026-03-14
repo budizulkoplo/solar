@@ -84,7 +84,20 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-12">
+                            <div class="col-md-3">
+                                <label class="form-label">Metode Pembayaran *</label>
+                                <select class="form-select form-select-sm" name="paymen_method" id="paymentMethod" required>
+                                    <option value="cash">Cash</option>
+                                    <option value="tempo">Tempo</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3" id="tanggalTempoContainer" style="display:none;">
+                                <label class="form-label">Tanggal Tempo *</label>
+                                <input type="date" class="form-control form-control-sm" name="tgl_tempo" id="tanggalTempo">
+                            </div>
+
+                            <div class="col-md-6" id="rekeningContainer">
                                 <label class="form-label">Rekening *</label>
                                 <select class="form-select form-select-sm select2" name="idrek" id="idRekening" style="width:100%;" required>
                                     <option value="">-- Pilih Rekening --</option>
@@ -99,13 +112,27 @@
                                 </div>
                             </div>
 
-                            <div class="col-12">
-                                <label class="form-label">Keterangan / Customer</label>
-                                <input type="text" class="form-control form-control-sm" name="keterangan_customer" id="keteranganCustomer" placeholder="Nama customer / keterangan penjualan">
+                            <div class="col-md-9">
+                                <label class="form-label">Customer Toko</label>
+                                <select class="form-select form-select-sm customer-select" name="customer_id" id="customerId" style="width:100%;">
+                                    <option value="">-- Pilih Customer --</option>
+                                </select>
+                                <small class="text-success" id="customerStoreFeedback" style="display:none;"></small>
+                            </div>
+
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary w-100" id="btnTambahCustomerToko">
+                                    <i class="bi bi-person-plus"></i> Customer Baru
+                                </button>
                             </div>
 
                             <div class="col-12">
-                                <label class="form-label">Bukti Nota</label>
+                                <label class="form-label">Keterangan Customer</label>
+                                <input type="text" class="form-control form-control-sm" name="keterangan_customer" id="keteranganCustomer" placeholder="Catatan customer / keterangan penjualan">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Nota Penjualan Casa Builders</label>
                                 <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" 
                                        accept=".jpg,.jpeg,.png,.pdf">
                                 <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
@@ -272,7 +299,7 @@
                             </table>
 
                             <div id="viewBuktiNota" class="mt-3" style="display:none;">
-                                <h6>Bukti Nota</h6>
+                                <h6>Nota Penjualan Casa Builders</h6>
                                 <div id="buktiContainer">
                                     <!-- Preview bukti akan ditampilkan di sini -->
                                 </div>
@@ -351,7 +378,20 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-md-12">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Metode Pembayaran *</label>
+                                        <select class="form-select form-select-sm" name="paymen_method" id="editPaymentMethod" required>
+                                            <option value="cash">Cash</option>
+                                            <option value="tempo">Tempo</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3" id="editTanggalTempoContainer" style="display:none;">
+                                        <label class="form-label">Tanggal Tempo *</label>
+                                        <input type="date" class="form-control form-control-sm" name="tgl_tempo" id="editTanggalTempo">
+                                    </div>
+
+                                    <div class="col-md-6" id="editRekeningContainer">
                                         <label class="form-label">Rekening *</label>
                                         <select class="form-select form-select-sm select2" name="idrek" id="editIdRekening" style="width:100%;" required>
                                             <option value="">-- Pilih Rekening --</option>
@@ -366,13 +406,26 @@
                                         </div>
                                     </div>
 
-                                    <div class="col-12">
-                                        <label class="form-label">Keterangan / Customer</label>
-                                        <input type="text" class="form-control form-control-sm" name="keterangan_customer" id="editKeteranganCustomer" placeholder="Nama customer / keterangan penjualan">
+                                    <div class="col-md-9">
+                                        <label class="form-label">Customer Toko</label>
+                                        <select class="form-select form-select-sm edit-customer-select" name="customer_id" id="editCustomerId" style="width:100%;">
+                                            <option value="">-- Pilih Customer --</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary w-100" id="btnTambahCustomerTokoEdit">
+                                            <i class="bi bi-person-plus"></i> Customer Baru
+                                        </button>
                                     </div>
 
                                     <div class="col-12">
-                                        <label class="form-label">Bukti Nota <span class="text-muted">(Optional)</span></label>
+                                        <label class="form-label">Keterangan Customer</label>
+                                        <input type="text" class="form-control form-control-sm" name="keterangan_customer" id="editKeteranganCustomer" placeholder="Catatan customer / keterangan penjualan">
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label">Nota Penjualan Casa Builders <span class="text-muted">(Optional)</span></label>
                                         <input type="file" class="form-control form-control-sm" name="bukti_nota" id="editBuktiNota" 
                                                accept=".jpg,.jpeg,.png,.pdf">
                                         <small class="text-muted">Format: JPG, PNG, PDF (Max: 2MB)</small>
@@ -444,6 +497,41 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCustomerToko" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="frmCustomerToko">
+                    @csrf
+                    <div class="modal-header">
+                        <h6 class="modal-title">Customer Toko Baru</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger py-2 px-3 small" id="customerTokoError" style="display:none;"></div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Nama Customer *</label>
+                                <input type="text" class="form-control form-control-sm" name="nama_lengkap" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">No HP *</label>
+                                <input type="text" class="form-control form-control-sm" name="no_hp" maxlength="20" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Alamat *</label>
+                                <textarea class="form-control form-control-sm" name="alamat_ktp" rows="2" required></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitCustomerToko">Simpan Customer</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -581,6 +669,29 @@
                     dropdownParent: $('#modalPenjualan'),
                     width: '100%'
                 });
+
+                if (!$('#customerId').hasClass('select2-hidden-accessible')) {
+                    $('#customerId').select2({
+                        dropdownParent: $('#modalPenjualan'),
+                        width: '100%',
+                        ajax: {
+                            url: "{{ route('toko.customers.search') }}",
+                            dataType: 'json',
+                            delay: 250,
+                            data: function(params) {
+                                return {
+                                    search: params.term
+                                };
+                            },
+                            processResults: function(data) {
+                                return {
+                                    results: data
+                                };
+                            }
+                        },
+                        minimumInputLength: 1
+                    });
+                }
                 
                 // Initialize select2 untuk barang
                 $('.barang-select').each(function(index) {
@@ -609,6 +720,51 @@
                 });
             }
 
+            function initializeEditCustomerSelect(selectedId = null, selectedText = null) {
+                if (!$('#editCustomerId').hasClass('select2-hidden-accessible')) {
+                    $('#editCustomerId').select2({
+                        dropdownParent: $('#modalEditPenjualan'),
+                        width: '100%',
+                        ajax: {
+                            url: "{{ route('toko.customers.search') }}",
+                            dataType: 'json',
+                            delay: 250,
+                            data: function(params) {
+                                return {
+                                    search: params.term
+                                };
+                            },
+                            processResults: function(data) {
+                                return {
+                                    results: data
+                                };
+                            }
+                        },
+                        minimumInputLength: 1
+                    });
+                }
+
+                if (selectedId && selectedText) {
+                    $('#editCustomerId').empty().append('<option value="">-- Pilih Customer --</option>');
+                    const option = new Option(selectedText, selectedId, true, true);
+                    $('#editCustomerId').append(option).trigger('change');
+                }
+            }
+
+            function togglePaymentFields(mode = 'create') {
+                const paymentMethodSelector = mode === 'edit' ? '#editPaymentMethod' : '#paymentMethod';
+                const tanggalTempoContainerSelector = mode === 'edit' ? '#editTanggalTempoContainer' : '#tanggalTempoContainer';
+                const tanggalTempoSelector = mode === 'edit' ? '#editTanggalTempo' : '#tanggalTempo';
+                const paymentMethod = $(paymentMethodSelector).val();
+                const isTempo = paymentMethod === 'tempo';
+
+                $(tanggalTempoContainerSelector).toggle(isTempo);
+                $(tanggalTempoSelector).prop('required', isTempo);
+                if (!isTempo) {
+                    $(tanggalTempoSelector).val('');
+                }
+            }
+
             // Toggle project tujuan
             $('#jenisPenjualan').change(function() {
                 if ($(this).val() === 'project') {
@@ -620,6 +776,10 @@
                     $('#projectTujuanId').prop('required', false);
                     $('#namaTransaksi').val('Penjualan Barang');
                 }
+            });
+
+            $('#paymentMethod').change(function() {
+                togglePaymentFields('create');
             });
 
             // Update saldo info
@@ -768,10 +928,12 @@
                 $('#frmPenjualan')[0].reset();
                 $('#idPenjualan').val('');
                 $('#jenisPenjualan').val('toko').trigger('change');
+                $('#paymentMethod').val('cash').trigger('change');
                 $('#projectTujuanContainer').hide();
                 $('#stockWarning').hide();
                 $('#keteranganCustomer').val('');
                 $('#namaTransaksi').val('Penjualan Barang');
+                $('#customerId').val(null).trigger('change');
                 
                 $('#tblDetailBarang tbody').html(`
                     <tr>
@@ -795,6 +957,7 @@
                 barangRowIndex = 1;
                 initializeSelect2();
                 updateSaldoInfo();
+                togglePaymentFields('create');
             }
 
             // Submit form tambah
@@ -874,14 +1037,18 @@
                         $('#viewTanggal').text(formatTanggal(nota.tanggal));
                         $('#viewNamaTransaksi').text(nota.namatransaksi);
                         $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
-                        $('#viewJenisPenjualan').text(nota.type === 'project' ? 'Ke Project' : 'Toko');
-                        $('#viewKeterangan').text(nota.keterangan_customer || '-');
+                        $('#viewJenisPenjualan').text(nota.jenis_penjualan === 'project' ? 'Ke Project' : 'Toko');
+                        let customerText = nota.customer ? nota.customer.nama_lengkap : '-';
+                        let keteranganText = nota.keterangan_customer ? ` | ${nota.keterangan_customer}` : '';
+                        $('#viewKeterangan').text(customerText !== '-' ? customerText + keteranganText : (nota.keterangan_customer || '-'));
                         $('#viewUser').text(nota.namauser || '-');
                         $('#viewRekening').text(nota.rekening ? nota.rekening.norek + ' - ' + nota.rekening.namarek : '-');
                         $('#viewTotal').text(formatRupiah(nota.total));
                         $('#viewStatus').html(getStatusBadge(nota.status));
                         $('#viewCashflow').text(nota.cashflow === 'out' ? 'Keluar' : 'Masuk');
-                        $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
+                        $('#viewPaymentMethod').text(nota.paymen_method === 'cash'
+                            ? 'Cash'
+                            : 'Tempo' + (nota.tgl_tempo ? ' - ' + formatTanggal(nota.tgl_tempo) : ''));
                         
                         // Isi detail barang
                         let detailHtml = '';
@@ -921,7 +1088,7 @@
                                     <div class="text-center">
                                         <a href="#" class="bukti-preview-link" data-url="${fileUrl}">
                                             <img src="${fileUrl}" class="img-thumbnail" style="max-height: 300px; cursor: pointer;" 
-                                                alt="Bukti Nota" title="Klik untuk melihat lebih besar">
+                                                alt="Nota Penjualan Casa Builders" title="Klik untuk melihat lebih besar">
                                             <div class="small text-muted mt-1">Klik gambar untuk memperbesar</div>
                                         </a>
                                     </div>
@@ -1007,15 +1174,21 @@
                         $('#editNotaNo').val(nota.nota_no);
                         $('#editNamaTransaksi').val(nota.namatransaksi);
                         $('#editTanggalPenjualan').val(nota.tanggal.split('T')[0]);
-                        $('#editJenisPenjualan').val(nota.type).trigger('change');
+                        $('#editJenisPenjualan').val(nota.jenis_penjualan || 'toko').trigger('change');
+                        $('#editPaymentMethod').val(nota.paymen_method || 'cash').trigger('change');
+                        $('#editTanggalTempo').val(nota.tgl_tempo ? nota.tgl_tempo.split('T')[0] : '');
                         $('#editKeteranganCustomer').val(nota.keterangan_customer || '');
+                        initializeEditCustomerSelect(
+                            nota.customer ? nota.customer.id : null,
+                            nota.customer ? nota.customer.nama_lengkap : null
+                        );
                         
                         if (nota.idrek) {
                             $('#editIdRekening').val(nota.idrek).trigger('change');
                         }
                         
                         // Tampilkan project tujuan jika jenis penjualan = project
-                        if (nota.type === 'project' && nota.project_tujuan_id) {
+                        if ((nota.jenis_penjualan || 'toko') === 'project' && nota.project_tujuan_id) {
                             $('#editProjectTujuanContainer').show();
                             $('#editProjectTujuanId').val(nota.project_tujuan_id).trigger('change');
                         }
@@ -1155,6 +1328,9 @@
                 $('#currentBukti').hide();
                 $('#editGrandTotal').val('Rp 0');
                 $('#editLogContainer').html('<p class="text-muted small">Tidak ada riwayat perubahan</p>');
+                $('#editCustomerId').val(null).trigger('change');
+                $('#editPaymentMethod').val('cash').trigger('change');
+                $('#editTanggalTempo').val('');
                 editBarangRowIndex = 0;
             }
 
@@ -1363,6 +1539,22 @@
                 }
             });
 
+            $('#customerId').on('select2:select', function(e) {
+                if (!$('#keteranganCustomer').val()) {
+                    $('#keteranganCustomer').val((e.params.data.text || '').split('|')[0].trim());
+                }
+            });
+
+            $('#editCustomerId').on('select2:select', function(e) {
+                if (!$('#editKeteranganCustomer').val()) {
+                    $('#editKeteranganCustomer').val((e.params.data.text || '').split('|')[0].trim());
+                }
+            });
+
+            $('#editPaymentMethod').change(function() {
+                togglePaymentFields('edit');
+            });
+
             // Update saldo info di edit modal
             $('#editIdRekening').change(function() {
                 let selectedRekening = $(this).find(':selected');
@@ -1395,7 +1587,66 @@
             
             // Initialize saat pertama kali load
             initializeSelect2();
+            initializeEditCustomerSelect();
             updateSaldoInfo();
+            togglePaymentFields('create');
+            togglePaymentFields('edit');
+
+            $('#btnTambahCustomerToko, #btnTambahCustomerTokoEdit').click(function() {
+                $('#frmCustomerToko')[0].reset();
+                $('#customerTokoError').hide().text('');
+                $('#modalCustomerToko').modal('show');
+            });
+
+            $('#frmCustomerToko').submit(function(e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const btn = $('#btnSubmitCustomerToko');
+                const originalText = btn.text();
+
+                btn.prop('disabled', true).text('Menyimpan...');
+
+                $.ajax({
+                    url: "{{ route('toko.customers.store') }}",
+                    type: 'POST',
+                    data: form.serialize(),
+                    success: function(res) {
+                        btn.prop('disabled', false).text(originalText);
+
+                        if (res.success) {
+                            const customer = res.data;
+                            const optionText = customer.nama_lengkap + ' | ' + customer.no_hp;
+                            const optionCreate = new Option(optionText, customer.id, true, true);
+                            const optionEdit = new Option(optionText, customer.id, true, true);
+
+                            $('#customerId').append(optionCreate).trigger('change');
+                            $('#editCustomerId').append(optionEdit).trigger('change');
+                            $('#keteranganCustomer').val(customer.nama_lengkap);
+                            $('#customerStoreFeedback')
+                                .text('Customer tersimpan: ' + customer.nama_lengkap + ' (' + customer.no_hp + ')')
+                                .show();
+
+                            $('#modalCustomerToko').modal('hide');
+                            $('#customerTokoError').hide().text('');
+                            Swal.fire('Berhasil!', res.message, 'success');
+                        } else {
+                            $('#customerTokoError').text(res.message).show();
+                            Swal.fire('Error!', res.message, 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        btn.prop('disabled', false).text(originalText);
+
+                        let errorMsg = xhr.responseJSON?.message || 'Gagal menambahkan customer';
+                        if (xhr.responseJSON?.errors) {
+                            errorMsg = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                        }
+                        $('#customerTokoError').text(errorMsg).show();
+                        Swal.fire('Error!', errorMsg, 'error');
+                    }
+                });
+            });
         });
         </script>
     </x-slot>

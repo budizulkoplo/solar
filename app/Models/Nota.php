@@ -14,7 +14,9 @@ class Nota extends Model
         'nota_no', 'namatransaksi', 'idproject', 'idcompany', 'idretail',
         'vendor_id', 'idrek', 'tanggal', 'cashflow', 'paymen_method',
         'tgl_tempo', 'subtotal', 'ppn', 'diskon', 'total', 'status',
-        'bukti_nota', 'nip', 'namauser','type','unit_detail_id','pekerjaan_konstruksi_id'
+        'bukti_nota', 'nip', 'namauser', 'type', 'unit_detail_id',
+        'pekerjaan_konstruksi_id', 'customer_id', 'keterangan_customer',
+        'project_tujuan_id', 'jenis_penjualan'
     ];
 
     // Add relationship to update logs
@@ -41,9 +43,19 @@ class Nota extends Model
         return $this->belongsTo(Vendor::class, 'vendor_id');
     }
 
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
     public function rekening()
     {
         return $this->belongsTo(Rekening::class, 'idrek', 'idrek');
+    }
+
+    public function projectTujuan()
+    {
+        return $this->belongsTo(Project::class, 'project_tujuan_id');
     }
 
     public function transactions()

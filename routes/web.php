@@ -714,6 +714,8 @@ Route::prefix('toko')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|
     Route::post('/penjualan/store', [TokoController::class, 'storePenjualan'])->name('toko.penjualan.store');
     Route::post('/adjust-stock', [TokoController::class, 'adjustStock'])->name('toko.adjust-stock');
     Route::get('/barang/search', [TokoController::class, 'getBarang'])->name('toko.barang.search');
+    Route::get('/customers/search', [TokoController::class, 'getCustomers'])->name('toko.customers.search');
+    Route::post('/customers/store', [TokoController::class, 'storeCustomer'])->name('toko.customers.store');
     Route::get('/barang/{id}', [TokoController::class, 'getDetailBarang'])->name('toko.barang.detail');
     Route::put('/barang/{id}', [TokoController::class, 'updateBarang'])->name('toko.barang.update');
     Route::get('/stock/history/{barangId}', [TokoController::class, 'getStockHistory'])->name('toko.stock.history');
