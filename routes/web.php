@@ -231,6 +231,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         
         Route::get('/laba-rugi', [LaporanController::class, 'labaRugi'])->name('laporan.laba-rugi');
         Route::get('/laba-rugi/data', [LaporanController::class, 'labaRugiData'])->name('laporan.laba-rugi.data');
+        Route::get('/perubahan-ekuitas', [LaporanController::class, 'perubahanEkuitas'])->name('laporan.perubahan-ekuitas');
+        Route::get('/perubahan-ekuitas/data', [LaporanController::class, 'perubahanEkuitasData'])->name('laporan.perubahan-ekuitas.data');
         Route::get('/neraca-saldo', [LaporanController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
         Route::get('/neraca-saldo/data', [LaporanController::class, 'neracaSaldoData'])->name('laporan.neraca-saldo.data');
         Route::post('/neraca-saldo/export-excel', [LaporanController::class, 'exportNeracaSaldoExcel'])->name('laporan.neraca-saldo.export-excel');

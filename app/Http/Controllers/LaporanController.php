@@ -1544,12 +1544,327 @@ class LaporanController extends Controller
     }
 
     /**
+     * Halaman laporan perubahan ekuitas
+     */
+    public function perubahanEkuitas()
+    {
+        $startDate = now()->startOfYear()->format('Y-m-d');
+        $endDate = now()->endOfYear()->format('Y-m-d');
+        $module = session('active_project_module');
+
+        return view('transaksi.laporan.perubahan_ekuitas', compact('startDate', 'endDate', 'module'));
+    }
+
+    /**
+     * Data laporan perubahan ekuitas
+     */
+    public function perubahanEkuitasData(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfYear()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfYear()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+
+        if (empty($startDate) || empty($endDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tanggal awal dan akhir harus diisi'
+            ], 400);
+        }
+
+        try {
+            $report = $this->buildPerubahanEkuitasReport($startDate, $endDate, $module);
+
+            return response()->json([
+                'success' => true,
+                'data' => $report['data'],
+                'summary' => $report['summary'],
+                'period' => $report['period'],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error generating perubahan ekuitas:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function buildPerubahanEkuitasReport(string $startDate, string $endDate, string $module): array
+    {
+        $openingDate = Carbon::parse($startDate)->subDay()->format('Y-m-d');
+
+        $openingBalances = $this->getPerubahanEkuitasBalances(null, $openingDate, $module);
+        $currentYearBalances = $this->getPerubahanEkuitasBalances($startDate, $endDate, $module);
+        $profitLoss = $this->calculateLabaRugiRingkas($startDate, $endDate, $module);
+
+        $modalAwal = $openingBalances['categories']['modal_disetor'] ?? 0;
+        $labaDitahanAwal = $openingBalances['categories']['laba_ditahan'] ?? 0;
+        $tambahanModal = $currentYearBalances['categories']['modal_disetor'] ?? 0;
+        $pembagianDividen = $currentYearBalances['categories']['dividen'] ?? 0;
+        $koreksiEkuitas = $currentYearBalances['categories']['koreksi_ekuitas'] ?? 0;
+        $labaRugiBerjalan = $profitLoss['laba_bersih_raw'] ?? 0;
+
+        $modalAkhir = $modalAwal + $tambahanModal;
+        $labaDitahanAkhir = $labaDitahanAwal + $labaRugiBerjalan + $pembagianDividen + $koreksiEkuitas;
+        $totalAkhir = $modalAkhir + $labaDitahanAkhir;
+
+        $rows = [
+            [
+                'keterangan' => 'Saldo Awal ' . Carbon::parse($startDate)->format('d F Y') . ' (berdasarkan saldo akhir periode sebelumnya)',
+                'modal_disetor_raw' => $modalAwal,
+                'laba_ditahan_raw' => $labaDitahanAwal,
+            ],
+            [
+                'keterangan' => 'Laba/Rugi Tahun Berjalan',
+                'modal_disetor_raw' => 0,
+                'laba_ditahan_raw' => $labaRugiBerjalan,
+            ],
+            [
+                'keterangan' => 'Pembagian Dividen',
+                'modal_disetor_raw' => 0,
+                'laba_ditahan_raw' => $pembagianDividen,
+            ],
+            [
+                'keterangan' => 'Tambahan Modal Disetor',
+                'modal_disetor_raw' => $tambahanModal,
+                'laba_ditahan_raw' => 0,
+            ],
+            [
+                'keterangan' => 'Koreksi Ekuitas',
+                'modal_disetor_raw' => 0,
+                'laba_ditahan_raw' => $koreksiEkuitas,
+            ],
+            [
+                'keterangan' => 'Saldo Akhir ' . Carbon::parse($endDate)->format('d F Y'),
+                'modal_disetor_raw' => $modalAkhir,
+                'laba_ditahan_raw' => $labaDitahanAkhir,
+            ],
+        ];
+
+        foreach ($rows as &$row) {
+            $row['total_ekuitas_raw'] = $row['modal_disetor_raw'] + $row['laba_ditahan_raw'];
+            $row['modal_disetor'] = number_format($row['modal_disetor_raw'], 0, ',', '.');
+            $row['laba_ditahan'] = number_format($row['laba_ditahan_raw'], 0, ',', '.');
+            $row['total_ekuitas'] = number_format($row['total_ekuitas_raw'], 0, ',', '.');
+        }
+        unset($row);
+
+        return [
+            'data' => [
+                'rows' => $rows,
+            ],
+            'summary' => [
+                'modal_awal_raw' => $modalAwal,
+                'laba_ditahan_awal_raw' => $labaDitahanAwal,
+                'tambahan_modal_raw' => $tambahanModal,
+                'pembagian_dividen_raw' => $pembagianDividen,
+                'koreksi_ekuitas_raw' => $koreksiEkuitas,
+                'laba_rugi_berjalan_raw' => $labaRugiBerjalan,
+                'modal_akhir_raw' => $modalAkhir,
+                'laba_ditahan_akhir_raw' => $labaDitahanAkhir,
+                'total_akhir_raw' => $totalAkhir,
+                'unmapped_accounts' => array_merge(
+                    $openingBalances['unmapped_accounts'],
+                    $currentYearBalances['unmapped_accounts']
+                ),
+            ],
+            'period' => [
+                'start' => $startDate,
+                'end' => $endDate,
+                'module' => $module
+            ]
+        ];
+    }
+
+    private function getPerubahanEkuitasBalances(?string $startDate, string $endDate, string $module): array
+    {
+        $query = NotaTransaction::query()
+            ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+            ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+            ->leftJoin('neraca_hdr', 'kodetransaksi.idneraca', '=', 'neraca_hdr.id')
+            ->where('notas.status', 'paid')
+            ->where('kodetransaksi.kodetransaksi', 'like', '3%')
+            ->whereDate('notas.tanggal', '<=', $endDate);
+
+        if (!empty($startDate)) {
+            $query->whereDate('notas.tanggal', '>=', $startDate);
+        }
+
+        $this->applyFinancialModuleFilter($query, $module);
+
+        $rows = $query
+            ->selectRaw('
+                kodetransaksi.id as id_kodetransaksi,
+                kodetransaksi.kodetransaksi as kode_akun,
+                kodetransaksi.transaksi as nama_akun,
+                kodetransaksi.idneraca as id_neraca,
+                neraca_hdr.rincian as rincian_neraca,
+                COALESCE(SUM(CASE WHEN notas.cashflow = "in" THEN nota_transactions.total ELSE 0 END), 0) as total_in,
+                COALESCE(SUM(CASE WHEN notas.cashflow = "out" THEN nota_transactions.total ELSE 0 END), 0) as total_out
+            ')
+            ->groupBy([
+                'kodetransaksi.id',
+                'kodetransaksi.kodetransaksi',
+                'kodetransaksi.transaksi',
+                'kodetransaksi.idneraca',
+                'neraca_hdr.rincian',
+            ])
+            ->orderBy('kodetransaksi.kodetransaksi')
+            ->get();
+
+        $categories = [
+            'modal_disetor' => 0,
+            'laba_ditahan' => 0,
+            'dividen' => 0,
+            'koreksi_ekuitas' => 0,
+        ];
+        $unmappedAccounts = [];
+
+        foreach ($rows as $row) {
+            $balance = (float) $row->total_in - (float) $row->total_out;
+            if (abs($balance) < 0.5) {
+                continue;
+            }
+
+            $category = $this->classifyPerubahanEkuitasAccount([
+                'nama_akun' => $row->nama_akun,
+                'rincian_neraca' => $row->rincian_neraca,
+            ]);
+
+            if (!$category) {
+                $unmappedAccounts[] = [
+                    'kode' => (string) $row->kode_akun,
+                    'nama_akun' => (string) $row->nama_akun,
+                ];
+                continue;
+            }
+
+            $categories[$category] += $balance;
+        }
+
+        return [
+            'categories' => $categories,
+            'unmapped_accounts' => $unmappedAccounts,
+        ];
+    }
+
+    private function classifyPerubahanEkuitasAccount(array $account): ?string
+    {
+        $name = strtolower((string) ($account['nama_akun'] ?? ''));
+        $neraca = strtolower((string) ($account['rincian_neraca'] ?? ''));
+        $haystack = trim($name . ' ' . $neraca);
+
+        if ($haystack === '') {
+            return null;
+        }
+
+        if (str_contains($haystack, 'dividen')) {
+            return 'dividen';
+        }
+
+        if (str_contains($haystack, 'koreksi')) {
+            return 'koreksi_ekuitas';
+        }
+
+        if (str_contains($haystack, 'laba ditahan') || str_contains($haystack, 'saldo laba') || str_contains($haystack, 'retained earning')) {
+            return 'laba_ditahan';
+        }
+
+        if (str_contains($haystack, 'modal')) {
+            return 'modal_disetor';
+        }
+
+        return null;
+    }
+
+    private function calculateLabaRugiRingkas(string $startDate, string $endDate, string $module): array
+    {
+        $query = NotaTransaction::query()
+            ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+            ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+            ->leftJoin('labarugi_hdr', 'kodetransaksi.idlabarugi', '=', 'labarugi_hdr.id')
+            ->where('notas.status', 'paid')
+            ->whereBetween('notas.tanggal', [$startDate, $endDate]);
+
+        $this->applyFinancialModuleFilter($query, $module);
+
+        $rows = $query
+            ->selectRaw('
+                labarugi_hdr.cashflow as cashflow_labarugi,
+                labarugi_hdr.kode_pengeluaran as kode_pengeluaran,
+                COALESCE(SUM(CASE WHEN notas.cashflow = "in" THEN nota_transactions.total ELSE 0 END), 0) as total_in,
+                COALESCE(SUM(CASE WHEN notas.cashflow = "out" THEN nota_transactions.total ELSE 0 END), 0) as total_out
+            ')
+            ->groupBy([
+                'labarugi_hdr.cashflow',
+                'labarugi_hdr.kode_pengeluaran',
+            ])
+            ->get();
+
+        $totalPendapatan = 0;
+        $totalBeban = 0;
+
+        foreach ($rows as $row) {
+            $cashflow = strtolower((string) ($row->cashflow_labarugi ?? ''));
+
+            if ($cashflow === 'pemasukan') {
+                $totalPendapatan += ((float) $row->total_in - (float) $row->total_out);
+                continue;
+            }
+
+            if ($cashflow === 'pengeluaran') {
+                $totalBeban += ((float) $row->total_out - (float) $row->total_in);
+            }
+        }
+
+        return [
+            'laba_bersih_raw' => $totalPendapatan - $totalBeban,
+            'total_pendapatan_raw' => $totalPendapatan,
+            'total_beban_raw' => $totalBeban,
+        ];
+    }
+
+    private function applyFinancialModuleFilter($query, string $module): void
+    {
+        if ($module === 'project') {
+            $projectId = session('active_project_id');
+            if (!$projectId) {
+                throw new \Exception('Project ID tidak ditemukan');
+            }
+
+            $query->where('notas.idproject', $projectId);
+            return;
+        }
+
+        if ($module === 'company') {
+            $companyId = session('active_company_id');
+            if (!$companyId) {
+                throw new \Exception('Company ID tidak ditemukan');
+            }
+
+            $projects = Project::query()
+                ->where('idcompany', $companyId)
+                ->pluck('id');
+
+            $query->whereIn('notas.idproject', $projects);
+            return;
+        }
+
+        throw new \Exception('Module tidak dikenali');
+    }
+
+    /**
      * Bentuk struktur neraca dari data neraca saldo
      */
     private function buildNeracaFromSaldo(array $accounts): array
     {
         $neracaHdrList = \App\Models\NeracaHdr::query()->orderBy('id')->get();
         $neracaHdrMap = $neracaHdrList->keyBy('id');
+        $blueprint = $this->getNeracaBlueprint();
 
         $aktivaRows = [];
         $pasivaRows = [];
@@ -1559,48 +1874,29 @@ class LaporanController extends Controller
         $unmappedCount = 0;
         $unmappedAccounts = [];
 
-        $kasHdr = $neracaHdrList->first(function ($row) {
-            return $this->normalizeNeracaFlag($row->aktiva ?? null)
-                && str_contains(strtolower((string) $row->rincian), 'kas');
-        });
-
-        $labaDitahanHdr = $neracaHdrList->first(function ($row) {
-            return $this->normalizeNeracaFlag($row->pasiva ?? null)
-                && str_contains(strtolower((string) $row->rincian), 'laba ditahan');
-        });
-
-        $addToGroup = function (array $row, string $targetSide, $groupId, string $groupName, int $order) use (&$aktivaGroups, &$pasivaGroups) {
-            $groupKey = (string) $groupId . '|' . $targetSide;
-            if ($targetSide === 'aktiva') {
-                if (!isset($aktivaGroups[$groupKey])) {
-                    $aktivaGroups[$groupKey] = [
-                        'id' => $groupId,
-                        'rincian' => $groupName,
-                        'order' => $order,
-                        'items' => [],
-                        'subtotal_raw' => 0,
-                        'subtotal' => '0'
-                    ];
-                }
-
-                $aktivaGroups[$groupKey]['items'][] = $row;
-                $aktivaGroups[$groupKey]['subtotal_raw'] += $row['nilai_raw'];
-                return;
+        $addToGroup = function (array $row, array $category) use (&$aktivaGroups, &$pasivaGroups) {
+            $targetSide = $category['side'];
+            $groupKey = $category['key'] . '|' . $targetSide;
+            $collection = &$aktivaGroups;
+            if ($targetSide !== 'aktiva') {
+                $collection = &$pasivaGroups;
             }
 
-            if (!isset($pasivaGroups[$groupKey])) {
-                $pasivaGroups[$groupKey] = [
-                    'id' => $groupId,
-                    'rincian' => $groupName,
-                    'order' => $order,
+            if (!isset($collection[$groupKey])) {
+                $collection[$groupKey] = [
+                    'key' => $category['key'],
+                    'rincian' => $category['label'],
+                    'parent' => $category['parent'] ?? '-',
+                    'parent_order' => $category['parent_order'] ?? 999,
+                    'order' => $category['order'] ?? 9999,
                     'items' => [],
                     'subtotal_raw' => 0,
                     'subtotal' => '0'
                 ];
             }
 
-            $pasivaGroups[$groupKey]['items'][] = $row;
-            $pasivaGroups[$groupKey]['subtotal_raw'] += $row['nilai_raw'];
+            $collection[$groupKey]['items'][] = $row;
+            $collection[$groupKey]['subtotal_raw'] += $row['nilai_raw'];
         };
 
         foreach ($accounts as $account) {
@@ -1608,42 +1904,30 @@ class LaporanController extends Controller
             $nama = $account['nama_akun'] ?? '-';
             $debit = (float) ($account['debit_raw'] ?? 0);
             $kredit = (float) ($account['kredit_raw'] ?? 0);
-            $isRekening = (bool) ($account['is_rekening'] ?? false);
             $idNeraca = $account['idneraca'] ?? null;
 
-            if ($isRekening) {
-                $amount = $debit - $kredit;
-                if (abs($amount) > 0) {
-                    $row = [
-                        'kode' => $kode,
-                        'nama_akun' => $nama,
-                        'plotting' => 'Kas/Bank',
-                        'nilai_raw' => abs($amount),
-                        'nilai' => number_format(abs($amount), 0, ',', '.')
-                    ];
-
-                    $target = $amount >= 0 ? 'aktiva' : 'pasiva';
-                    $groupId = $kasHdr->id ?? 'KAS-BANK';
-                    $groupName = $kasHdr->rincian ?? 'KAS / BANK';
-                    $groupOrder = (int) ($kasHdr->id ?? 9998);
-                    $addToGroup($row, $target, $groupId, $groupName, $groupOrder);
-
-                    if ($target === 'aktiva') {
-                        $aktivaRows[] = $row;
-                    } else {
-                        $pasivaRows[] = $row;
-                    }
-                }
-                continue;
-            }
-
+            // Pendapatan & Beban dialihkan menjadi laba/rugi berjalan
             if (str_starts_with($kode, '4') || str_starts_with($kode, '5')) {
-                // Pendapatan/Beban digabung sebagai laba(rugi) berjalan
                 $labaRugiBerjalan += ($kredit - $debit);
                 continue;
             }
 
-            if (!$idNeraca || !$neracaHdrMap->has($idNeraca)) {
+            $category = $this->matchBlueprintCategory($account, $neracaHdrMap, $blueprint);
+
+            if (!$category && $idNeraca && $neracaHdrMap->has($idNeraca)) {
+                $neracaHdr = $neracaHdrMap->get($idNeraca);
+                $resolvedSide = $this->resolveNeracaSide($neracaHdr);
+                $category = [
+                    'key' => 'NERACA-' . $neracaHdr->id,
+                    'label' => (string) ($neracaHdr->rincian ?? '-'),
+                    'side' => $resolvedSide,
+                    'parent' => $resolvedSide === 'aktiva' ? 'Aktiva Lainnya' : 'Pasiva Lainnya',
+                    'parent_order' => $resolvedSide === 'aktiva' ? 35 : 70,
+                    'order' => (int) ($neracaHdr->id ?? 9999)
+                ];
+            }
+
+            if (!$category) {
                 $unmappedCount++;
                 $unmappedAccounts[] = [
                     'kode' => $kode,
@@ -1652,74 +1936,64 @@ class LaporanController extends Controller
                 continue;
             }
 
-            $neracaHdr = $neracaHdrMap->get($idNeraca);
-            $side = $this->resolveNeracaSide($neracaHdr);
-            $nilaiAktiva = $debit - $kredit;
-            $nilaiPasiva = $kredit - $debit;
+            $sidePreference = $category['side'];
+            $targetSide = $sidePreference;
 
-            if ($side === 'aktiva') {
-                $target = $nilaiAktiva >= 0 ? 'aktiva' : 'pasiva';
-                $amount = abs($nilaiAktiva);
-            } else {
-                $target = $nilaiPasiva >= 0 ? 'pasiva' : 'aktiva';
-                $amount = abs($nilaiPasiva);
-            }
+            // Tampilkan akun tetap di sisi naturalnya agar struktur neraca tidak berpindah kolom.
+            // Jika saldo berlawanan, biarkan nilainya minus pada sisi yang sama.
+            $amountSigned = $sidePreference === 'aktiva'
+                ? ($debit - $kredit)
+                : ($kredit - $debit);
 
-            if ($amount <= 0) {
+            if (abs($amountSigned) < 0.5) {
                 continue;
             }
 
             $row = [
                 'kode' => $kode,
                 'nama_akun' => $nama,
-                'plotting' => (string) ($neracaHdr->rincian ?? '-'),
-                'nilai_raw' => $amount,
-                'nilai' => number_format($amount, 0, ',', '.')
+                'plotting' => $category['label'],
+                'nilai_raw' => $amountSigned,
+                'nilai' => number_format($amountSigned, 0, ',', '.'),
+                'parent' => $category['parent'] ?? null
             ];
 
-            if ($target === 'aktiva') {
+            if ($targetSide === 'aktiva') {
                 $aktivaRows[] = $row;
             } else {
                 $pasivaRows[] = $row;
             }
 
-            $addToGroup(
-                $row,
-                $target,
-                $neracaHdr->id,
-                (string) ($neracaHdr->rincian ?? '-'),
-                (int) ($neracaHdr->id ?? 9999)
-            );
+            $addToGroup($row, array_merge($category, ['side' => $targetSide]));
         }
 
-        if (abs($labaRugiBerjalan) > 0) {
+        if (abs($labaRugiBerjalan) > 0.5) {
+            $category = $blueprint['laba_ditahan'] ?? [
+                'key' => 'LABA-DITAHAN',
+                'label' => 'Laba Ditahan / Berjalan',
+                'side' => 'pasiva',
+                'parent' => 'Ekuitas',
+                'parent_order' => 60,
+                'order' => 3
+            ];
+
             $row = [
                 'kode' => '3-LR',
                 'nama_akun' => $labaRugiBerjalan >= 0 ? 'Laba Berjalan' : 'Rugi Berjalan',
-                'plotting' => 'Laba Rugi Berjalan',
-                'nilai_raw' => abs($labaRugiBerjalan),
-                'nilai' => number_format(abs($labaRugiBerjalan), 0, ',', '.')
+                'plotting' => $category['label'],
+                'nilai_raw' => $labaRugiBerjalan,
+                'nilai' => number_format($labaRugiBerjalan, 0, ',', '.'),
+                'parent' => $category['parent']
             ];
 
-            if ($labaRugiBerjalan >= 0) {
-                $pasivaRows[] = $row;
-                $addToGroup(
-                    $row,
-                    'pasiva',
-                    $labaDitahanHdr->id ?? 'LABA-DITAHAN',
-                    $labaDitahanHdr->rincian ?? 'LABA DITAHAN',
-                    (int) ($labaDitahanHdr->id ?? 9999)
-                );
-            } else {
+            $targetSide = $category['side'];
+            if ($targetSide === 'aktiva') {
                 $aktivaRows[] = $row;
-                $addToGroup(
-                    $row,
-                    'aktiva',
-                    'LABA-RUGI',
-                    'RUGI BERJALAN',
-                    9999
-                );
+            } else {
+                $pasivaRows[] = $row;
             }
+
+            $addToGroup($row, $category);
         }
 
         usort($aktivaRows, fn($a, $b) => strcmp($a['kode'], $b['kode']));
@@ -1737,8 +2011,21 @@ class LaporanController extends Controller
         }
         unset($group);
 
-        uasort($aktivaGroups, fn($a, $b) => $a['order'] <=> $b['order']);
-        uasort($pasivaGroups, fn($a, $b) => $a['order'] <=> $b['order']);
+        uasort($aktivaGroups, function ($a, $b) {
+            $p = ($a['parent_order'] ?? 999) <=> ($b['parent_order'] ?? 999);
+            if ($p !== 0) return $p;
+            $c = ($a['order'] ?? 9999) <=> ($b['order'] ?? 9999);
+            if ($c !== 0) return $c;
+            return strcmp($a['rincian'], $b['rincian']);
+        });
+
+        uasort($pasivaGroups, function ($a, $b) {
+            $p = ($a['parent_order'] ?? 999) <=> ($b['parent_order'] ?? 999);
+            if ($p !== 0) return $p;
+            $c = ($a['order'] ?? 9999) <=> ($b['order'] ?? 9999);
+            if ($c !== 0) return $c;
+            return strcmp($a['rincian'], $b['rincian']);
+        });
 
         $totalAktiva = array_sum(array_column($aktivaRows, 'nilai_raw'));
         $totalPasiva = array_sum(array_column($pasivaRows, 'nilai_raw'));
@@ -1789,6 +2076,374 @@ class LaporanController extends Controller
 
         $normalized = strtolower(trim((string) $value));
         return in_array($normalized, ['1', 'y', 'yes', 'true', 'aktiva', 'asset', 'aset'], true);
+    }
+
+    /**
+     * Blueprint kategori neraca sesuai kebutuhan user
+     */
+    private function getNeracaBlueprint(): array
+    {
+        $parentOrder = [
+            'Aktiva Lancar' => 10,
+            'Aktiva Tetap' => 20,
+            'Aktiva Lancar Lainnya' => 30,
+            'Hutang Jangka Pendek' => 40,
+            'Hutang Jangka Panjang' => 50,
+            'Ekuitas' => 60,
+        ];
+
+        return [
+            'kas_bank' => [
+                'key' => 'kas_bank',
+                'label' => 'Kas dan Bank',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar',
+                'parent_order' => $parentOrder['Aktiva Lancar'],
+                'order' => 1,
+                'keywords' => ['kas', 'bank', 'cash', 'rekening', 'giro', 'kas kecil'],
+                'match_rekening' => true,
+            ],
+            'piutang_usaha' => [
+                'key' => 'piutang_usaha',
+                'label' => 'Piutang Usaha',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar',
+                'parent_order' => $parentOrder['Aktiva Lancar'],
+                'order' => 2,
+                'keywords' => ['piutang usaha', 'piutang penjualan', 'penjualan tempo', 'tagihan progress', 'tagihan pembangunan', 'tagihan vendor', 'tagihan kontraktor', 'penyewaan', 'piutang sewa', 'piutang proyek'],
+            ],
+            'biaya_dimuka' => [
+                'key' => 'biaya_dimuka',
+                'label' => 'Biaya Dibayar Dimuka',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar',
+                'parent_order' => $parentOrder['Aktiva Lancar'],
+                'order' => 3,
+                'keywords' => ['biaya dibayar dimuka', 'beban dibayar dimuka', 'prepaid expense', 'dibayar dimuka'],
+            ],
+            'uang_muka_pembelian' => [
+                'key' => 'uang_muka_pembelian',
+                'label' => 'Uang Muka Pembelian',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar',
+                'parent_order' => $parentOrder['Aktiva Lancar'],
+                'order' => 4,
+                'keywords' => ['uang muka pembelian', 'dp pembelian', 'dp tanah', 'dp material', 'advance purchase', 'uang muka tanah'],
+            ],
+            'sewa_dimuka' => [
+                'key' => 'sewa_dimuka',
+                'label' => 'Sewa Dibayar Dimuka',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar',
+                'parent_order' => $parentOrder['Aktiva Lancar'],
+                'order' => 5,
+                'keywords' => ['sewa dibayar dimuka', 'prepaid rent', 'sewa bayar dimuka'],
+            ],
+            'persediaan_real_estate' => [
+                'key' => 'persediaan_real_estate',
+                'label' => 'Persediaan Real Estate (Tanah & Bangunan Siap Jual)',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar',
+                'parent_order' => $parentOrder['Aktiva Lancar'],
+                'order' => 6,
+                'keywords' => ['persediaan', 'inventory', 'stok', 'real estate', 'tanah', 'bangunan', 'bahan baku', 'material'],
+            ],
+            'tanah_tetap' => [
+                'key' => 'tanah_tetap',
+                'label' => 'Tanah',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 1,
+                'keywords' => ['tanah', 'lahan'],
+            ],
+            'bangunan_tetap' => [
+                'key' => 'bangunan_tetap',
+                'label' => 'Bangunan',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 2,
+                'keywords' => ['bangunan', 'gedung'],
+            ],
+            'inventaris_kantor' => [
+                'key' => 'inventaris_kantor',
+                'label' => 'Inventaris Kantor',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 3,
+                'keywords' => ['inventaris', 'furniture', 'perabot'],
+            ],
+            'kendaraan' => [
+                'key' => 'kendaraan',
+                'label' => 'Kendaraan',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 4,
+                'keywords' => ['kendaraan', 'mobil', 'motor', 'truck', 'truk'],
+            ],
+            'peralatan_kantor' => [
+                'key' => 'peralatan_kantor',
+                'label' => 'Peralatan Kantor',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 5,
+                'keywords' => ['peralatan kantor', 'alat kantor', 'komputer', 'printer', 'laptop', 'elektronik'],
+            ],
+            'peralatan_proyek' => [
+                'key' => 'peralatan_proyek',
+                'label' => 'Peralatan Proyek',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 6,
+                'keywords' => ['peralatan proyek', 'alat proyek', 'alat berat', 'mesin', 'tool', 'scaffold'],
+            ],
+            'akumulasi_penyusutan' => [
+                'key' => 'akumulasi_penyusutan',
+                'label' => 'Akumulasi Penyusutan (-)',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Tetap',
+                'parent_order' => $parentOrder['Aktiva Tetap'],
+                'order' => 99,
+                'keywords' => ['akumulasi', 'penyusutan', 'depresiasi'],
+                'is_contra' => true,
+            ],
+            'piutang_pengurus' => [
+                'key' => 'piutang_pengurus',
+                'label' => 'Piutang Pengurus',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar Lainnya',
+                'parent_order' => $parentOrder['Aktiva Lancar Lainnya'],
+                'order' => 1,
+                'keywords' => ['piutang pengurus', 'piutang direktur', 'piutang owner', 'piutang mas edy', 'piutang mas ipul', 'piutang ghozali', 'piutang amal', 'piutang next project'],
+            ],
+            'piutang_karyawan' => [
+                'key' => 'piutang_karyawan',
+                'label' => 'Piutang Karyawan',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar Lainnya',
+                'parent_order' => $parentOrder['Aktiva Lancar Lainnya'],
+                'order' => 2,
+                'keywords' => ['piutang karyawan', 'kasbon', 'pinjaman karyawan', 'employee loan'],
+            ],
+            'piutang_lainnya' => [
+                'key' => 'piutang_lainnya',
+                'label' => 'Piutang Lainnya',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar Lainnya',
+                'parent_order' => $parentOrder['Aktiva Lancar Lainnya'],
+                'order' => 3,
+                'keywords' => ['piutang konsumen', 'piutang pihak lain', 'piutang lainnya', 'piutang lain'],
+            ],
+            'piutang_antar_perusahaan' => [
+                'key' => 'piutang_antar_perusahaan',
+                'label' => 'Piutang Antar Perusahaan',
+                'side' => 'aktiva',
+                'parent' => 'Aktiva Lancar Lainnya',
+                'parent_order' => $parentOrder['Aktiva Lancar Lainnya'],
+                'order' => 4,
+                'keywords' => ['piutang antar perusahaan', 'piutang perusahaan', 'piutang group', 'piutang afiliasi', 'intercompany'],
+            ],
+            'hutang_usaha_pendek' => [
+                'key' => 'hutang_usaha_pendek',
+                'label' => 'Hutang Usaha',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 1,
+                'keywords' => ['hutang usaha', 'utang usaha', 'hutang vendor', 'hutang kontraktor', 'hutang jasa', 'hutang supplier', 'hutang pemasok'],
+            ],
+            'hutang_bank_pendek' => [
+                'key' => 'hutang_bank_pendek',
+                'label' => 'Hutang Bank',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 2,
+                'keywords' => ['hutang bank', 'utang bank', 'pinjaman bank', 'kredit bank', 'overdraft'],
+            ],
+            'hutang_pembiayaan_pendek' => [
+                'key' => 'hutang_pembiayaan_pendek',
+                'label' => 'Hutang Pembiayaan / Kredit Modal Kerja',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 3,
+                'keywords' => ['pembiayaan', 'kredit modal kerja', 'leasing', 'kmk', 'btm', 'bprs', 'weleri', 'bkk', 'binama', 'kjks'],
+            ],
+            'hutang_pajak_pendek' => [
+                'key' => 'hutang_pajak_pendek',
+                'label' => 'Hutang Pajak',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 4,
+                'keywords' => ['hutang pajak', 'utang pajak', 'ppn', 'pph', 'bphtb', 'pbb', 'tax payable'],
+            ],
+            'hutang_aset_pendek' => [
+                'key' => 'hutang_aset_pendek',
+                'label' => 'Hutang Aset',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 5,
+                'keywords' => ['hutang aset', 'utang aset', 'hutang pembelian aset'],
+            ],
+            'uang_muka_diterima' => [
+                'key' => 'uang_muka_diterima',
+                'label' => 'Uang Muka yang Diterima (Pendapatan Diterima Dimuka)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 6,
+                'keywords' => ['uang muka diterima', 'booking fee', 'dp', 'pendapatan diterima dimuka', 'advance received', 'uang muka penjualan'],
+            ],
+            'hutang_lain_pendek' => [
+                'key' => 'hutang_lain_pendek',
+                'label' => 'Hutang Lain-Lain',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Pendek',
+                'parent_order' => $parentOrder['Hutang Jangka Pendek'],
+                'order' => 7,
+                'keywords' => ['hutang sewa', 'hutang bunga', 'hutang dividen', 'hutang karyawan', 'hutang gaji', 'hutang pengurus', 'pinjam', 'hutang lain'],
+            ],
+            'hutang_usaha_panjang' => [
+                'key' => 'hutang_usaha_panjang',
+                'label' => 'Hutang Usaha (Jangka Panjang)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Panjang',
+                'parent_order' => $parentOrder['Hutang Jangka Panjang'],
+                'order' => 1,
+                'keywords' => ['hutang usaha jangka panjang', 'utang usaha jangka panjang', 'long term account payable'],
+            ],
+            'hutang_bank_panjang' => [
+                'key' => 'hutang_bank_panjang',
+                'label' => 'Hutang Bank (Jangka Panjang)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Panjang',
+                'parent_order' => $parentOrder['Hutang Jangka Panjang'],
+                'order' => 2,
+                'keywords' => ['jangka panjang', 'long term loan', 'lt loan', 'hutang bank jangka panjang', 'pinjaman bank jangka panjang'],
+            ],
+            'hutang_pembiayaan_panjang' => [
+                'key' => 'hutang_pembiayaan_panjang',
+                'label' => 'Hutang Pembiayaan (Jangka Panjang)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Panjang',
+                'parent_order' => $parentOrder['Hutang Jangka Panjang'],
+                'order' => 3,
+                'keywords' => ['pembiayaan jangka panjang', 'long term financing', 'leasing jangka panjang'],
+            ],
+            'hutang_pajak_panjang' => [
+                'key' => 'hutang_pajak_panjang',
+                'label' => 'Hutang Pajak (Jangka Panjang)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Panjang',
+                'parent_order' => $parentOrder['Hutang Jangka Panjang'],
+                'order' => 4,
+                'keywords' => ['hutang pajak jangka panjang', 'tax long term'],
+            ],
+            'hutang_aset_panjang' => [
+                'key' => 'hutang_aset_panjang',
+                'label' => 'Hutang Aset (Jangka Panjang)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Panjang',
+                'parent_order' => $parentOrder['Hutang Jangka Panjang'],
+                'order' => 5,
+                'keywords' => ['hutang aset jangka panjang', 'utang aset jangka panjang'],
+            ],
+            'hutang_lain_panjang' => [
+                'key' => 'hutang_lain_panjang',
+                'label' => 'Hutang Lain - lain (Jangka Panjang)',
+                'side' => 'pasiva',
+                'parent' => 'Hutang Jangka Panjang',
+                'parent_order' => $parentOrder['Hutang Jangka Panjang'],
+                'order' => 6,
+                'keywords' => ['hutang jangka panjang lainnya', 'utang jangka panjang lainnya', 'long term payable'],
+            ],
+            'modal_disetor' => [
+                'key' => 'modal_disetor',
+                'label' => 'Modal Disetor',
+                'side' => 'pasiva',
+                'parent' => 'Ekuitas',
+                'parent_order' => $parentOrder['Ekuitas'],
+                'order' => 1,
+                'keywords' => ['modal disetor', 'modal setor', 'paid up capital'],
+            ],
+            'laba_ditahan' => [
+                'key' => 'laba_ditahan',
+                'label' => 'Laba Ditahan',
+                'side' => 'pasiva',
+                'parent' => 'Ekuitas',
+                'parent_order' => $parentOrder['Ekuitas'],
+                'order' => 2,
+                'keywords' => ['laba ditahan', 'retained earning'],
+            ],
+        ];
+    }
+
+    /**
+     * Mapping akun ke kategori blueprint neraca
+     */
+    private function matchBlueprintCategory(array $account, $neracaHdrMap, array $blueprint): ?array
+    {
+        $name = strtolower((string) ($account['nama_akun'] ?? ''));
+        $kode = strtolower((string) ($account['kode'] ?? ''));
+        $isRekening = (bool) ($account['is_rekening'] ?? false);
+        $idNeraca = $account['idneraca'] ?? null;
+        $neracaName = null;
+        $isLongTerm = str_contains($name, 'jangka panjang') || str_contains($name, 'long term');
+
+        if ($idNeraca && $neracaHdrMap->has($idNeraca)) {
+            $neracaName = strtolower((string) ($neracaHdrMap->get($idNeraca)->rincian ?? ''));
+            $isLongTerm = $isLongTerm || str_contains($neracaName, 'jangka panjang') || str_contains($neracaName, 'long term');
+        }
+
+        foreach ($blueprint as $key => $def) {
+            if (!isset($def['key'])) {
+                $def['key'] = $key;
+            }
+
+            if (!empty($def['match_rekening']) && $isRekening) {
+                return $def;
+            }
+
+            $parentLabel = strtolower((string) ($def['parent'] ?? ''));
+            $isCategoryLong = str_contains($parentLabel, 'jangka panjang');
+            $isCategoryShort = str_contains($parentLabel, 'jangka pendek');
+
+            if ($isLongTerm && $isCategoryShort) {
+                continue;
+            }
+
+            if (!$isLongTerm && $isCategoryLong) {
+                continue;
+            }
+
+            if (!empty($def['codes'])) {
+                foreach ($def['codes'] as $prefix) {
+                    if (str_starts_with($kode, strtolower($prefix))) {
+                        return $def;
+                    }
+                }
+            }
+
+            foreach ($def['keywords'] ?? [] as $kw) {
+                if ($kw === '') {
+                    continue;
+                }
+
+                if (str_contains($name, $kw) || ($neracaName && str_contains($neracaName, $kw))) {
+                    return $def;
+                }
+            }
+        }
+
+        return null;
     }
 
     public function neracaSaldo()

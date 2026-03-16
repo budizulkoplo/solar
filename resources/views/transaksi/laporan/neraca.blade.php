@@ -101,7 +101,7 @@
                 });
             }
 
-            function renderGroups(selector, groups, sideLabel) {
+            function renderGroups(selector, groups) {
                 if (!groups || groups.length === 0) {
                     $(selector).html(
                         `<tr><td colspan="3" class="text-center text-muted">Tidak ada data</td></tr>`
@@ -109,28 +109,63 @@
                     return;
                 }
 
-                let html = '';
+                const parents = {};
                 groups.forEach(group => {
+                    const parentKey = group.parent || 'Lainnya';
+                    if (!parents[parentKey]) {
+                        parents[parentKey] = {
+                            label: parentKey,
+                            order: group.parent_order || 999,
+                            groups: []
+                        };
+                    }
+                    parents[parentKey].groups.push(group);
+                });
+
+                const parentList = Object.values(parents).sort((a, b) => a.order - b.order);
+                let html = '';
+                parentList.forEach(parent => {
                     html += `
-                        <tr class="table-secondary fw-bold">
-                            <td colspan="3">${group.rincian}</td>
+                        <tr class="table-primary fw-bold">
+                            <td colspan="3">${parent.label}</td>
                         </tr>
                     `;
 
-                    group.items.forEach((row, idx) => {
+                    parent.groups.sort((a, b) => (a.order || 9999) - (b.order || 9999));
+                    let parentSubtotal = 0;
+
+                    parent.groups.forEach(group => {
                         html += `
-                            <tr>
-                                <td class="text-center">${idx + 1}</td>
-                                <td>${row.nama_akun}</td>
-                                <td class="text-end">${formatRupiah(row.nilai_raw)}</td>
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="3">${group.rincian}</td>
                             </tr>
                         `;
+
+                        let nomor = 1;
+                        group.items.forEach(row => {
+                            html += `
+                                <tr>
+                                    <td class="text-center">${nomor++}</td>
+                                    <td>${row.nama_akun}</td>
+                                    <td class="text-end">${formatRupiah(row.nilai_raw)}</td>
+                                </tr>
+                            `;
+                        });
+
+                        html += `
+                            <tr class="table-light fw-bold">
+                                <td colspan="2" class="text-end">Sub Total ${group.rincian}</td>
+                                <td class="text-end">${formatRupiah(group.subtotal_raw)}</td>
+                            </tr>
+                        `;
+
+                        parentSubtotal += Number(group.subtotal_raw || 0);
                     });
 
                     html += `
-                        <tr class="table-light fw-bold">
-                            <td colspan="2" class="text-end">Sub Total ${group.rincian}</td>
-                            <td class="text-end">${formatRupiah(group.subtotal_raw)}</td>
+                        <tr class="table-warning fw-bold">
+                            <td colspan="2" class="text-end">Sub Total ${parent.label}</td>
+                            <td class="text-end">${formatRupiah(parentSubtotal)}</td>
                         </tr>
                     `;
                 });
@@ -149,8 +184,8 @@
                         return;
                     }
 
-                    renderGroups('#tbodyAktiva', response.data.aktiva_groups, 'Aktiva');
-                    renderGroups('#tbodyPasiva', response.data.pasiva_groups, 'Pasiva');
+                    renderGroups('#tbodyAktiva', response.data.aktiva_groups);
+                    renderGroups('#tbodyPasiva', response.data.pasiva_groups);
 
                     $('#totalAktiva').text(formatRupiah(response.summary.total_aktiva_raw));
                     $('#totalPasiva').text(formatRupiah(response.summary.total_pasiva_raw));
