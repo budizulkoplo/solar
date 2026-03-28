@@ -1301,6 +1301,17 @@ class LaporanController extends Controller
 
             $neracaData = $this->buildNeracaFromSaldo($saldoData['accounts']);
 
+            if (in_array($module, ['company', 'project'], true)) {
+                $customAktiva = $this->buildAktivaTemplate($module, $endDate);
+                $neracaData['data']['aktiva'] = $customAktiva['rows'];
+                $neracaData['data']['aktiva_groups'] = $customAktiva['groups'];
+                $neracaData['summary']['total_aktiva_raw'] = $customAktiva['total_raw'];
+                $neracaData['summary']['total_aktiva'] = number_format($customAktiva['total_raw'], 0, ',', '.');
+                $neracaData['summary']['balance'] = abs($customAktiva['total_raw'] - ($neracaData['summary']['total_pasiva_raw'] ?? 0)) < 0.5;
+                $neracaData['summary']['difference_raw'] = abs($customAktiva['total_raw'] - ($neracaData['summary']['total_pasiva_raw'] ?? 0));
+                $neracaData['summary']['difference'] = number_format($neracaData['summary']['difference_raw'], 0, ',', '.');
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $neracaData['data'],
@@ -2049,6 +2060,159 @@ class LaporanController extends Controller
                 'difference' => number_format(abs($totalAktiva - $totalPasiva), 0, ',', '.')
             ]
         ];
+    }
+
+    private function buildAktivaTemplate(string $module, string $endDate): array
+    {
+        if ($module === 'company') {
+            $scopeId = (int) session('active_company_id');
+            if (!$scopeId) {
+                throw new \Exception('Company ID tidak ditemukan');
+            }
+        } elseif ($module === 'project') {
+            $scopeId = (int) session('active_project_id');
+            if (!$scopeId) {
+                throw new \Exception('Project ID tidak ditemukan');
+            }
+        } else {
+            throw new \Exception('Module tidak dikenali');
+        }
+
+        $kasBank = $this->getAktivaKasBank($module, $scopeId);
+        $piutangUsaha = $this->getAktivaPiutangUsaha($module, $scopeId, $endDate);
+        $uangMukaPembelian = $this->getAktivaByKodeTransaksi($module, $scopeId, $endDate, '2012');
+        $sewaDibayarDimuka = $this->getAktivaByKodeTransaksi($module, $scopeId, $endDate, '2013');
+
+        $groups = [
+            $this->makeAktivaGroup('a.', 'Aktiva Lancar', 10, 1, [
+                ['kode' => 'AL-01', 'nomor' => '1', 'nama_akun' => 'Kas dan Bank (saldo)', 'nilai_raw' => $kasBank],
+                ['kode' => 'AL-02', 'nomor' => '2', 'nama_akun' => 'Piutang Usaha', 'nilai_raw' => $piutangUsaha],
+                ['kode' => 'AL-03', 'nomor' => '3', 'nama_akun' => 'Biaya Dibayar Dimuka', 'nilai_raw' => 0],
+                ['kode' => 'AL-04', 'nomor' => '4', 'nama_akun' => 'Uang Muka Pembelian', 'nilai_raw' => $uangMukaPembelian],
+                ['kode' => 'AL-05', 'nomor' => '5', 'nama_akun' => 'Sewa Dibayar Dimuka', 'nilai_raw' => $sewaDibayarDimuka],
+                ['kode' => 'AL-06', 'nomor' => '6', 'nama_akun' => 'Persediaan Real Estate (Tanah & Bangunan Siap Jual)', 'nilai_raw' => 0],
+                ['kode' => 'AL-07', 'nomor' => '', 'nama_akun' => 'Bangunan', 'nilai_raw' => 0, 'indent' => 1],
+                ['kode' => 'AL-08', 'nomor' => '', 'nama_akun' => 'Bahan Baku', 'nilai_raw' => 0, 'indent' => 1],
+                ['kode' => 'AL-09', 'nomor' => '', 'nama_akun' => 'Tanah', 'nilai_raw' => 0, 'indent' => 1],
+            ]),
+        ];
+
+        $rows = [];
+        $total = 0;
+
+        foreach ($groups as $group) {
+            foreach ($group['items'] as $item) {
+                $rows[] = $item;
+            }
+            $total += $group['subtotal_raw'];
+        }
+
+        return [
+            'rows' => $rows,
+            'groups' => $groups,
+            'total_raw' => $total,
+        ];
+    }
+
+    private function makeAktivaGroup(string $prefix, string $label, int $parentOrder, int $order, array $items): array
+    {
+        $normalizedItems = array_map(function (array $item) use ($label) {
+            $nilaiRaw = (float) ($item['nilai_raw'] ?? 0);
+            $indent = (int) ($item['indent'] ?? 0);
+            $namaAkun = (string) ($item['nama_akun'] ?? '-');
+
+            if ($indent > 0) {
+                $namaAkun = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $indent) . $namaAkun;
+            }
+
+            return [
+                'kode' => (string) ($item['kode'] ?? ''),
+                'nomor' => (string) ($item['nomor'] ?? ''),
+                'nama_akun' => $namaAkun,
+                'plotting' => $label,
+                'nilai_raw' => $nilaiRaw,
+                'nilai' => number_format($nilaiRaw, 0, ',', '.'),
+                'parent' => 'Aktiva',
+            ];
+        }, $items);
+
+        $subtotal = array_sum(array_column($normalizedItems, 'nilai_raw'));
+
+        return [
+            'key' => str_replace(' ', '_', strtolower($label)),
+            'rincian' => $label,
+            'prefix' => $prefix,
+            'parent' => 'Aktiva',
+            'parent_order' => $parentOrder,
+            'order' => $order,
+            'items' => $normalizedItems,
+            'subtotal_raw' => $subtotal,
+            'subtotal' => number_format($subtotal, 0, ',', '.'),
+            'subtotal_label' => 'Sub Total ' . $label,
+            'template_style' => true,
+        ];
+    }
+
+    private function getAktivaKasBank(string $module, int $scopeId): float
+    {
+        if ($module === 'company') {
+            return (float) DB::table('rekening')
+                ->where('idcompany', $scopeId)
+                ->whereNull('idproject')
+                ->sum('saldo');
+        }
+
+        $rekenings = $this->getSaldoRekeningProject($scopeId);
+        return (float) collect($rekenings)->sum('saldo_raw');
+    }
+
+    private function getAktivaPiutangUsaha(string $module, int $scopeId, string $endDate): float
+    {
+        $angsuranSubQuery = DB::table('angsuran')
+            ->select('idnota', DB::raw('SUM(jumlah) as total_angsuran'))
+            ->groupBy('idnota');
+
+        $query = DB::table('notas')
+            ->leftJoinSub($angsuranSubQuery, 'angsuran_total', function ($join) {
+                $join->on('notas.id', '=', 'angsuran_total.idnota');
+            })
+            ->where('notas.cashflow', 'out')
+            ->where('notas.paymen_method', 'tempo')
+            ->where('notas.status', '!=', 'paid')
+            ->whereDate('notas.tanggal', '<=', $endDate)
+            ->whereNull('notas.deleted_at');
+
+        if ($module === 'company') {
+            $query->where('notas.idcompany', $scopeId)
+                ->whereNull('notas.idproject');
+        } else {
+            $query->where('notas.idproject', $scopeId);
+        }
+
+        return (float) $query
+            ->selectRaw('COALESCE(SUM(GREATEST(notas.total - COALESCE(angsuran_total.total_angsuran, 0), 0)), 0) as total_piutang')
+            ->value('total_piutang');
+    }
+
+    private function getAktivaByKodeTransaksi(string $module, int $scopeId, string $endDate, string $kodeTransaksi): float
+    {
+        $query = DB::table('nota_transactions')
+            ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+            ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+            ->where('kodetransaksi.kodetransaksi', $kodeTransaksi)
+            ->where('notas.status', 'paid')
+            ->whereDate('notas.tanggal', '<=', $endDate)
+            ->whereNull('notas.deleted_at')
+            ->whereNull('nota_transactions.deleted_at');
+
+        if ($module === 'company') {
+            $query->where('notas.idcompany', $scopeId)
+                ->whereNull('notas.idproject');
+        } else {
+            $query->where('notas.idproject', $scopeId);
+        }
+
+        return (float) $query->sum('nota_transactions.total');
     }
 
     private function resolveNeracaSide($neraca): string

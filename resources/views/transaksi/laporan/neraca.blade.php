@@ -29,7 +29,7 @@
         <div class="container-fluid">
             <div id="summaryInfo" class="alert alert-info mb-3 d-none"></div>
 
-            <div class="row g-3">
+            <div class="row g-3 d-none" id="legacyNeracaLayout">
                 <div class="col-md-6">
                     <div class="card card-primary card-outline">
                         <div class="card-header">
@@ -82,6 +82,36 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card card-primary card-outline" id="templateNeracaLayout">
+                <div class="card-body p-0">
+                    <table class="table table-sm table-bordered mb-0 neraca-template-table">
+                        <thead>
+                            <tr class="table-light text-center fw-bold">
+                                <th colspan="3">AKTIVA</th>
+                                <th colspan="3">PASIVA</th>
+                            </tr>
+                            <tr class="table-light text-center">
+                                <th width="6%"></th>
+                                <th></th>
+                                <th width="18%"></th>
+                                <th width="6%"></th>
+                                <th></th>
+                                <th width="18%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyNeracaTemplate"></tbody>
+                        <tfoot>
+                            <tr class="table-active fw-bold">
+                                <td colspan="2" class="text-center">Total Aktiva</td>
+                                <td class="text-end" id="templateTotalAktiva">Rp 0</td>
+                                <td colspan="2" class="text-center">Total Pasiva</td>
+                                <td class="text-end" id="templateTotalPasiva">Rp 0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -101,11 +131,171 @@
                 });
             }
 
+            function normalizeTemplateLabel(label) {
+                return String(label || '')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase();
+            }
+
+            function collectTemplateValueMap(groups) {
+                const map = {};
+
+                (groups || []).forEach(group => {
+                    (group.items || []).forEach(item => {
+                        const key = normalizeTemplateLabel(item.nama_akun);
+                        map[key] = Number(item.nilai_raw || 0);
+                    });
+
+                    const subtotalKey = normalizeTemplateLabel(group.subtotal_label || ('Sub Total ' + group.rincian));
+                    map[subtotalKey] = Number(group.subtotal_raw || 0);
+                });
+
+                return map;
+            }
+
+            function buildCompanyTemplateRows(response) {
+                const aktivaMap = collectTemplateValueMap(response.data?.aktiva_groups || []);
+                const pasivaMap = collectTemplateValueMap(response.data?.pasiva_groups || []);
+
+                const aktivaRows = [
+                    { no: 'a.', label: 'Aktiva Lancar', value: null, isHeader: true },
+                    { no: '1', label: 'Kas dan Bank (saldo)', value: aktivaMap[normalizeTemplateLabel('Kas dan Bank (saldo)')] ?? 0 },
+                    { no: '2', label: 'Piutang Usaha', value: aktivaMap[normalizeTemplateLabel('Piutang Usaha')] ?? 0 },
+                    { no: '3', label: 'Biaya Dibayar Dimuka', value: aktivaMap[normalizeTemplateLabel('Biaya Dibayar Dimuka')] ?? 0 },
+                    { no: '4', label: 'Uang Muka Pembelian', value: aktivaMap[normalizeTemplateLabel('Uang Muka Pembelian')] ?? 0 },
+                    { no: '5', label: 'Sewa Dibayar Dimuka', value: aktivaMap[normalizeTemplateLabel('Sewa Dibayar Dimuka')] ?? 0 },
+                    { no: '6', label: 'Persediaan Real Estate (Tanah & Bangunan Siap Jual)', value: aktivaMap[normalizeTemplateLabel('Persediaan Real Estate (Tanah & Bangunan Siap Jual)')] ?? 0 },
+                    { no: '', label: '&nbsp;&nbsp;&nbsp;Bangunan', value: aktivaMap[normalizeTemplateLabel('Bangunan')] ?? 0 },
+                    { no: '', label: '&nbsp;&nbsp;&nbsp;Bahan Baku', value: aktivaMap[normalizeTemplateLabel('Bahan Baku')] ?? 0 },
+                    { no: '', label: '&nbsp;&nbsp;&nbsp;Tanah', value: aktivaMap[normalizeTemplateLabel('Tanah')] ?? 0 },
+                    { no: '', label: 'Sub Total Aktiva Lancar', value: aktivaMap[normalizeTemplateLabel('Sub Total Aktiva Lancar')] ?? response.summary?.total_aktiva_raw ?? 0, isSubtotal: true },
+                    { no: 'b.', label: 'Aktiva Tetap', value: null, isHeader: true },
+                    { no: '1', label: 'Tanah', value: 0 },
+                    { no: '2', label: 'Bangunan', value: 0 },
+                    { no: '3', label: 'Inventaris Kantor', value: 0 },
+                    { no: '4', label: 'Kendaraan', value: 0 },
+                    { no: '5', label: 'Peralatan Kantor', value: 0 },
+                    { no: '6', label: 'Peralatan Proyek', value: 0 },
+                    { no: '7', label: 'Akumulasi Penyusutan (-)', value: 0 },
+                    { no: '', label: 'Sub Total Aktiva Tetap', value: 0, isSubtotal: true },
+                    { no: 'c.', label: 'Aktiva Lancar Lainnya', value: null, isHeader: true },
+                    { no: '1', label: 'Piutang Pengurus', value: 0 },
+                    { no: '2', label: 'Piutang Karyawan', value: 0 },
+                    { no: '3', label: 'Piutang Lainnya', value: 0 },
+                    { no: '4', label: 'Piutang Antar Perusahaan', value: 0 },
+                    { no: '', label: 'Sub Total Aktiva Lancar Lainnya', value: 0, isSubtotal: true },
+                ];
+
+                const pasivaRows = [
+                    { no: 'd.', label: 'Hutang Jangka Pendek', value: null, isHeader: true },
+                    { no: '1', label: 'Hutang Usaha', value: pasivaMap[normalizeTemplateLabel('Hutang Usaha')] ?? 0 },
+                    { no: '2', label: 'Hutang Bank', value: pasivaMap[normalizeTemplateLabel('Hutang Bank')] ?? 0 },
+                    { no: '3', label: 'Hutang Pembiayaan', value: pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan / Kredit Modal Kerja')] ?? 0 },
+                    { no: '4', label: 'Hutang Pajak', value: pasivaMap[normalizeTemplateLabel('Hutang Pajak')] ?? 0 },
+                    { no: '5', label: 'Hutang Aset', value: pasivaMap[normalizeTemplateLabel('Hutang Aset')] ?? 0 },
+                    { no: '6', label: 'Uang muka yang diterima (Pendapatan diterima dimuka)', value: pasivaMap[normalizeTemplateLabel('Uang Muka yang Diterima (Pendapatan Diterima Dimuka)')] ?? 0 },
+                    { no: '7', label: 'Hutang Lain-Lain', value: pasivaMap[normalizeTemplateLabel('Hutang Lain-Lain')] ?? 0 },
+                    { no: '', label: 'Sub Total Hutang Jangka Pendek', value: 0, isSubtotal: true },
+                    { no: 'e.', label: 'Hutang Jangka Panjang', value: null, isHeader: true },
+                    { no: '1', label: 'Hutang Usaha', value: pasivaMap[normalizeTemplateLabel('Hutang Usaha (Jangka Panjang)')] ?? 0 },
+                    { no: '2', label: 'Hutang Bank', value: pasivaMap[normalizeTemplateLabel('Hutang Bank (Jangka Panjang)')] ?? 0 },
+                    { no: '3', label: 'Hutang Pembiayaan', value: pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan (Jangka Panjang)')] ?? 0 },
+                    { no: '4', label: 'Hutang Pajak', value: pasivaMap[normalizeTemplateLabel('Hutang Pajak (Jangka Panjang)')] ?? 0 },
+                    { no: '5', label: 'Hutang Aset', value: pasivaMap[normalizeTemplateLabel('Hutang Aset (Jangka Panjang)')] ?? 0 },
+                    { no: '6', label: 'Hutang Lain - lain', value: pasivaMap[normalizeTemplateLabel('Hutang Lain - lain (Jangka Panjang)')] ?? 0 },
+                    { no: '', label: 'Sub Total Hutang Jangka Panjang', value: 0, isSubtotal: true },
+                    { no: 'f.', label: 'Ekuitas', value: null, isHeader: true },
+                    { no: '1', label: 'Modal Disetor', value: pasivaMap[normalizeTemplateLabel('Modal Disetor')] ?? 0 },
+                    { no: '2', label: 'Laba Ditahan', value: pasivaMap[normalizeTemplateLabel('Laba Ditahan')] ?? 0 },
+                    { no: '', label: 'Sub Total Ekuitas', value: 0, isSubtotal: true },
+                ];
+
+                const sumRows = rows => rows.filter(row => !row.isHeader && !row.isSubtotal).reduce((total, row) => total + Number(row.value || 0), 0);
+
+                pasivaRows.find(row => row.label === 'Sub Total Hutang Jangka Pendek').value = sumRows(pasivaRows.slice(1, 8));
+                pasivaRows.find(row => row.label === 'Sub Total Hutang Jangka Panjang').value = sumRows(pasivaRows.slice(10, 16));
+                pasivaRows.find(row => row.label === 'Sub Total Ekuitas').value = sumRows(pasivaRows.slice(18, 20));
+
+                return { aktivaRows, pasivaRows };
+            }
+
+            function renderCompanyTemplate(response) {
+                const { aktivaRows, pasivaRows } = buildCompanyTemplateRows(response);
+                const totalRows = Math.max(aktivaRows.length, pasivaRows.length);
+                let html = '';
+
+                for (let i = 0; i < totalRows; i++) {
+                    const aktiva = aktivaRows[i] || { no: '', label: '', value: null };
+                    const pasiva = pasivaRows[i] || { no: '', label: '', value: null };
+
+                    const aktivaClass = aktiva.isHeader ? 'table-primary fw-bold' : aktiva.isSubtotal ? 'table-light fw-bold' : '';
+                    const pasivaClass = pasiva.isHeader ? 'table-primary fw-bold' : pasiva.isSubtotal ? 'table-light fw-bold' : '';
+
+                    html += `
+                        <tr>
+                            <td class="text-center ${aktivaClass}">${aktiva.no || ''}</td>
+                            <td class="${aktivaClass}">${aktiva.label || ''}</td>
+                            <td class="text-end ${aktivaClass}">${aktiva.isHeader ? '' : formatRupiah(aktiva.value || 0)}</td>
+                            <td class="text-center ${pasivaClass}">${pasiva.no || ''}</td>
+                            <td class="${pasivaClass}">${pasiva.label || ''}</td>
+                            <td class="text-end ${pasivaClass}">${pasiva.isHeader ? '' : formatRupiah(pasiva.value || 0)}</td>
+                        </tr>
+                    `;
+                }
+
+                $('#tbodyNeracaTemplate').html(html);
+                $('#templateTotalAktiva').text(formatRupiah(response.summary.total_aktiva_raw || 0));
+                $('#templateTotalPasiva').text(formatRupiah(response.summary.total_pasiva_raw || 0));
+                $('#templateNeracaLayout').removeClass('d-none');
+                $('#legacyNeracaLayout').addClass('d-none');
+            }
+
             function renderGroups(selector, groups) {
                 if (!groups || groups.length === 0) {
                     $(selector).html(
                         `<tr><td colspan="3" class="text-center text-muted">Tidak ada data</td></tr>`
                     );
+                    return;
+                }
+
+                const isTemplateStyle = groups.every(group => group.template_style);
+
+                if (isTemplateStyle) {
+                    let html = '';
+
+                    groups
+                        .sort((a, b) => (a.order || 9999) - (b.order || 9999))
+                        .forEach(group => {
+                            html += `
+                                <tr class="table-primary fw-bold">
+                                    <td class="text-center">${group.prefix || ''}</td>
+                                    <td>${group.rincian}</td>
+                                    <td class="text-end"></td>
+                                </tr>
+                            `;
+
+                            group.items.forEach(row => {
+                                html += `
+                                    <tr>
+                                        <td class="text-center">${row.nomor || ''}</td>
+                                        <td>${row.nama_akun}</td>
+                                        <td class="text-end">${formatRupiah(row.nilai_raw)}</td>
+                                    </tr>
+                                `;
+                            });
+
+                            html += `
+                                <tr class="table-light fw-bold">
+                                    <td></td>
+                                    <td>${group.subtotal_label || ('Sub Total ' + group.rincian)}</td>
+                                    <td class="text-end">${formatRupiah(group.subtotal_raw)}</td>
+                                </tr>
+                            `;
+                        });
+
+                    $(selector).html(html);
                     return;
                 }
 
@@ -184,6 +374,13 @@
                         return;
                     }
 
+                    if (['company', 'project'].includes($('#module').val())) {
+                        renderCompanyTemplate(response);
+                    } else {
+                        $('#templateNeracaLayout').addClass('d-none');
+                        $('#legacyNeracaLayout').removeClass('d-none');
+                    }
+
                     renderGroups('#tbodyAktiva', response.data.aktiva_groups);
                     renderGroups('#tbodyPasiva', response.data.pasiva_groups);
 
@@ -228,5 +425,11 @@
                 loadNeraca();
             });
         </script>
+        <style>
+            .neraca-template-table td,
+            .neraca-template-table th {
+                vertical-align: middle;
+            }
+        </style>
     </x-slot>
 </x-app-layout>
