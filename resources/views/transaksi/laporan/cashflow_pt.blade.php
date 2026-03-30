@@ -521,9 +521,8 @@
                                 
                                 const id = row.id;
                                 
-                                if (!id) {
-                                    console.error('ID tidak ditemukan untuk row PT:', row);
-                                    return `<span>${data}</span> <small class="text-danger">(no ID)</small>`;
+                                if (!id || row.kategori !== 'Transaksi') {
+                                    return `<span>${data ?? '-'}</span>`;
                                 }
                                 
                                 return `

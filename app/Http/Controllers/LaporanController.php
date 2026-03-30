@@ -383,7 +383,7 @@ class LaporanController extends Controller
             ->groupBy('nt.idnota');
 
         // Query data transaksi Project (idproject tidak null)
-        $data = DB::table('notas as n')
+        $notaQuery = DB::table('notas as n')
             ->select(
                 'n.id',
                 'np.id as id_payment',
@@ -412,9 +412,64 @@ class LaporanController extends Controller
             ->where('n.status', 'paid')
             ->where('n.idproject', session('active_project_id'))
             ->whereNotNull('n.idproject') // Hanya yang punya project
-            ->whereBetween('n.tanggal', [$startDate, $endDate])
-            ->orderBy('n.tanggal', 'asc')
-            ->orderBy('n.id', 'asc')
+            ->whereBetween('n.tanggal', [$startDate, $endDate]);
+
+        $pembiayaanQuery = DB::table('cashflows as cf')
+            ->select(
+                DB::raw('cf.id * -1 as id'),
+                DB::raw('NULL as id_payment'),
+                DB::raw('COALESCE(cf.kode_transaksi, "-") as nota_no'),
+                'cf.tanggal',
+                DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pembiayaan') as kodetransaksi"),
+                DB::raw('"Pembiayaan" as kategori'),
+                'cf.keterangan as namatransaksi',
+                'cf.nominal as jumlah_transaksi',
+                DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
+                DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
+                'cf.saldo_akhir as saldo',
+                DB::raw('NULL as namavendor'),
+                'r.namarek as rekening',
+                'p.namaproject',
+                'r.idproject'
+            )
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->leftJoin('projects as p', 'r.idproject', '=', 'p.id')
+            ->whereNull('cf.idnota')
+            ->where('r.idproject', session('active_project_id'))
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
+            ->where(function ($query) {
+                $query->where(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.kode_pembiayaan = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Setoran Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan_setoran as ps')
+                                ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Penyesuaian Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.judul = TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, ':', -1), '(', 1))");
+                        });
+                });
+            });
+
+        $data = $notaQuery
+            ->unionAll($pembiayaanQuery)
+            ->orderBy('tanggal', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
         // TIDAK PERLU hitung saldo running karena sudah diambil langsung dari cashflows
@@ -427,16 +482,54 @@ class LaporanController extends Controller
             ')
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->where('n.status', 'paid')
-            ->whereNotNull('n.idproject')
+            ->where('n.idproject', session('active_project_id'))
             ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->first();
+
+        $pembiayaanTotals = DB::table('cashflows as cf')
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END), 0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END), 0) as total_pengeluaran
+            ')
+            ->whereNull('cf.idnota')
+            ->where('r.idproject', session('active_project_id'))
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
+            ->where(function ($query) {
+                $query->where(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.kode_pembiayaan = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Setoran Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan_setoran as ps')
+                                ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Penyesuaian Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.judul = TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, ':', -1), '(', 1))");
+                        });
+                });
+            })
             ->first();
 
         // Ambil saldo akhir dari cashflows terakhir yang sesuai filter
         $lastCashflow = DB::table('cashflows as cf')
-            ->join('notas as n', 'cf.idnota', '=', 'n.id')
-            ->where('n.status', 'paid')
-            ->whereNotNull('n.idproject')
-            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->where('r.idproject', session('active_project_id'))
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
             ->orderBy('cf.tanggal', 'desc')
             ->orderBy('cf.id', 'desc')
             ->select('cf.saldo_akhir')
@@ -468,8 +561,8 @@ class LaporanController extends Controller
         return response()->json([
             'data' => $data,
             'total' => [
-                'pemasukan' => $totals->total_pemasukan ?? 0,
-                'pengeluaran' => $totals->total_pengeluaran ?? 0,
+                'pemasukan' => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0),
+                'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0),
                 'saldo_akhir' => $saldoAkhir
             ]
         ]);
@@ -674,6 +767,59 @@ class LaporanController extends Controller
             ->whereNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate]);
 
+        $pembiayaanQuery = DB::table('cashflows as cf')
+            ->select(
+                DB::raw('cf.id * -1 as id'),
+                DB::raw('NULL as id_payment'),
+                DB::raw('COALESCE(cf.kode_transaksi, "-") as nota_no'),
+                'cf.tanggal',
+                DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pembiayaan') as kodetransaksi"),
+                DB::raw('"Pembiayaan" as kategori'),
+                'cf.keterangan as namatransaksi',
+                'cf.nominal as jumlah_transaksi',
+                DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
+                DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
+                'cf.saldo_akhir as saldo',
+                DB::raw('NULL as namavendor'),
+                'r.namarek as rekening',
+                'cu.company_name as nama_company',
+                'r.idcompany'
+            )
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->leftJoin('company_units as cu', 'r.idcompany', '=', 'cu.id')
+            ->whereNull('cf.idnota')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
+            ->where(function ($query) {
+                $query->where(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.kode_pembiayaan = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Setoran Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan_setoran as ps')
+                                ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Penyesuaian Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.judul = TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, ':', -1), '(', 1))");
+                        });
+                });
+            });
+
         /**
          * ==================================================
          * 2. PINDAH BUKU - REKENING ASAL (OUT)
@@ -739,6 +885,7 @@ class LaporanController extends Controller
          * ==================================================
          */
         $data = $notaQuery
+            ->unionAll($pembiayaanQuery)
             ->unionAll($pbkOut)
             ->unionAll($pbkIn)
             ->orderBy('tanggal', 'asc')
@@ -762,17 +909,56 @@ class LaporanController extends Controller
             ->whereBetween('n.tanggal', [$startDate, $endDate])
             ->first();
 
+        $pembiayaanTotals = DB::table('cashflows as cf')
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END),0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END),0) as total_pengeluaran
+            ')
+            ->whereNull('cf.idnota')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
+            ->where(function ($query) {
+                $query->where(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.kode_pembiayaan = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Setoran Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan_setoran as ps')
+                                ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
+                        });
+                })->orWhere(function ($sub) {
+                    $sub->where('cf.keterangan', 'like', 'Penyesuaian Pembiayaan:%')
+                        ->whereExists(function ($pb) {
+                            $pb->select(DB::raw(1))
+                                ->from('pembiayaan as p')
+                                ->whereNull('p.deleted_at')
+                                ->whereRaw("p.judul = TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, ':', -1), '(', 1))");
+                        });
+                });
+            })
+            ->first();
+
         /**
          * ==================================================
          * 6. SALDO AKHIR
          * ==================================================
          */
         $lastCashflow = DB::table('cashflows as cf')
-            ->join('notas as n', 'cf.idnota', '=', 'n.id')
-            ->where('n.status', 'paid')
-            ->whereNotNull('n.idcompany')
-            ->whereNull('n.idproject')
-            ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
             ->orderBy('cf.tanggal', 'desc')
             ->orderBy('cf.id', 'desc')
             ->select('cf.saldo_akhir')
@@ -781,8 +967,8 @@ class LaporanController extends Controller
         return response()->json([
             'data' => $data,
             'total' => [
-                'pemasukan'   => $totals->total_pemasukan ?? 0,
-                'pengeluaran' => $totals->total_pengeluaran ?? 0,
+                'pemasukan'   => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0),
+                'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0),
                 'saldo_akhir' => $lastCashflow->saldo_akhir ?? 0
             ]
         ]);

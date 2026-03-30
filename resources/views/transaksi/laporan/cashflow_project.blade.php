@@ -514,9 +514,8 @@
                                 // Coba beberapa kemungkinan nama field untuk id
                                 const id = row.id || row.nota_id || row.ID || null;
                                 
-                                if (!id) {
-                                    console.error('ID tidak ditemukan untuk row:', row);
-                                    return `<span>${data}</span> <small class="text-danger">(no ID)</small>`;
+                                if (!id || row.kategori !== 'Transaksi') {
+                                    return `<span>${data ?? '-'}</span>`;
                                 }
                                 
                                 return `

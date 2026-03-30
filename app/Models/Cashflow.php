@@ -12,6 +12,7 @@ class Cashflow extends Model
     protected $table = 'cashflows';
     protected $fillable = [
         'idrek',
+        'kode_transaksi',
         'idnota',
         'tanggal',
         'cashflow',
