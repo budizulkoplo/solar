@@ -16,7 +16,7 @@
                             <i class="bi bi-calculator"></i> Generate Penyusutan
                         </button>
                         <button class="btn btn-primary" id="btnExportAsset">
-                            <i class="bi bi-download"></i> Export
+                            <i class="bi bi-download"></i> Download Excel
                         </button>
                     </div>
                 </div>
@@ -450,6 +450,11 @@
         <script>
         $(document).ready(function() {
             let tbAssets = null;
+            let today = new Date();
+            let firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            $('#filterDateFrom').val(firstDay.toISOString().split('T')[0]);
+            $('#filterDateTo').val(today.toISOString().split('T')[0]);
 
             function initSelect2Asset() {
                 if ($.fn.select2) {
@@ -500,12 +505,15 @@
             // Initialize DataTable
             function initDataTable() {
                 if (tbAssets) {
-                    tbAssets.destroy();
+                    tbAssets.ajax.reload(null, true);
+                    return;
                 }
                 
                 tbAssets = $('#tbAssets').DataTable({
                     processing: true,
                     serverSide: true,
+                    responsive: true,
+                    stateSave: true,
                     ajax: {
                         url: "{{ route('transaksi.asset.list.getdata') }}",
                         data: function(d) {
@@ -536,17 +544,35 @@
                         { 
                             data: 'harga_perolehan', 
                             name: 'harga_perolehan',
-                            className: 'text-end'
+                            className: 'text-end',
+                            render: function(data, type) {
+                                if (type === 'display' || type === 'filter') {
+                                    return 'Rp ' + formatNumber(data || 0);
+                                }
+                                return data;
+                            }
                         },
                         { 
                             data: 'nilai_buku', 
                             name: 'nilai_buku',
-                            className: 'text-end'
+                            className: 'text-end',
+                            render: function(data, type) {
+                                if (type === 'display' || type === 'filter') {
+                                    return 'Rp ' + formatNumber(data || 0);
+                                }
+                                return data;
+                            }
                         },
                         { 
                             data: 'akumulasi_susut', 
                             name: 'akumulasi_susut',
-                            className: 'text-end'
+                            className: 'text-end',
+                            render: function(data, type) {
+                                if (type === 'display' || type === 'filter') {
+                                    return 'Rp ' + formatNumber(data || 0);
+                                }
+                                return data;
+                            }
                         },
                         { 
                             data: 'status', 
@@ -1016,12 +1042,6 @@
             resetDisposeForm();
             resetRentForm();
             initDataTable();
-            
-            // Set default dates
-            let today = new Date();
-            let firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-            $('#filterDateFrom').val(firstDay.toISOString().split('T')[0]);
-            $('#filterDateTo').val(today.toISOString().split('T')[0]);
         });
         </script>
     </x-slot>

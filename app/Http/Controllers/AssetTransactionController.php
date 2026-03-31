@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AssetExport;
 use App\Models\Asset;
 use App\Models\AssetDepreciation;
 use App\Models\AssetMutation;
@@ -15,6 +16,7 @@ use App\Models\NotaPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
 
 class AssetTransactionController extends Controller
@@ -603,27 +605,7 @@ class AssetTransactionController extends Controller
      */
     public function getAssetData(Request $request)
     {
-        $query = Asset::with(['project', 'kodeTransaksi', 'depreciations' => function($q) {
-                $q->where('status', 'terposting');
-            }])
-            ->where('idproject', session('active_project_id'));
-
-        // Apply filters
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-        
-        if ($request->filled('metode')) {
-            $query->where('metode_penyusutan', $request->metode);
-        }
-        
-        if ($request->filled('date_from')) {
-            $query->where('tanggal_pembelian', '>=', $request->date_from);
-        }
-        
-        if ($request->filled('date_to')) {
-            $query->where('tanggal_pembelian', '<=', $request->date_to);
-        }
+        $query = $this->buildAssetListQuery($request);
 
         // If only summary requested
         if ($request->has('summary_only')) {
@@ -801,75 +783,10 @@ class AssetTransactionController extends Controller
     public function exportAssets(Request $request)
     {
         try {
-            $query = Asset::with(['project', 'kodeTransaksi'])
-                ->where('idproject', session('active_project_id'));
+            $assets = $this->buildAssetListQuery($request)->get();
+            $filename = 'data_aset_' . now()->format('Ymd_His') . '.xlsx';
 
-            // Apply filters
-            if ($request->filled('status')) {
-                $query->where('status', $request->status);
-            }
-            
-            if ($request->filled('metode')) {
-                $query->where('metode_penyusutan', $request->metode);
-            }
-            
-            if ($request->filled('date_from')) {
-                $query->where('tanggal_pembelian', '>=', $request->date_from);
-            }
-            
-            if ($request->filled('date_to')) {
-                $query->where('tanggal_pembelian', '<=', $request->date_to);
-            }
-
-            $assets = $query->get();
-
-            $headers = [
-                'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="assets_' . date('Ymd_His') . '.csv"',
-            ];
-
-            $callback = function() use ($assets) {
-                $file = fopen('php://output', 'w');
-                fputcsv($file, [
-                    'Kode Asset',
-                    'Nama Asset', 
-                    'Tanggal Pembelian',
-                    'Harga Perolehan',
-                    'Nilai Residu',
-                    'Umur Ekonomis (bulan)',
-                    'Metode Penyusutan',
-                    'Persentase Susut (%)',
-                    'Nilai Buku',
-                    'Akumulasi Penyusutan',
-                    'Status',
-                    'Lokasi',
-                    'PIC',
-                    'Keterangan'
-                ]);
-
-                foreach ($assets as $asset) {
-                    fputcsv($file, [
-                        $asset->kode_aset,
-                        $asset->nama_aset,
-                        $asset->tanggal_pembelian,
-                        $asset->harga_perolehan,
-                        $asset->nilai_residu,
-                        $asset->umur_ekonomis,
-                        $asset->metode_penyusutan,
-                        $asset->persentase_susut,
-                        $asset->nilai_buku,
-                        $asset->harga_perolehan - $asset->nilai_buku,
-                        $asset->status,
-                        $asset->lokasi,
-                        $asset->pic,
-                        $asset->keterangan
-                    ]);
-                }
-
-                fclose($file);
-            };
-
-            return response()->stream($callback, 200, $headers);
+            return Excel::download(new AssetExport($assets), $filename);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -877,6 +794,36 @@ class AssetTransactionController extends Controller
                 'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function buildAssetListQuery(Request $request)
+    {
+        $query = Asset::with([
+                'project',
+                'kodeTransaksi',
+                'depreciations' => function($q) {
+                    $q->where('status', 'terposting');
+                }
+            ])
+            ->where('idproject', session('active_project_id'));
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('metode')) {
+            $query->where('metode_penyusutan', $request->metode);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('tanggal_pembelian', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('tanggal_pembelian', '<=', $request->date_to);
+        }
+
+        return $query;
     }
 
     /**
