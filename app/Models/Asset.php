@@ -56,6 +56,13 @@ class Asset extends Model
     {
         return $this->hasMany(AssetDepreciation::class, 'asset_id');
     }
+
+    public function latestDepreciation()
+    {
+        return $this->hasOne(AssetDepreciation::class, 'asset_id')
+            ->orderByDesc('periode')
+            ->orderByDesc('id');
+    }
     
     public function mutations()
     {
@@ -96,11 +103,26 @@ class Asset extends Model
     // Hitung nilai buku saat ini
     public function getNilaiBukuAttribute()
     {
-        $totalDepreciation = $this->depreciations()
-            ->where('status', 'terposting')
-            ->sum('nilai_penyusutan');
-            
-        return $this->harga_perolehan - $totalDepreciation;
+        $latestDepreciation = $this->getLatestDepreciationRecord();
+
+        if ($latestDepreciation && $latestDepreciation->nilai_buku !== null) {
+            return (float) $latestDepreciation->nilai_buku;
+        }
+
+        $akumulasiPenyusutan = $latestDepreciation
+            ? (float) ($latestDepreciation->akumulasi_penyusutan ?? 0)
+            : 0;
+
+        return (float) $this->harga_perolehan - $akumulasiPenyusutan;
+    }
+
+    public function getAkumulasiPenyusutanAttribute()
+    {
+        $latestDepreciation = $this->getLatestDepreciationRecord();
+
+        return $latestDepreciation
+            ? (float) ($latestDepreciation->akumulasi_penyusutan ?? 0)
+            : 0;
     }
     
     // Generate kode aset otomatis
@@ -119,5 +141,26 @@ class Asset extends Model
         }
         
         return $prefix . '-' . $nextNumber;
+    }
+
+    private function getLatestDepreciationRecord()
+    {
+        if ($this->relationLoaded('latestDepreciation')) {
+            return $this->getRelation('latestDepreciation');
+        }
+
+        if ($this->relationLoaded('depreciations')) {
+            return $this->depreciations
+                ->sortByDesc(function ($depreciation) {
+                    return sprintf(
+                        '%s-%010d',
+                        optional($depreciation->periode)->format('Y-m-d') ?? '0000-00-00',
+                        $depreciation->id
+                    );
+                })
+                ->first();
+        }
+
+        return $this->latestDepreciation()->first();
     }
 }
