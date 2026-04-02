@@ -351,9 +351,12 @@
                                         @php
                                             $jenis = [
                                                 'dp_awal' => 'DP Awal',
+                                                'dp_uang_muka' => 'DP Uang Muka',
                                                 'termin_1' => 'Termin 1',
                                                 'termin_2' => 'Termin 2',
                                                 'termin_3' => 'Termin 3',
+                                                'retensi' => 'Point Retensi',
+                                                'sbum' => 'SBUM',
                                                 'lunas' => 'Pelunasan',
                                                 'lainnya' => 'Lainnya'
                                             ];
@@ -367,9 +370,12 @@
                                             
                                             $icon = [
                                                 'dp_awal' => 'bi-cash',
+                                                'dp_uang_muka' => 'bi-wallet2',
                                                 'termin_1' => 'bi-1-circle',
                                                 'termin_2' => 'bi-2-circle',
                                                 'termin_3' => 'bi-3-circle',
+                                                'retensi' => 'bi-shield-lock',
+                                                'sbum' => 'bi-receipt',
                                                 'lunas' => 'bi-check-circle',
                                                 'lainnya' => 'bi-currency-exchange'
                                             ];

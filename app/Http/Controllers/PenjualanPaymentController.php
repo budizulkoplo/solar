@@ -291,7 +291,7 @@ class PenjualanPaymentController extends Controller
     {
         $request->validate([
             'penjualan_id' => 'required|exists:penjualans,id',
-            'jenis_payment' => 'required|in:dp_awal,termin_1,termin_2,termin_3,lunas,lainnya',
+            'jenis_payment' => 'required|in:dp_awal,dp_uang_muka,termin_1,termin_2,termin_3,retensi,sbum,lunas,lainnya',
             'termin_ke' => 'nullable|integer|min:1',
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
@@ -448,7 +448,7 @@ class PenjualanPaymentController extends Controller
         $payment = PenjualanPayment::with('penjualan')->findOrFail($id);
         
         $request->validate([
-            'jenis_payment' => 'required|in:dp_awal,termin_1,termin_2,termin_3,lunas,lainnya',
+            'jenis_payment' => 'required|in:dp_awal,dp_uang_muka,termin_1,termin_2,termin_3,retensi,sbum,lunas,lainnya',
             'termin_ke' => 'nullable|integer|min:1',
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
