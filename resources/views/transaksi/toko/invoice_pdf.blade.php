@@ -36,16 +36,25 @@ th,td{
 </style>
 </head>
 <body>
+@php
+    $isPembelian = blank($nota->jenis_penjualan);
+@endphp
 
 <table class="header">
 <tr>
 <td width="70%">
-<h3>INVOICE</h3>
+<h3>{{ $isPembelian ? 'INVOICE PEMBELIAN' : 'INVOICE PENJUALAN' }}</h3>
 
 <strong>Kepada</strong><br>
+@if($isPembelian)
+{{ $nota->vendor->namavendor ?? '-' }}<br>
+{{ $nota->vendor->alamat ?? '' }}<br>
+{{ $nota->vendor->telp ?? '' }}
+@else
 {{ $nota->customerToko->nama_lengkap ?? '-' }}<br>
 {{ $nota->customerToko->alamat ?? '' }}<br>
 {{ $nota->customerToko->no_hp ?? '' }}
+@endif
 
 </td>
 
@@ -69,9 +78,13 @@ Jatuh Tempo : {{ $nota->tgl_tempo }}
 <thead>
 <tr>
 <th>#</th>
+@if($isPembelian)
+<th>Kode Transaksi</th>
 <th>Deskripsi</th>
+@else
+<th>Deskripsi</th>
+@endif
 <th>Vol</th>
-<th>Satuan</th>
 <th>Harga</th>
 <th>Total</th>
 </tr>
@@ -81,9 +94,13 @@ Jatuh Tempo : {{ $nota->tgl_tempo }}
 @foreach($nota->transactions as $i => $trx)
 <tr>
 <td>{{ $i+1 }}</td>
+@if($isPembelian)
+<td>{{ $trx->kodeTransaksi ? '(' . $trx->kodeTransaksi->kodetransaksi . ') ' . $trx->kodeTransaksi->transaksi : '-' }}</td>
 <td>{{ $trx->description }}</td>
+@else
+<td>{{ $trx->description }}</td>
+@endif
 <td>{{ $trx->jml }}</td>
-<td>{{ $trx->satuan ?? '-' }}</td>
 <td class="right">Rp {{ number_format($trx->nominal,0,',','.') }}</td>
 <td class="right">Rp {{ number_format($trx->total,0,',','.') }}</td>
 </tr>
