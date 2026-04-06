@@ -174,9 +174,6 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">Detail Item</h6>
-                        <a href="#" target="_blank" class="btn btn-sm btn-outline-primary" id="btnViewInvoicePdf">
-                            <i class="bi bi-file-earmark-pdf"></i> Invoice PDF
-                        </a>
                     </div>
                     <table class="table table-sm table-bordered" id="tblViewDetail">
                         <thead>
@@ -363,7 +360,7 @@
                 }
                 function generateNotaNo() {
                     const date = ($('#tanggalPembelian').val() || new Date().toISOString().split('T')[0]).replaceAll('-', '');
-                    return `BLI-${date}-${Math.floor(Math.random() * 90000) + 10000}`;
+                    return `BUY-${date}-${Math.floor(Math.random() * 90000) + 10000}`;
                 }
                 function kodeTransaksiSelect(name, selectedId = '', mode = 'create') {
                     let options = '<option value="">-- Pilih Kode Transaksi --</option>';
@@ -554,7 +551,6 @@
                             if (res.success) {
                                 $('#modalPembelian').modal('hide');
                                 tbPembelian.ajax.reload();
-                                if (res.invoice_url) window.open(res.invoice_url, '_blank');
                                 Swal.fire('Berhasil!', res.message, 'success');
                             } else {
                                 Swal.fire('Error!', res.message, 'error');
@@ -584,8 +580,6 @@
                         $('#viewStatus').html(statusBadge(nota.status));
                         $('#viewCashflow').text(nota.cashflow === 'in' ? 'Masuk' : 'Keluar');
                         $('#viewPaymentMethod').text(nota.paymen_method === 'tempo' ? `Tempo${nota.tgl_tempo ? ' - ' + formatTanggal(nota.tgl_tempo) : ''}` : 'Cash');
-                        $('#btnViewInvoicePdf').attr('href', `/toko/${nota.id}/invoice`);
-
                         let html = '';
                         (nota.transactions || []).forEach(function(item) {
                             const kode = item.kode_transaksi ? `(${item.kode_transaksi.kodetransaksi}) ${item.kode_transaksi.transaksi}` : '-';
@@ -653,7 +647,6 @@
                             if (res.success) {
                                 $('#modalEditPembelian').modal('hide');
                                 tbPembelian.ajax.reload();
-                                if (res.invoice_url) window.open(res.invoice_url, '_blank');
                                 Swal.fire('Berhasil!', res.message, 'success');
                             } else {
                                 Swal.fire('Error!', res.message, 'error');

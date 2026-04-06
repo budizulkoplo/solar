@@ -455,7 +455,7 @@
 
                 function generateNotaNo() {
                     const date = ($('#tanggalPenjualan').val() || new Date().toISOString().split('T')[0]).replaceAll('-', '');
-                    return `JUAL-${date}-${Math.floor(Math.random() * 90000) + 10000}`;
+                    return `SELL-${date}-${Math.floor(Math.random() * 90000) + 10000}`;
                 }
 
                 function customerText(nota) {

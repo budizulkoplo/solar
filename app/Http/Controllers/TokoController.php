@@ -23,7 +23,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class TokoController extends Controller
 {
-    // Halaman transaksi pembelian (in)
+    // Halaman transaksi pembelian (out)
     public function pembelian()
     {
         $kodeTransaksi = KodeTransaksi::orderBy('kodetransaksi')
@@ -32,7 +32,7 @@ class TokoController extends Controller
         return view('transaksi.toko.pembelian', compact('kodeTransaksi'));
     }
 
-    // Halaman transaksi penjualan (out)
+    // Halaman transaksi penjualan (in)
     public function penjualan()
     {
         $kodeTransaksi = KodeTransaksi::orderBy('kodetransaksi')
@@ -54,7 +54,7 @@ class TokoController extends Controller
                 'project:id,namaproject',
                 'vendor:id,namavendor'
             ])
-            ->where('cashflow', 'in')
+            ->where('cashflow', 'out')
             ->where('type', 'toko')
             ->where('idproject', session('active_project_id'));
 
@@ -364,7 +364,7 @@ class TokoController extends Controller
                 'vendor_id' => $request->vendor_id,
                 'idrek' => $request->idrek,
                 'tanggal' => $request->tanggal,
-                'cashflow' => 'in',
+                'cashflow' => 'out',
                 'type' => 'toko',
                 'paymen_method' => $request->paymen_method ?? 'cash',
                 'tgl_tempo' => $request->paymen_method == 'tempo' ? $request->tgl_tempo : null,
@@ -398,7 +398,7 @@ class TokoController extends Controller
 
             // Proses pembayaran
             if ($request->paymen_method === 'cash') {
-                $this->processPayment($nota, $request->idrek, $total, $request->tanggal, 'in');
+                $this->processPayment($nota, $request->idrek, $total, $request->tanggal, 'out');
             }
 
             // Buat log
@@ -411,7 +411,6 @@ class TokoController extends Controller
                 'success' => true,
                 'message' => 'Transaksi pembelian berhasil disimpan',
                 'nota_id' => $nota->id,
-                'invoice_url' => route('toko.invoice', $nota->id),
             ]);
 
         } catch (\Exception $e) {
@@ -1029,7 +1028,7 @@ class TokoController extends Controller
                 'vendor_id' => $request->vendor_id,
                 'idrek' => $request->idrek,
                 'tanggal' => $request->tanggal,
-                'cashflow' => 'in',
+                'cashflow' => 'out',
                 'type' => 'toko',
                 'jenis_penjualan' => null,
                 'project_tujuan_id' => null,
@@ -1058,7 +1057,7 @@ class TokoController extends Controller
             }
 
             if ($request->paymen_method === 'cash') {
-                $this->processPayment($nota, $request->idrek, $subtotal, $request->tanggal, 'in');
+                $this->processPayment($nota, $request->idrek, $subtotal, $request->tanggal, 'out');
             }
 
             $this->createUpdateLog(
@@ -1073,7 +1072,6 @@ class TokoController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Transaksi pembelian berhasil diupdate',
-                'invoice_url' => route('toko.invoice', $nota->id),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
