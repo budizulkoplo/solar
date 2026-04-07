@@ -318,7 +318,7 @@ class TokoController extends Controller
                 'transactions.*.description' => 'required|string|max:255',
                 'transactions.*.qty' => 'required|numeric|min:0.01',
                 'transactions.*.harga_beli' => 'required|numeric|min:0',
-                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
                 'vendor_id' => 'nullable|exists:vendors,id',
             ]);
 
@@ -987,7 +987,7 @@ class TokoController extends Controller
                 'paymen_method' => 'required|in:cash,tempo',
                 'tgl_tempo' => 'nullable|date|required_if:paymen_method,tempo',
                 'vendor_id' => 'nullable|exists:vendors,id',
-                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+                'bukti_nota' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
                 'transactions' => 'required|array|min:1',
                 'transactions.*.idkodetransaksi' => 'required|exists:kodetransaksi,id',
                 'transactions.*.description' => 'required|string|max:255',

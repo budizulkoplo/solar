@@ -98,7 +98,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Bukti Nota</label>
                                 <input type="file" class="form-control form-control-sm" name="bukti_nota" id="buktiNota" accept=".jpg,.jpeg,.png,.pdf">
-                                <small class="text-muted">Format: JPG, PNG, PDF. Maks. 2MB.</small>
+                                <small class="text-muted">Format: JPG, PNG, PDF. Maks. 5MB.</small>
                             </div>
                         </div>
 
@@ -270,7 +270,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Bukti Nota Baru</label>
                                 <input type="file" class="form-control form-control-sm" name="bukti_nota" id="editBuktiNota" accept=".jpg,.jpeg,.png,.pdf">
-                                <small class="text-muted d-block">Kosongkan jika tidak ingin mengganti file.</small>
+                                <small class="text-muted d-block">Kosongkan jika tidak ingin mengganti file. Maks. 5MB.</small>
                                 <small id="editBuktiNotaInfo" class="d-block mt-1"></small>
                             </div>
                         </div>
