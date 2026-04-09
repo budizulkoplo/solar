@@ -555,6 +555,8 @@
                         { 
                             data: 'nilai_buku', 
                             name: 'nilai_buku',
+                            orderable: false,
+                            searchable: false,
                             className: 'text-end',
                             render: function(data, type) {
                                 if (type === 'display' || type === 'filter') {
@@ -566,6 +568,8 @@
                         { 
                             data: 'akumulasi_susut', 
                             name: 'akumulasi_susut',
+                            orderable: false,
+                            searchable: false,
                             className: 'text-end',
                             render: function(data, type) {
                                 if (type === 'display' || type === 'filter') {
