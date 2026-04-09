@@ -681,8 +681,7 @@ class AssetTransactionController extends Controller
                 return floatval($row->nilai_buku ?? 0);
             })
             ->addColumn('akumulasi_susut', function($row) {
-                $total = $row->depreciations->sum('nilai_penyusutan');
-                return floatval($total ?? 0);
+                return floatval($row->akumulasi_penyusutan ?? 0);
             })
             ->editColumn('status', function($row) {
                 $badges = [
@@ -801,9 +800,7 @@ class AssetTransactionController extends Controller
         $query = Asset::with([
                 'project',
                 'kodeTransaksi',
-                'depreciations' => function($q) {
-                    $q->where('status', 'terposting');
-                }
+                'latestDepreciation'
             ])
             ->where('idproject', session('active_project_id'));
 
@@ -857,12 +854,7 @@ class AssetTransactionController extends Controller
                 $monthlyDepreciation = $nilaiBuku * $ratePerBulan;
             }
 
-            // Pastikan nilai_buku dihitung dengan benar
-            $totalDepreciation = $asset->depreciations()
-                ->where('status', 'terposting')
-                ->sum('nilai_penyusutan');
-            
-            $nilaiBuku = floatval($asset->harga_perolehan ?? 0) - floatval($totalDepreciation ?? 0);
+            $nilaiBuku = floatval($asset->nilai_buku ?? 0);
 
             return response()->json([
                 'success' => true,

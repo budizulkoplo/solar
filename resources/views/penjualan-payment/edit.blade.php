@@ -52,9 +52,12 @@
                                         <select class="form-select" name="jenis_payment" required>
                                             <option value="">-- Pilih Jenis --</option>
                                             <option value="dp_awal" {{ $payment->jenis_payment == 'dp_awal' ? 'selected' : '' }}>DP Awal</option>
+                                            <option value="dp_uang_muka" {{ $payment->jenis_payment == 'dp_uang_muka' ? 'selected' : '' }}>DP Uang Muka</option>
                                             <option value="termin_1" {{ $payment->jenis_payment == 'termin_1' ? 'selected' : '' }}>Termin 1</option>
                                             <option value="termin_2" {{ $payment->jenis_payment == 'termin_2' ? 'selected' : '' }}>Termin 2</option>
                                             <option value="termin_3" {{ $payment->jenis_payment == 'termin_3' ? 'selected' : '' }}>Termin 3</option>
+                                            <option value="retensi" {{ $payment->jenis_payment == 'retensi' ? 'selected' : '' }}>Point Retensi</option>
+                                            <option value="sbum" {{ $payment->jenis_payment == 'sbum' ? 'selected' : '' }}>SBUM</option>
                                             <option value="lunas" {{ $payment->jenis_payment == 'lunas' ? 'selected' : '' }}>Pelunasan</option>
                                             <option value="lainnya" {{ $payment->jenis_payment == 'lainnya' ? 'selected' : '' }}>Lainnya</option>
                                         </select>

@@ -43,9 +43,12 @@
                                                 @php
                                                     $jenis = [
                                                         'dp_awal' => 'DP Awal',
+                                                        'dp_uang_muka' => 'DP Uang Muka',
                                                         'termin_1' => 'Termin 1',
                                                         'termin_2' => 'Termin 2',
                                                         'termin_3' => 'Termin 3',
+                                                        'retensi' => 'Point Retensi',
+                                                        'sbum' => 'SBUM',
                                                         'lunas' => 'Pelunasan',
                                                         'lainnya' => 'Lainnya'
                                                     ];
