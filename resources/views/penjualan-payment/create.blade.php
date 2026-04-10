@@ -312,7 +312,7 @@
                                         <option value="termin_1">Termin 1</option>
                                         <option value="termin_2">Termin 2</option>
                                         <option value="termin_3">Termin 3</option>
-                                        <option value="retensi">Point Retensi</option>
+                                        <option value="retensi">Retensi</option>
                                         <option value="sbum">SBUM</option>
                                         @if($sisaBelumDibayar < $penjualan->harga_jual * 0.1)
                                             <option value="lunas">Pelunasan</option>

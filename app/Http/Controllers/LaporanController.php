@@ -346,6 +346,7 @@ class LaporanController extends Controller
     {
         $startDate = $request->input('start_date', now()->format('Y-m-01'));
         $endDate = $request->input('end_date', now()->format('Y-m-t'));
+        $activeProjectId = session('active_project_id');
         
         // Validasi tanggal
         if (empty($startDate) || empty($endDate)) {
@@ -382,6 +383,21 @@ class LaporanController extends Controller
             )
             ->groupBy('nt.idnota');
 
+        $penjualanPaymentSaldoSubquery = "
+            (
+                SELECT cf2.saldo_akhir
+                FROM cashflows cf2
+                WHERE cf2.idnota IS NULL
+                    AND cf2.idrek = pp.idrek
+                    AND cf2.tanggal = pp.tanggal_payment
+                    AND cf2.nominal = pp.nominal
+                    AND cf2.cashflow = 'in'
+                    AND cf2.keterangan LIKE CONCAT('%Penjualan: ', pj.kode_penjualan, '%')
+                ORDER BY cf2.id DESC
+                LIMIT 1
+            )
+        ";
+
         // Query data transaksi Project (idproject tidak null)
         $notaQuery = DB::table('notas as n')
             ->select(
@@ -410,9 +426,71 @@ class LaporanController extends Controller
                 $join->on('n.id', '=', 'kts.idnota');
             })
             ->where('n.status', 'paid')
-            ->where('n.idproject', session('active_project_id'))
+            ->where('n.idproject', $activeProjectId)
             ->whereNotNull('n.idproject') // Hanya yang punya project
             ->whereBetween('n.tanggal', [$startDate, $endDate]);
+
+        $penjualanPaymentQuery = DB::table('penjualan_payments as pp')
+            ->join('penjualans as pj', 'pp.penjualan_id', '=', 'pj.id')
+            ->join('unit_details as ud', 'pj.unit_detail_id', '=', 'ud.id')
+            ->join('units as u', 'ud.idunit', '=', 'u.id')
+            ->leftJoin('customers as c', 'pj.customer_id', '=', 'c.id')
+            ->leftJoin('rekening as r', 'pp.idrek', '=', 'r.idrek')
+            ->leftJoin('projects as p', 'u.idproject', '=', 'p.id')
+            ->select(
+                DB::raw('pp.id * -1000000 as id'),
+                'pp.id as id_payment',
+                'pp.kode_payment as nota_no',
+                'pp.tanggal_payment as tanggal',
+                DB::raw("
+                    CONCAT(
+                        '(PAY) ',
+                        CASE pp.jenis_payment
+                            WHEN 'dp_awal' THEN 'DP Awal'
+                            WHEN 'dp_uang_muka' THEN 'DP Uang Muka'
+                            WHEN 'termin_1' THEN 'Termin 1'
+                            WHEN 'termin_2' THEN 'Termin 2'
+                            WHEN 'termin_3' THEN 'Termin 3'
+                            WHEN 'retensi' THEN 'Retensi'
+                            WHEN 'sbum' THEN 'SBUM'
+                            WHEN 'lunas' THEN 'Pelunasan'
+                            ELSE 'Pembayaran Lainnya'
+                        END
+                    ) as kodetransaksi
+                "),
+                DB::raw('"Penjualan" as kategori'),
+                DB::raw("
+                    CONCAT(
+                        'Pembayaran ',
+                        CASE pp.jenis_payment
+                            WHEN 'dp_awal' THEN 'DP Awal'
+                            WHEN 'dp_uang_muka' THEN 'DP Uang Muka'
+                            WHEN 'termin_1' THEN 'Termin 1'
+                            WHEN 'termin_2' THEN 'Termin 2'
+                            WHEN 'termin_3' THEN 'Termin 3'
+                            WHEN 'retensi' THEN 'Retensi'
+                            WHEN 'sbum' THEN 'SBUM'
+                            WHEN 'lunas' THEN 'Pelunasan'
+                            ELSE 'Lainnya'
+                        END,
+                        ' - Penjualan: ',
+                        pj.kode_penjualan,
+                        ' - Unit: ',
+                        COALESCE(u.namaunit, '-')
+                    ) as namatransaksi
+                "),
+                'pp.nominal as jumlah_transaksi',
+                DB::raw('pp.nominal as pemasukan'),
+                DB::raw('0 as pengeluaran'),
+                DB::raw("COALESCE({$penjualanPaymentSaldoSubquery}, 0) as saldo"),
+                'c.nama_lengkap as namavendor',
+                'r.namarek as rekening',
+                'p.namaproject',
+                'u.idproject'
+            )
+            ->where('pp.status_payment', 'realized')
+            ->where('u.idproject', $activeProjectId)
+            ->whereBetween('pp.tanggal_payment', [$startDate, $endDate]);
 
         $pembiayaanQuery = DB::table('cashflows as cf')
             ->select(
@@ -435,7 +513,7 @@ class LaporanController extends Controller
             ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
             ->leftJoin('projects as p', 'r.idproject', '=', 'p.id')
             ->whereNull('cf.idnota')
-            ->where('r.idproject', session('active_project_id'))
+            ->where('r.idproject', $activeProjectId)
             ->whereBetween('cf.tanggal', [$startDate, $endDate])
             ->where(function ($query) {
                 $query->where(function ($sub) {
@@ -467,6 +545,7 @@ class LaporanController extends Controller
             });
 
         $data = $notaQuery
+            ->unionAll($penjualanPaymentQuery)
             ->unionAll($pembiayaanQuery)
             ->orderBy('tanggal', 'asc')
             ->orderBy('id', 'asc')
@@ -482,8 +561,18 @@ class LaporanController extends Controller
             ')
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->where('n.status', 'paid')
-            ->where('n.idproject', session('active_project_id'))
+            ->where('n.idproject', $activeProjectId)
             ->whereBetween('n.tanggal', [$startDate, $endDate])
+            ->first();
+
+        $penjualanPaymentTotals = DB::table('penjualan_payments as pp')
+            ->join('penjualans as pj', 'pp.penjualan_id', '=', 'pj.id')
+            ->join('unit_details as ud', 'pj.unit_detail_id', '=', 'ud.id')
+            ->join('units as u', 'ud.idunit', '=', 'u.id')
+            ->selectRaw('COALESCE(SUM(pp.nominal), 0) as total_pemasukan')
+            ->where('pp.status_payment', 'realized')
+            ->where('u.idproject', $activeProjectId)
+            ->whereBetween('pp.tanggal_payment', [$startDate, $endDate])
             ->first();
 
         $pembiayaanTotals = DB::table('cashflows as cf')
@@ -493,7 +582,7 @@ class LaporanController extends Controller
                 COALESCE(SUM(CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END), 0) as total_pengeluaran
             ')
             ->whereNull('cf.idnota')
-            ->where('r.idproject', session('active_project_id'))
+            ->where('r.idproject', $activeProjectId)
             ->whereBetween('cf.tanggal', [$startDate, $endDate])
             ->where(function ($query) {
                 $query->where(function ($sub) {
@@ -525,17 +614,7 @@ class LaporanController extends Controller
             })
             ->first();
 
-        // Ambil saldo akhir dari cashflows terakhir yang sesuai filter
-        $lastCashflow = DB::table('cashflows as cf')
-            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
-            ->where('r.idproject', session('active_project_id'))
-            ->whereBetween('cf.tanggal', [$startDate, $endDate])
-            ->orderBy('cf.tanggal', 'desc')
-            ->orderBy('cf.id', 'desc')
-            ->select('cf.saldo_akhir')
-            ->first();
-
-        $saldoAkhir = $lastCashflow ? $lastCashflow->saldo_akhir : 0;
+        $saldoAkhir = $data->count() > 0 ? ($data->last()->saldo ?? 0) : 0;
 
         // Debug: cek apakah data memiliki saldo dari cashflows
         if ($data->count() > 0) {
@@ -561,7 +640,7 @@ class LaporanController extends Controller
         return response()->json([
             'data' => $data,
             'total' => [
-                'pemasukan' => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0),
+                'pemasukan' => ($totals->total_pemasukan ?? 0) + ($penjualanPaymentTotals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0),
                 'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0),
                 'saldo_akhir' => $saldoAkhir
             ]
