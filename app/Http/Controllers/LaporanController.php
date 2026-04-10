@@ -383,16 +383,33 @@ class LaporanController extends Controller
             )
             ->groupBy('nt.idnota');
 
+        $penjualanPaymentCashflowWhere = "
+                cf2.idnota IS NULL
+                    AND cf2.tanggal = pp.tanggal_payment
+                    AND cf2.nominal = pp.nominal
+                    AND cf2.cashflow = 'in'
+                    AND (
+                        cf2.idrek = pp.idrek
+                        OR cf2.keterangan LIKE CONCAT('%Penjualan: ', pj.kode_penjualan, '%')
+                    )
+        ";
+
         $penjualanPaymentSaldoSubquery = "
             (
                 SELECT cf2.saldo_akhir
                 FROM cashflows cf2
-                WHERE cf2.idnota IS NULL
-                    AND cf2.idrek = pp.idrek
-                    AND cf2.tanggal = pp.tanggal_payment
-                    AND cf2.nominal = pp.nominal
-                    AND cf2.cashflow = 'in'
-                    AND cf2.keterangan LIKE CONCAT('%Penjualan: ', pj.kode_penjualan, '%')
+                WHERE {$penjualanPaymentCashflowWhere}
+                ORDER BY cf2.id DESC
+                LIMIT 1
+            )
+        ";
+
+        $penjualanPaymentRekeningSubquery = "
+            (
+                SELECT r2.namarek
+                FROM cashflows cf2
+                LEFT JOIN rekening r2 ON cf2.idrek = r2.idrek
+                WHERE {$penjualanPaymentCashflowWhere}
                 ORDER BY cf2.id DESC
                 LIMIT 1
             )
@@ -484,7 +501,7 @@ class LaporanController extends Controller
                 DB::raw('0 as pengeluaran'),
                 DB::raw("COALESCE({$penjualanPaymentSaldoSubquery}, 0) as saldo"),
                 'c.nama_lengkap as namavendor',
-                'r.namarek as rekening',
+                DB::raw("COALESCE(r.namarek, {$penjualanPaymentRekeningSubquery}, '-') as rekening"),
                 'p.namaproject',
                 'u.idproject'
             )
