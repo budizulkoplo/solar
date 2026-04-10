@@ -202,7 +202,7 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <th>DP Awal</th>
+                                            <th>DP Uang muka</th>
                                             <td class="text-end">
                                                 Rp {{ number_format($penjualan->dp_awal, 0, ',', '.') }}
                                             </td>
@@ -210,7 +210,7 @@
                                         <tr>
                                             <th>Sisa Pembayaran</th>
                                             <td class="text-end">
-                                                Rp {{ number_format($penjualan->sisa_pembayaran, 0, ',', '.') }}
+                                                Rp {{ number_format($sisaBelumDibayar, 0, ',', '.') }}
                                             </td>
                                         </tr>
                                         @if($penjualan->metode_pembayaran == 'kredit')

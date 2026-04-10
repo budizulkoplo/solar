@@ -18,6 +18,35 @@ use Yajra\DataTables\Facades\DataTables;
 
 class PenjualanPaymentController extends Controller
 {
+    private function getRealizedPaymentTotal(Penjualan $penjualan, ?int $excludePaymentId = null): float
+    {
+        if ($penjualan->relationLoaded('payments')) {
+            return (float) $penjualan->payments
+                ->where('status_payment', 'realized')
+                ->when($excludePaymentId, fn ($payments) => $payments->where('id', '!=', $excludePaymentId))
+                ->sum('nominal');
+        }
+
+        return (float) $penjualan->payments()
+            ->where('status_payment', 'realized')
+            ->when($excludePaymentId, fn ($query) => $query->where('id', '!=', $excludePaymentId))
+            ->sum('nominal');
+    }
+
+    private function getSisaBelumDibayar(Penjualan $penjualan, ?int $excludePaymentId = null): float
+    {
+        return max(0, (float) $penjualan->harga_jual - $this->getRealizedPaymentTotal($penjualan, $excludePaymentId));
+    }
+
+    private function syncPenjualanPaymentState(Penjualan $penjualan, ?int $excludePaymentId = null): void
+    {
+        $sisaBelumDibayar = $this->getSisaBelumDibayar($penjualan, $excludePaymentId);
+
+        $penjualan->update([
+            'sisa_pembayaran' => $sisaBelumDibayar,
+            'status_penjualan' => $sisaBelumDibayar <= 0 ? 'lunas' : 'process',
+        ]);
+    }
 
     public function index(Request $request)
     {
@@ -111,13 +140,12 @@ class PenjualanPaymentController extends Controller
                 ->addColumn('financial_info', function($row) {
                     if (!$row->penjualan) return '-';
                     
-                    $totalPayment = $row->penjualan->payments->where('status_payment', 'realized')->sum('nominal');
-                    // BENAR: sisa_pembayaran sudah merupakan sisa setelah semua pembayaran
-                    $sisaBelumDibayar = $row->penjualan->sisa_pembayaran; // Langsung pakai field ini
+                    $totalPayment = $this->getRealizedPaymentTotal($row->penjualan);
+                    $sisaBelumDibayar = $this->getSisaBelumDibayar($row->penjualan);
                     
                     return '<div>
                         <small>Harga: <strong>Rp ' . number_format($row->penjualan->harga_jual, 0, ',', '.') . '</strong></small><br>
-                        <small>DP Awal: Rp ' . number_format($row->penjualan->dp_awal, 0, ',', '.') . '</small><br>
+                        <small>DP Uang muka: Rp ' . number_format($row->penjualan->dp_awal, 0, ',', '.') . '</small><br>
                         <small>Dibayar: <span class="text-success">Rp ' . number_format($totalPayment, 0, ',', '.') . '</span></small><br>
                         <small>Sisa: <span class="text-danger">Rp ' . number_format($sisaBelumDibayar, 0, ',', '.') . '</span></small>
                     </div>';
@@ -149,9 +177,8 @@ class PenjualanPaymentController extends Controller
                 ->addColumn('status_info', function($row) {
                     if (!$row->penjualan) return '<span class="badge bg-secondary">Tidak ada data</span>';
                     
-                    $totalPayment = $row->penjualan->payments->where('status_payment', 'realized')->sum('nominal');
-                    // BENAR: sisa_pembayaran sudah merupakan sisa setelah semua pembayaran
-                    $sisaBelumDibayar = $row->penjualan->sisa_pembayaran;
+                    $totalPayment = $this->getRealizedPaymentTotal($row->penjualan);
+                    $sisaBelumDibayar = $this->getSisaBelumDibayar($row->penjualan);
                     
                     if ($totalPayment == 0) {
                         return '<span class="badge bg-secondary">Belum Bayar</span>';
@@ -175,7 +202,7 @@ class PenjualanPaymentController extends Controller
                             </a>';
                     
                     // Hitung sisa yang belum dibayar
-                    $sisaBelumDibayar = $row->penjualan->sisa_pembayaran;
+                    $sisaBelumDibayar = $this->getSisaBelumDibayar($row->penjualan);
                     
                     // Tombol untuk menambah pembayaran baru (jika masih ada sisa)
                     if ($sisaBelumDibayar > 0) {
@@ -241,8 +268,8 @@ class PenjualanPaymentController extends Controller
             ->whereIn('status_penjualan', ['process', 'selesai', 'lunas'])
             ->findOrFail($penjualanId);
         
-        $totalPayment = $penjualan->payments->where('status_payment', 'realized')->sum('nominal');
-        $sisaBelumDibayar = $penjualan->sisa_pembayaran;
+        $totalPayment = $this->getRealizedPaymentTotal($penjualan);
+        $sisaBelumDibayar = $this->getSisaBelumDibayar($penjualan);
         $progress = $penjualan->harga_jual > 0 ? ($totalPayment / $penjualan->harga_jual) * 100 : 0;
         
         return view('penjualan-payment.detail', compact('penjualan', 'totalPayment', 'sisaBelumDibayar', 'progress'));
@@ -264,8 +291,8 @@ class PenjualanPaymentController extends Controller
             ->findOrFail($penjualanId);
         
         // Hitung total yang sudah dibayar
-        $totalPayment = $penjualan->payments->sum('nominal');
-        $sisaBelumDibayar = $penjualan->sisa_pembayaran;
+        $totalPayment = $this->getRealizedPaymentTotal($penjualan);
+        $sisaBelumDibayar = $this->getSisaBelumDibayar($penjualan);
         $progress = $penjualan->harga_jual > 0 ? ($totalPayment / $penjualan->harga_jual) * 100 : 0;
         
         // Cek apakah sudah lunas
@@ -309,8 +336,7 @@ class PenjualanPaymentController extends Controller
             $penjualan = Penjualan::with('payments')->findOrFail($request->penjualan_id);
             
             // Cek sisa yang belum dibayar
-            $totalPayment = $penjualan->payments->where('status_payment', 'realized')->sum('nominal');
-            $sisaBelumDibayar = $penjualan->sisa_pembayaran;
+            $sisaBelumDibayar = $this->getSisaBelumDibayar($penjualan);
             
             if ($request->nominal > $sisaBelumDibayar) {
                 return response()->json([
@@ -375,19 +401,8 @@ class PenjualanPaymentController extends Controller
                 'created_by' => Auth::id()
             ]);
             
-            // Update penjualan - kurangi sisa pembayaran
-            $penjualan->update([
-                'sisa_pembayaran' => max(0, $penjualan->sisa_pembayaran - $request->nominal)
-            ]);
-            
-            // Cek jika sudah lunas
-            $totalPaymentAfter = $totalPayment + $request->nominal;
-            if ($totalPaymentAfter >= $penjualan->harga_jual) {
-                $penjualan->update([
-                    'status_penjualan' => 'lunas',
-                    'sisa_pembayaran' => 0
-                ]);
-            }
+            $penjualan->unsetRelation('payments');
+            $this->syncPenjualanPaymentState($penjualan);
             
             // TAMBAHKAN KE REKENING SALDO (CASHFLOW)
             // Pembayaran penjualan dianggap sebagai pemasukan (in)
@@ -433,7 +448,7 @@ class PenjualanPaymentController extends Controller
     // Edit pembayaran
     public function edit($id)
     {
-        $payment = PenjualanPayment::with(['penjualan.unitDetail.unit.project', 'penjualan.customer'])
+        $payment = PenjualanPayment::with(['penjualan.unitDetail.unit.project', 'penjualan.customer', 'penjualan.payments'])
             ->findOrFail($id);
         
         // Ambil daftar rekening untuk project aktif
@@ -462,6 +477,15 @@ class PenjualanPaymentController extends Controller
         
         try {
             DB::beginTransaction();
+
+            $sisaBelumDibayar = $this->getSisaBelumDibayar($payment->penjualan, $payment->id);
+            if ($request->nominal > $sisaBelumDibayar) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nominal pembayaran (Rp ' . number_format($request->nominal, 0, ',', '.') .
+                                ') melebihi sisa yang belum dibayar (Rp ' . number_format($sisaBelumDibayar, 0, ',', '.') . ')'
+                ], 422);
+            }
             
             // Hitung selisih nominal
             $nominalDifference = $request->nominal - $payment->nominal;
@@ -522,30 +546,7 @@ class PenjualanPaymentController extends Controller
             // Update penjualan
             $penjualan = $payment->penjualan;
             
-            // Hitung total pembayaran yang sudah direalisasi (selain payment ini)
-            $otherPaymentsTotal = $penjualan->payments()
-                ->where('status_payment', 'realized')
-                ->where('id', '!=', $payment->id)
-                ->sum('nominal');
-            
-            // Hitung sisa pembayaran baru
-            $newSisa = $penjualan->harga_jual - ($otherPaymentsTotal + $request->nominal);
-            
-            $penjualan->update([
-                'sisa_pembayaran' => max(0, $newSisa)
-            ]);
-            
-            // Cek jika sudah lunas
-            if ($otherPaymentsTotal + $request->nominal >= $penjualan->harga_jual) {
-                $penjualan->update([
-                    'status_penjualan' => 'lunas',
-                    'sisa_pembayaran' => 0
-                ]);
-            } else {
-                $penjualan->update([
-                    'status_penjualan' => 'process'
-                ]);
-            }
+            $this->syncPenjualanPaymentState($penjualan);
             
             // PROSES PEMBAYARAN BARU - Tambah ke rekening baru
             $rekeningBaru = Rekening::findOrFail($request->idrek);
@@ -594,6 +595,7 @@ class PenjualanPaymentController extends Controller
             DB::beginTransaction();
             
             $payment = PenjualanPayment::with('penjualan')->findOrFail($id);
+            $penjualan = $payment->penjualan;
             
             // ROLLBACK SALDO - Kurangi saldo rekening (karena ini pembayaran masuk)
             if ($payment->status_payment == 'realized') {
@@ -616,14 +618,6 @@ class PenjualanPaymentController extends Controller
                     ->where('keterangan', 'like', "%Pembayaran%{$payment->penjualan->kode_penjualan}%")
                     ->delete();
                 
-                // Update penjualan
-                $penjualan = $payment->penjualan;
-                $newSisa = $penjualan->sisa_pembayaran + $payment->nominal;
-                
-                $penjualan->update([
-                    'sisa_pembayaran' => $newSisa,
-                    'status_penjualan' => 'process' // Kembalikan ke process
-                ]);
             }
             
             // Hapus bukti jika ada
@@ -632,6 +626,7 @@ class PenjualanPaymentController extends Controller
             }
             
             $payment->delete();
+            $this->syncPenjualanPaymentState($penjualan, $payment->id);
             
             DB::commit();
             

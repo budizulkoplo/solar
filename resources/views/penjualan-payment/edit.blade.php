@@ -213,7 +213,7 @@
                                 <tr>
                                     <th>Sisa Pembayaran</th>
                                     <td class="fw-bold">
-                                        Rp {{ number_format($payment->penjualan->sisa_pembayaran, 0, ',', '.') }}
+                                        Rp {{ number_format(max(0, $payment->penjualan->harga_jual - $payment->penjualan->payments->where('status_payment', 'realized')->sum('nominal')), 0, ',', '.') }}
                                     </td>
                                 </tr>
                                 <tr>
