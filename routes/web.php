@@ -57,6 +57,7 @@ use App\Http\Controllers\Mobile\MobileProfileController;
 use App\Http\Controllers\Mobile\PresensiController;
 use App\Http\Controllers\Mobile\KalenderController;
 use App\Http\Controllers\Mobile\MobileBonusController;
+use App\Http\Controllers\Mobile\QuranController as MobileQuranController;
 /*
 |--------------------------------------------------------------------------
 | Routes
@@ -694,6 +695,12 @@ Route::middleware(['auth'])->prefix('mobile')->name('mobile.')->group(function (
         Route::get('/', [\App\Http\Controllers\Mobile\MobileBonusController::class, 'index'])->name('index');
         Route::get('/detail/{periode}', [\App\Http\Controllers\Mobile\MobileBonusController::class, 'detail'])->name('detail');
         Route::get('/slip/{periode}', [\App\Http\Controllers\Mobile\MobileBonusController::class, 'slip'])->name('slip');
+    });
+
+    Route::prefix('quran')->name('quran.')->group(function () {
+        Route::get('/', [MobileQuranController::class, 'index'])->name('index');
+        Route::post('/mark-rutin', [MobileQuranController::class, 'markRutin'])->name('markRutin');
+        Route::get('/{nomor}', [MobileQuranController::class, 'show'])->name('show');
     });
 
 });

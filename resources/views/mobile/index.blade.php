@@ -175,6 +175,28 @@
     </div>
 </div>
 
+<div class="performance-card mb-3">
+    <div class="todaypresence">
+        <div class="rekappresensi">
+            <h3 class="section-title">Qur'an</h3>
+            <a href="{{ route('mobile.quran.index') }}" class="card stat-card text-decoration-none">
+                <div class="card-body position-relative">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <ion-icon name="book-outline" class="text-success stat-icon"></ion-icon>
+                            <div class="text-start">
+                                <div class="stat-label">Buka Modul Qur'an</div>
+                                <small class="text-muted">{!! $lastQuranText !!}</small>
+                            </div>
+                        </div>
+                        <ion-icon name="chevron-forward-outline" class="text-success"></ion-icon>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Transaksi Tempo -->
 <div class="modal fade" id="tempoModal" tabindex="-1" aria-labelledby="tempoModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-scrollable modal-lg">

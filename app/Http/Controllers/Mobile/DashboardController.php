@@ -89,6 +89,18 @@ class DashboardController extends Controller
             ->where('status_approved', 1)
             ->first();
 
+        $lastQuran = null;
+        if (DB::getSchemaBuilder()->hasTable('ngaji')) {
+            $lastQuran = DB::table('ngaji')
+                ->where('nik', $nik)
+                ->orderByDesc('created_at')
+                ->first();
+        }
+
+        $lastQuranText = $lastQuran
+            ? "{$lastQuran->surat} : {$lastQuran->ayat} (" . Carbon::parse($lastQuran->created_at)->format('d/m H:i') . ")"
+            : "Belum ada catatan";
+
         // Ambil jadwal untuk leaderboard hari ini
         $jadwalHariIni = DB::table('jadwal')
             ->where('tgl', $hariIni)
@@ -235,6 +247,7 @@ class DashboardController extends Controller
             'presensiModalData' => $presensiModalData,
             'transaksiTempo' => $transaksiTempo,
             'tempoModalData' => $tempoModalData,
+            'lastQuranText' => $lastQuranText,
         ]);
     }
 

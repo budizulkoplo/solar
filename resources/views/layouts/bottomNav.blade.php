@@ -224,6 +224,12 @@
             </div>
           </a>
         @endforeach
+        <a href="{{ route('mobile.quran.index') }}" class="item {{ request()->is('mobile/quran*') ? 'active' : '' }}">
+            <div class="col">
+                <ion-icon name="book-outline"></ion-icon>
+                <strong>QURAN</strong>
+            </div>
+        </a>
         @php
             use Illuminate\Support\Facades\Crypt;
             use Illuminate\Support\Facades\Auth;
