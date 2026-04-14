@@ -187,8 +187,10 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         // Laporan Cashflow
         Route::get('laporan/cashflow-project', [LaporanController::class, 'cashflowProject'])->name('transaksi.laporan.cashflow_project');
         Route::get('laporan/cashflow-project/data', [LaporanController::class, 'cashflowProjectData'])->name('transaksi.laporan.cashflow_project.data');
+        Route::get('laporan/cashflow-project/export-excel', [LaporanController::class, 'exportCashflowProjectExcel'])->name('transaksi.laporan.cashflow_project.export_excel');
         Route::get('laporan/cashflow-pt', [LaporanController::class, 'cashflowPT'])->name('transaksi.laporan.cashflow_pt');
         Route::get('laporan/cashflow-pt/data', [LaporanController::class, 'cashflowPTData'])->name('transaksi.laporan.cashflow_pt.data');
+        Route::get('laporan/cashflow-pt/export-excel', [LaporanController::class, 'exportCashflowPTExcel'])->name('transaksi.laporan.cashflow_pt.export_excel');
 
         Route::get('laporan/cashflow-project/view-nota', [LaporanController::class, 'viewNotaDetail'])->name('transaksi.laporan.cashflow_project.view_nota');
         Route::get('laporan/cashflow-pt/view-nota', [LaporanController::class, 'viewNotaDetailPT'])->name('transaksi.laporan.cashflow_pt.view_nota');

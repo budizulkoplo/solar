@@ -26,6 +26,7 @@ use App\Models\Unit;
 use App\Models\KodeTransaksi;
 use Yajra\DataTables\Facades\DataTables;
 use App\Exports\VisitExport;
+use App\Exports\CashflowDetailExport;
 use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
@@ -422,6 +423,62 @@ class LaporanController extends Controller
 
             return $row;
         });
+    }
+
+    protected function flattenCashflowRowsForExcel(array $data, bool $includeCompany = false): array
+    {
+        $rows = [];
+
+        foreach ($data as $index => $row) {
+            $baseColumns = [
+                $index + 1,
+                $row['nota_no'] ?? '-',
+                !empty($row['tanggal']) ? Carbon::parse($row['tanggal'])->format('d/m/Y') : '-',
+                $row['kodetransaksi'] ?? '-',
+                $row['namatransaksi'] ?? '-',
+                $this->formatExcelRupiah($row['pemasukan'] ?? 0),
+                $this->formatExcelRupiah($row['pengeluaran'] ?? 0),
+                $this->formatExcelRupiah($row['saldo'] ?? 0),
+                $row['namavendor'] ?? '-',
+                $row['rekening'] ?? '-',
+            ];
+
+            if ($includeCompany) {
+                $baseColumns[] = $row['nama_company'] ?? '-';
+            }
+
+            $detailItems = $row['detail_items_export'] ?? [];
+
+            if (($row['kategori'] ?? null) === 'Transaksi' && is_array($detailItems) && count($detailItems) > 0) {
+                foreach ($detailItems as $item) {
+                    $rows[] = array_merge($baseColumns, [
+                        $item['no'] ?? '-',
+                        trim(($item['kode_transaksi'] ?? '-') . ' ' . ($item['nama_transaksi'] ?? '')),
+                        $item['deskripsi'] ?? '-',
+                        $item['nominal'] ?? '-',
+                        $item['jumlah'] ?? '-',
+                        $item['total'] ?? '-',
+                    ]);
+                }
+
+                continue;
+            }
+
+            $rows[] = array_merge($baseColumns, ['-', '-', '-', '-', '-', '-']);
+        }
+
+        return $rows;
+    }
+
+    protected function formatExcelRupiah($value): string
+    {
+        $number = (float) $value;
+
+        if ($number == 0.0) {
+            return '-';
+        }
+
+        return 'Rp ' . number_format($number, 0, ',', '.');
     }
 
     // ==========================
@@ -1164,6 +1221,69 @@ class LaporanController extends Controller
                 'saldo_akhir' => $lastCashflow->saldo_akhir ?? 0
             ]
         ]);
+    }
+
+    public function exportCashflowProjectExcel(Request $request)
+    {
+        $response = $this->cashflowProjectData($request)->getData(true);
+        $rows = $this->flattenCashflowRowsForExcel($response['data'] ?? [], false);
+
+        $headings = [
+            'No',
+            'No. Nota',
+            'Tgl. Trans',
+            'Kode Transaksi',
+            'Nama Transaksi',
+            'Pemasukan',
+            'Pengeluaran',
+            'Saldo',
+            'Vendor',
+            'Rekening',
+            '#',
+            'Kode Transaksi Detail',
+            'Deskripsi',
+            'Nominal',
+            'Jumlah',
+            'Total',
+        ];
+
+        $start = Carbon::parse($request->input('start_date', now()->format('Y-m-01')))->format('Ymd');
+        $end = Carbon::parse($request->input('end_date', now()->format('Y-m-t')))->format('Ymd');
+        $filename = "Cashflow_Project_{$start}_{$end}.xlsx";
+
+        return Excel::download(new CashflowDetailExport($rows, $headings), $filename);
+    }
+
+    public function exportCashflowPTExcel(Request $request)
+    {
+        $response = $this->cashflowPTData($request)->getData(true);
+        $rows = $this->flattenCashflowRowsForExcel($response['data'] ?? [], true);
+
+        $headings = [
+            'No',
+            'No. Nota',
+            'Tgl. Trans',
+            'Kode Transaksi',
+            'Nama Transaksi',
+            'Pemasukan',
+            'Pengeluaran',
+            'Saldo',
+            'Vendor',
+            'Rekening',
+            'PT/Company',
+            '#',
+            'Kode Transaksi Detail',
+            'Deskripsi',
+            'Nominal',
+            'Jumlah',
+            'Total',
+        ];
+
+        $start = Carbon::parse($request->input('start_date', now()->format('Y-m-01')))->format('Ymd');
+        $end = Carbon::parse($request->input('end_date', now()->format('Y-m-t')))->format('Ymd');
+        $filename = "Cashflow_PT_{$start}_{$end}.xlsx";
+
+        return Excel::download(new CashflowDetailExport($rows, $headings), $filename);
     }
 
     // Fungsi view detail untuk PT (menggunakan fungsi yang sama dengan project)

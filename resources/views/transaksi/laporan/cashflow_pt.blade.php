@@ -640,163 +640,16 @@
                         "<'row mt-2 no-print'<'col-md-6'i><'col-md-6 d-flex justify-content-end'p>>",
                     buttons: [
                         {
-                            extend: 'excelHtml5',
                             text: '<i class="bi bi-file-earmark-excel"></i> Excel',
                             className: 'btn btn-success btn-sm',
-                            footer: false,
-                            exportOptions: { 
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                                format: {
-                                    body: function(data, row, column, node) {
-                                        // Kolom No. Nota (index 1) - hapus button
-                                        if (column === 1) {
-                                            const tempDiv = document.createElement('div');
-                                            tempDiv.innerHTML = data;
-                                            const span = tempDiv.querySelector('span');
-                                            return span ? span.textContent : data;
-                                        }
-                                        
-                                        // Kolom nominal (Pemasukan index 5, Pengeluaran index 6, Saldo index 7)
-                                        if (column === 5 || column === 6 || column === 7) {
-                                            // Ambil data asli dari row, bukan dari HTML yang sudah diformat
-                                            const rowData = table.row(row).data();
-                                            
-                                            if (column === 5) return rowData.pemasukan || 0;
-                                            if (column === 6) return rowData.pengeluaran || 0;
-                                            if (column === 7) return rowData.saldo || 0;
-                                        }
-                                        
-                                        return data;
-                                    }
-                                }
-                            },
-                            title: function() {
+                            action: function() {
                                 const start = $('#start_date').val();
                                 const end = $('#end_date').val();
-                                return `Laporan Cashflow PT ${moment(start).format('DD-MM-YYYY')} - ${moment(end).format('DD-MM-YYYY')}`;
-                            },
-                            messageTop: function() {
-                                const start = $('#start_date').val();
-                                const end = $('#end_date').val();
-                                return `Periode: ${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}\nTanggal Export: ${moment().format('DD/MM/YYYY HH:mm')}`;
-                            },
-                            filename: function() {
-                                const start = $('#start_date').val();
-                                const end = $('#end_date').val();
-                                return `Cashflow_PT_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
-                            },
-                            customizeData: function(exportData) {
-                                const filteredRows = table.rows({ search: 'applied', order: 'applied' }).data().toArray();
-
-                                const formatRupiahExcel = function(value) {
-                                    const number = parseFloat(value || 0);
-                                    if (!number) return '-';
-                                    return 'Rp ' + number.toLocaleString('id-ID', {
-                                        minimumFractionDigits: 0,
-                                        maximumFractionDigits: 0
-                                    });
-                                };
-
-                                const splitLines = function(value) {
-                                    if (!value || value === '-') return [];
-                                    return String(value)
-                                        .split(/\r?\n/)
-                                        .map(item => item.trim())
-                                        .filter(item => item !== '');
-                                };
-
-                                exportData.header = [
-                                    'No',
-                                    'No. Nota',
-                                    'Tgl. Trans',
-                                    'Kode Transaksi',
-                                    'Nama Transaksi',
-                                    'Pemasukan',
-                                    'Pengeluaran',
-                                    'Saldo',
-                                    'Vendor',
-                                    'Rekening',
-                                    'PT/Company',
-                                    '#',
-                                    'Kode Transaksi Detail',
-                                    'Deskripsi',
-                                    'Nominal',
-                                    'Jumlah',
-                                    'Total'
-                                ];
-
-                                exportData.body = [];
-
-                                filteredRows.forEach(function(row, index) {
-                                    const baseColumns = [
-                                        index + 1,
-                                        row.nota_no ?? '-',
-                                        row.tanggal ? moment(row.tanggal).format('DD/MM/YYYY') : '-',
-                                        row.kodetransaksi ?? '-',
-                                        row.namatransaksi ?? '-',
-                                        formatRupiahExcel(row.pemasukan),
-                                        formatRupiahExcel(row.pengeluaran),
-                                        formatRupiahExcel(row.saldo),
-                                        row.namavendor ?? '-',
-                                        row.rekening ?? '-',
-                                        row.nama_company ?? '-'
-                                    ];
-
-                                    const detailNo = splitLines(row.detail_no_export);
-                                    const detailKodeRaw = splitLines(row.detail_kode_transaksi_export);
-                                    const detailDeskripsi = splitLines(row.detail_deskripsi_export);
-                                    const detailNominal = splitLines(row.detail_nominal_export);
-                                    const detailJumlah = splitLines(row.detail_jumlah_export);
-                                    const detailTotal = splitLines(row.detail_total_export);
-                                    const detailCount = Math.max(
-                                        detailNo.length,
-                                        Math.ceil(detailKodeRaw.length / 2),
-                                        detailDeskripsi.length,
-                                        detailNominal.length,
-                                        detailJumlah.length,
-                                        detailTotal.length
-                                    );
-
-                                    if (row.kategori === 'Transaksi' && detailCount > 0) {
-                                        for (let i = 0; i < detailCount; i++) {
-                                            const kode = detailKodeRaw[(i * 2)] ?? '-';
-                                            const nama = detailKodeRaw[(i * 2) + 1] ?? '(-)';
-                                            exportData.body.push([
-                                                ...baseColumns,
-                                                detailNo[i] ?? String(i + 1),
-                                                `${kode}\n${nama}`,
-                                                detailDeskripsi[i] ?? '-',
-                                                detailNominal[i] ?? '-',
-                                                detailJumlah[i] ?? '-',
-                                                detailTotal[i] ?? '-'
-                                            ]);
-                                        }
-                                    } else {
-                                        exportData.body.push([
-                                            ...baseColumns,
-                                            '-',
-                                            '-',
-                                            '-',
-                                            '-',
-                                            '-',
-                                            '-'
-                                        ]);
-                                    }
+                                const url = '{{ route("transaksi.laporan.cashflow_pt.export_excel") }}?' + $.param({
+                                    start_date: start,
+                                    end_date: end
                                 });
-                            },
-                            customize: function(xlsx) {
-                                const sheet = xlsx.xl.worksheets['sheet1.xml'];
-                                
-                                // Format kolom nominal sebagai angka
-                                $('row c[r^="F"]', sheet).each(function() {
-                                    $(this).attr('s', '2'); // Format number
-                                });
-                                $('row c[r^="G"]', sheet).each(function() {
-                                    $(this).attr('s', '2');
-                                });
-                                $('row c[r^="H"]', sheet).each(function() {
-                                    $(this).attr('s', '2');
-                                });
+                                window.open(url, '_blank');
                             }
                         },
                         {
