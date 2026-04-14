@@ -697,6 +697,14 @@
                                     });
                                 };
 
+                                const splitLines = function(value) {
+                                    if (!value || value === '-') return [];
+                                    return String(value)
+                                        .split(/\r?\n/)
+                                        .map(item => item.trim())
+                                        .filter(item => item !== '');
+                                };
+
                                 exportData.header = [
                                     'No',
                                     'No. Nota',
@@ -734,18 +742,35 @@
                                         row.nama_company ?? '-'
                                     ];
 
-                                    if (row.kategori === 'Transaksi' && Array.isArray(row.detail_items_export) && row.detail_items_export.length > 0) {
-                                        row.detail_items_export.forEach(function(item) {
+                                    const detailNo = splitLines(row.detail_no_export);
+                                    const detailKodeRaw = splitLines(row.detail_kode_transaksi_export);
+                                    const detailDeskripsi = splitLines(row.detail_deskripsi_export);
+                                    const detailNominal = splitLines(row.detail_nominal_export);
+                                    const detailJumlah = splitLines(row.detail_jumlah_export);
+                                    const detailTotal = splitLines(row.detail_total_export);
+                                    const detailCount = Math.max(
+                                        detailNo.length,
+                                        Math.ceil(detailKodeRaw.length / 2),
+                                        detailDeskripsi.length,
+                                        detailNominal.length,
+                                        detailJumlah.length,
+                                        detailTotal.length
+                                    );
+
+                                    if (row.kategori === 'Transaksi' && detailCount > 0) {
+                                        for (let i = 0; i < detailCount; i++) {
+                                            const kode = detailKodeRaw[(i * 2)] ?? '-';
+                                            const nama = detailKodeRaw[(i * 2) + 1] ?? '(-)';
                                             exportData.body.push([
                                                 ...baseColumns,
-                                                item.no ?? '-',
-                                                `${item.kode_transaksi ?? '-'}\n(${item.nama_transaksi ?? '-'})`,
-                                                item.deskripsi ?? '-',
-                                                item.nominal ?? '-',
-                                                item.jumlah ?? '-',
-                                                item.total ?? '-'
+                                                detailNo[i] ?? String(i + 1),
+                                                `${kode}\n${nama}`,
+                                                detailDeskripsi[i] ?? '-',
+                                                detailNominal[i] ?? '-',
+                                                detailJumlah[i] ?? '-',
+                                                detailTotal[i] ?? '-'
                                             ]);
-                                        });
+                                        }
                                     } else {
                                         exportData.body.push([
                                             ...baseColumns,
