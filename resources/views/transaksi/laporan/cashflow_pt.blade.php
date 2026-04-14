@@ -603,6 +603,7 @@
                             text: '<i class="bi bi-file-earmark-excel"></i> Excel',
                             className: 'btn btn-success btn-sm',
                             exportOptions: { 
+                                footer: false,
                                 columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
                                 format: {
                                     body: function(data, row, column, node) {
