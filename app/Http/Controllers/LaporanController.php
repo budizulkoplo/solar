@@ -332,6 +332,85 @@ class LaporanController extends Controller
         return response()->json(['data' => $data]);
     }
 
+    protected function attachNotaTransactionExportColumns($data)
+    {
+        $notaIds = collect($data)
+            ->filter(function ($row) {
+                return ($row->kategori ?? null) === 'Transaksi' && !empty($row->id) && $row->id > 0;
+            })
+            ->pluck('id')
+            ->unique()
+            ->values();
+
+        if ($notaIds->isEmpty()) {
+            return $data;
+        }
+
+        $itemsByNota = DB::table('nota_transactions as nt')
+            ->leftJoin('kodetransaksi as kt', 'nt.idkodetransaksi', '=', 'kt.id')
+            ->select(
+                'nt.idnota',
+                'nt.description',
+                'nt.nominal',
+                'nt.jml',
+                'nt.total',
+                'kt.kodetransaksi',
+                'kt.transaksi as nama_transaksi'
+            )
+            ->whereIn('nt.idnota', $notaIds)
+            ->orderBy('nt.idnota')
+            ->orderBy('nt.id')
+            ->get()
+            ->groupBy('idnota');
+
+        return collect($data)->map(function ($row) use ($itemsByNota) {
+            $row->detail_no_export = '-';
+            $row->detail_kode_transaksi_export = '-';
+            $row->detail_deskripsi_export = '-';
+            $row->detail_nominal_export = '-';
+            $row->detail_jumlah_export = '-';
+            $row->detail_total_export = '-';
+
+            if (($row->kategori ?? null) !== 'Transaksi' || empty($row->id) || $row->id <= 0) {
+                return $row;
+            }
+
+            $items = $itemsByNota->get($row->id, collect());
+
+            if ($items->isEmpty()) {
+                return $row;
+            }
+
+            $row->detail_no_export = $items->values()->map(function ($item, $index) {
+                return (string) ($index + 1);
+            })->implode("\n");
+
+            $row->detail_kode_transaksi_export = $items->map(function ($item) {
+                $kode = $item->kodetransaksi ?: '-';
+                $nama = $item->nama_transaksi ?: '-';
+                return $kode . "\n(" . $nama . ')';
+            })->implode("\n");
+
+            $row->detail_deskripsi_export = $items->map(function ($item) {
+                return $item->description ?: '-';
+            })->implode("\n");
+
+            $row->detail_nominal_export = $items->map(function ($item) {
+                return 'Rp ' . number_format((float) $item->nominal, 0, ',', '.');
+            })->implode("\n");
+
+            $row->detail_jumlah_export = $items->map(function ($item) {
+                return number_format((float) $item->jml, 0, ',', '.');
+            })->implode("\n");
+
+            $row->detail_total_export = $items->map(function ($item) {
+                return 'Rp ' . number_format((float) $item->total, 0, ',', '.');
+            })->implode("\n");
+
+            return $row;
+        });
+    }
+
     // ==========================
     // LAPORAN CASHFLOW PROJECT
     // ==========================
@@ -379,35 +458,6 @@ class LaporanController extends Controller
                         '||',
                         1
                     ) as kode_transaksi_display
-                ")
-            )
-            ->groupBy('nt.idnota');
-
-        $detailTransaksiSubquery = DB::table('nota_transactions as nt')
-            ->leftJoin('kodetransaksi as kt', 'nt.idkodetransaksi', '=', 'kt.id')
-            ->select(
-                'nt.idnota',
-                DB::raw("
-                    GROUP_CONCAT(
-                        CONCAT(
-                            COALESCE(kt.kodetransaksi, '-'),
-                            ' - ',
-                            COALESCE(kt.transaksi, '-'),
-                            CASE
-                                WHEN nt.description IS NOT NULL AND nt.description <> ''
-                                    THEN CONCAT(' | ', nt.description)
-                                ELSE ''
-                            END,
-                            ' | Nominal: ',
-                            FORMAT(COALESCE(nt.nominal, 0), 0, 'id_ID'),
-                            ' | Qty: ',
-                            FORMAT(COALESCE(nt.jml, 0), 0, 'id_ID'),
-                            ' | Total: ',
-                            FORMAT(COALESCE(nt.total, 0), 0, 'id_ID')
-                        )
-                        ORDER BY nt.id
-                        SEPARATOR '\n'
-                    ) as detail_transaksi_export
                 ")
             )
             ->groupBy('nt.idnota');
@@ -461,8 +511,7 @@ class LaporanController extends Controller
                 'v.namavendor',
                 'r.namarek as rekening',
                 'p.namaproject',
-                'n.idproject',
-                DB::raw('COALESCE(dts.detail_transaksi_export, "-") as detail_transaksi_export')
+                'n.idproject'
             )
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
@@ -471,9 +520,6 @@ class LaporanController extends Controller
             ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota')
             ->leftJoinSub($kodeTransaksiSubquery, 'kts', function ($join) {
                 $join->on('n.id', '=', 'kts.idnota');
-            })
-            ->leftJoinSub($detailTransaksiSubquery, 'dts', function ($join) {
-                $join->on('n.id', '=', 'dts.idnota');
             })
             ->where('n.status', 'paid')
             ->where('n.idproject', $activeProjectId)
@@ -536,8 +582,7 @@ class LaporanController extends Controller
                 'c.nama_lengkap as namavendor',
                 DB::raw("COALESCE(r.namarek, {$penjualanPaymentRekeningSubquery}, '-') as rekening"),
                 'p.namaproject',
-                'u.idproject',
-                DB::raw("CONCAT('Pembayaran diterima: ', FORMAT(COALESCE(pp.nominal, 0), 0, 'id_ID')) as detail_transaksi_export")
+                'u.idproject'
             )
             ->where('pp.status_payment', 'realized')
             ->where('u.idproject', $activeProjectId)
@@ -559,8 +604,7 @@ class LaporanController extends Controller
                 DB::raw('NULL as namavendor'),
                 'r.namarek as rekening',
                 'p.namaproject',
-                'r.idproject',
-                DB::raw("COALESCE(cf.keterangan, '-') as detail_transaksi_export")
+                'r.idproject'
             )
             ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
             ->leftJoin('projects as p', 'r.idproject', '=', 'p.id')
@@ -602,6 +646,8 @@ class LaporanController extends Controller
             ->orderBy('tanggal', 'asc')
             ->orderBy('id', 'asc')
             ->get();
+
+        $data = $this->attachNotaTransactionExportColumns($data);
 
         // TIDAK PERLU hitung saldo running karena sudah diambil langsung dari cashflows
         
@@ -861,35 +907,6 @@ class LaporanController extends Controller
             )
             ->groupBy('nt.idnota');
 
-        $detailTransaksiSubquery = DB::table('nota_transactions as nt')
-            ->leftJoin('kodetransaksi as kt', 'nt.idkodetransaksi', '=', 'kt.id')
-            ->select(
-                'nt.idnota',
-                DB::raw("
-                    GROUP_CONCAT(
-                        CONCAT(
-                            COALESCE(kt.kodetransaksi, '-'),
-                            ' - ',
-                            COALESCE(kt.transaksi, '-'),
-                            CASE
-                                WHEN nt.description IS NOT NULL AND nt.description <> ''
-                                    THEN CONCAT(' | ', nt.description)
-                                ELSE ''
-                            END,
-                            ' | Nominal: ',
-                            FORMAT(COALESCE(nt.nominal, 0), 0, 'id_ID'),
-                            ' | Qty: ',
-                            FORMAT(COALESCE(nt.jml, 0), 0, 'id_ID'),
-                            ' | Total: ',
-                            FORMAT(COALESCE(nt.total, 0), 0, 'id_ID')
-                        )
-                        ORDER BY nt.id
-                        SEPARATOR '\n'
-                    ) as detail_transaksi_export
-                ")
-            )
-            ->groupBy('nt.idnota');
-
         /**
          * ==================================================
          * 1. TRANSAKSI NOTA (PT)
@@ -911,8 +928,7 @@ class LaporanController extends Controller
                 'v.namavendor',
                 'r.namarek as rekening',
                 'cu.company_name as nama_company',
-                'n.idcompany',
-                DB::raw('COALESCE(dts.detail_transaksi_export, "-") as detail_transaksi_export')
+                'n.idcompany'
             )
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->leftJoin('vendors as v', 'n.vendor_id', '=', 'v.id')
@@ -921,9 +937,6 @@ class LaporanController extends Controller
             ->leftJoin('cashflows as cf', 'n.id', '=', 'cf.idnota')
             ->leftJoinSub($kodeTransaksiSubquery, 'kts', function ($join) {
                 $join->on('n.id', '=', 'kts.idnota');
-            })
-            ->leftJoinSub($detailTransaksiSubquery, 'dts', function ($join) {
-                $join->on('n.id', '=', 'dts.idnota');
             })
             ->where('n.status', 'paid')
             ->where('n.idcompany', session('active_company_id'))
@@ -947,8 +960,7 @@ class LaporanController extends Controller
                 DB::raw('NULL as namavendor'),
                 'r.namarek as rekening',
                 'cu.company_name as nama_company',
-                'r.idcompany',
-                DB::raw("COALESCE(cf.keterangan, '-') as detail_transaksi_export")
+                'r.idcompany'
             )
             ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
             ->leftJoin('company_units as cu', 'r.idcompany', '=', 'cu.id')
@@ -1006,8 +1018,7 @@ class LaporanController extends Controller
                 DB::raw('NULL as namavendor'),
                 'r_asal.namarek as rekening',
                 'cu.company_name as nama_company',
-                'pbk.idcompany',
-                DB::raw("CONCAT('Transfer keluar ke rekening tujuan | Nominal: ', FORMAT(COALESCE(pbk.nominal, 0), 0, 'id_ID')) as detail_transaksi_export")
+                'pbk.idcompany'
             )
             ->join('rekening as r_asal', 'pbk.rekening_asal_id', '=', 'r_asal.idrek')
             ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
@@ -1037,8 +1048,7 @@ class LaporanController extends Controller
                 DB::raw('NULL as namavendor'),
                 'r_tujuan.namarek as rekening',
                 'cu.company_name as nama_company',
-                'pbk.idcompany',
-                DB::raw("CONCAT('Transfer masuk dari rekening asal | Nominal: ', FORMAT(COALESCE(pbk.nominal, 0), 0, 'id_ID')) as detail_transaksi_export")
+                'pbk.idcompany'
             )
             ->join('rekening as r_tujuan', 'pbk.rekening_tujuan_id', '=', 'r_tujuan.idrek')
             ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
@@ -1058,6 +1068,8 @@ class LaporanController extends Controller
             ->orderBy('tanggal', 'asc')
             ->orderBy('nota_no', 'asc')
             ->get();
+
+        $data = $this->attachNotaTransactionExportColumns($data);
 
         /**
          * ==================================================

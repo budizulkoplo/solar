@@ -106,7 +106,12 @@
                                 <th width="150">Vendor</th>
                                 <th width="100">Rekening</th>
                                 <th width="150">PT/Company</th>
-                                <th style="display:none;">Detail Transaksi</th>
+                                <th style="display:none;"># Detail</th>
+                                <th style="display:none;">Kode Transaksi Detail</th>
+                                <th style="display:none;">Deskripsi Detail</th>
+                                <th style="display:none;">Nominal Detail</th>
+                                <th style="display:none;">Jumlah Detail</th>
+                                <th style="display:none;">Total Detail</th>
                             </tr>
                             <tr class="filters no-print">
                                 <th></th>
@@ -121,6 +126,11 @@
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="9"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="10"></th>
                                 <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -131,6 +141,11 @@
                                 <th id="totalPengeluaran" class="text-end"></th>
                                 <th id="saldoAkhir" class="text-end"></th>
                                 <th colspan="3"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
+                                <th style="display:none;"></th>
                                 <th style="display:none;"></th>
                             </tr>
                         </tfoot>
@@ -588,7 +603,32 @@
                             className: 'text-center'
                         },
                         {
-                            data: 'detail_transaksi_export',
+                            data: 'detail_no_export',
+                            visible: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'detail_kode_transaksi_export',
+                            visible: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'detail_deskripsi_export',
+                            visible: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'detail_nominal_export',
+                            visible: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'detail_jumlah_export',
+                            visible: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'detail_total_export',
                             visible: false,
                             searchable: false
                         }
@@ -605,7 +645,7 @@
                             className: 'btn btn-success btn-sm',
                             footer: false,
                             exportOptions: { 
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
                                 format: {
                                     body: function(data, row, column, node) {
                                         // Kolom No. Nota (index 1) - hapus button
