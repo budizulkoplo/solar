@@ -106,6 +106,7 @@
                                 <th width="150">Vendor</th>
                                 <th width="100">Rekening</th>
                                 <th width="150">PT/Company</th>
+                                <th style="display:none;">Detail Transaksi</th>
                             </tr>
                             <tr class="filters no-print">
                                 <th></th>
@@ -119,6 +120,7 @@
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="8"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="9"></th>
                                 <th><input type="text" class="filter-input" placeholder="Cari..." data-column="10"></th>
+                                <th style="display:none;"></th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -583,6 +585,11 @@
                         { 
                             data: 'nama_company', 
                             className: 'text-center'
+                        },
+                        {
+                            data: 'detail_transaksi_export',
+                            visible: false,
+                            searchable: false
                         }
                     ],
                     dom: 
@@ -596,7 +603,7 @@
                             text: '<i class="bi bi-file-earmark-excel"></i> Excel',
                             className: 'btn btn-success btn-sm',
                             exportOptions: { 
-                                columns: ':visible',
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
                                 format: {
                                     body: function(data, row, column, node) {
                                         // Kolom No. Nota (index 1) - hapus button
@@ -635,15 +642,6 @@
                                 const start = $('#start_date').val();
                                 const end = $('#end_date').val();
                                 return `Cashflow_PT_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
-                            },
-                            customizeData: function(exportData) {
-                                exportData.header.push('Detail Transaksi');
-
-                                const filteredRows = table.rows({ search: 'applied', order: 'applied' }).data().toArray();
-
-                                exportData.body.forEach(function(row, index) {
-                                    row.push(filteredRows[index]?.detail_transaksi_export ?? '-');
-                                });
                             },
                             customize: function(xlsx) {
                                 const sheet = xlsx.xl.worksheets['sheet1.xml'];
