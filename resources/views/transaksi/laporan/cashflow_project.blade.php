@@ -634,7 +634,7 @@
                             className: 'btn btn-success btn-sm',
                             footer: false,
                             exportOptions: { 
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                                 format: {
                                     body: function(data, row, column, node) {
                                         // Kolom No. Nota (index 1) - hapus button
@@ -673,6 +673,78 @@
                                 const start = $('#start_date').val();
                                 const end = $('#end_date').val();
                                 return `Cashflow_Project_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
+                            },
+                            customizeData: function(exportData) {
+                                const filteredRows = table.rows({ search: 'applied', order: 'applied' }).data().toArray();
+
+                                const formatRupiahExcel = function(value) {
+                                    const number = parseFloat(value || 0);
+                                    if (!number) return '-';
+                                    return 'Rp ' + number.toLocaleString('id-ID', {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    });
+                                };
+
+                                exportData.header = [
+                                    'No',
+                                    'No. Nota',
+                                    'Tgl. Trans',
+                                    'Kode Transaksi',
+                                    'Nama Transaksi',
+                                    'Pemasukan',
+                                    'Pengeluaran',
+                                    'Saldo',
+                                    'Vendor',
+                                    'Rekening',
+                                    '#',
+                                    'Kode Transaksi Detail',
+                                    'Deskripsi',
+                                    'Nominal',
+                                    'Jumlah',
+                                    'Total'
+                                ];
+
+                                exportData.body = [];
+
+                                filteredRows.forEach(function(row, index) {
+                                    const baseColumns = [
+                                        index + 1,
+                                        row.nota_no ?? '-',
+                                        row.tanggal ? moment(row.tanggal).format('DD/MM/YYYY') : '-',
+                                        row.kodetransaksi ?? '-',
+                                        row.namatransaksi ?? '-',
+                                        formatRupiahExcel(row.pemasukan),
+                                        formatRupiahExcel(row.pengeluaran),
+                                        formatRupiahExcel(row.saldo),
+                                        row.namavendor ?? '-',
+                                        row.rekening ?? '-'
+                                    ];
+
+                                    if (row.kategori === 'Transaksi' && Array.isArray(row.detail_items_export) && row.detail_items_export.length > 0) {
+                                        row.detail_items_export.forEach(function(item) {
+                                            exportData.body.push([
+                                                ...baseColumns,
+                                                item.no ?? '-',
+                                                `${item.kode_transaksi ?? '-'}\n(${item.nama_transaksi ?? '-'})`,
+                                                item.deskripsi ?? '-',
+                                                item.nominal ?? '-',
+                                                item.jumlah ?? '-',
+                                                item.total ?? '-'
+                                            ]);
+                                        });
+                                    } else {
+                                        exportData.body.push([
+                                            ...baseColumns,
+                                            '-',
+                                            '-',
+                                            '-',
+                                            '-',
+                                            '-',
+                                            '-'
+                                        ]);
+                                    }
+                                });
                             },
                             customize: function(xlsx) {
                                 const sheet = xlsx.xl.worksheets['sheet1.xml'];

@@ -370,6 +370,7 @@ class LaporanController extends Controller
             $row->detail_nominal_export = '-';
             $row->detail_jumlah_export = '-';
             $row->detail_total_export = '-';
+            $row->detail_items_export = [];
 
             if (($row->kategori ?? null) !== 'Transaksi' || empty($row->id) || $row->id <= 0) {
                 return $row;
@@ -406,6 +407,18 @@ class LaporanController extends Controller
             $row->detail_total_export = $items->map(function ($item) {
                 return 'Rp ' . number_format((float) $item->total, 0, ',', '.');
             })->implode("\n");
+
+            $row->detail_items_export = $items->values()->map(function ($item, $index) {
+                return [
+                    'no' => (string) ($index + 1),
+                    'kode_transaksi' => $item->kodetransaksi ?: '-',
+                    'nama_transaksi' => $item->nama_transaksi ?: '-',
+                    'deskripsi' => $item->description ?: '-',
+                    'nominal' => 'Rp ' . number_format((float) $item->nominal, 0, ',', '.'),
+                    'jumlah' => number_format((float) $item->jml, 0, ',', '.'),
+                    'total' => 'Rp ' . number_format((float) $item->total, 0, ',', '.'),
+                ];
+            })->all();
 
             return $row;
         });
