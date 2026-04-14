@@ -636,6 +636,15 @@
                                 const end = $('#end_date').val();
                                 return `Cashflow_PT_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
                             },
+                            customizeData: function(exportData) {
+                                exportData.header.push('Detail Transaksi');
+
+                                const filteredRows = table.rows({ search: 'applied', order: 'applied' }).data().toArray();
+
+                                exportData.body.forEach(function(row, index) {
+                                    row.push(filteredRows[index]?.detail_transaksi_export ?? '-');
+                                });
+                            },
                             customize: function(xlsx) {
                                 const sheet = xlsx.xl.worksheets['sheet1.xml'];
                                 

@@ -613,7 +613,7 @@
                             title: function() {
                                 const start = $('#start_date').val();
                                 const end = $('#end_date').val();
-                                return `Laporan Cashflow PT ${moment(start).format('DD-MM-YYYY')} - ${moment(end).format('DD-MM-YYYY')}`;
+                                return `Laporan Cashflow Project ${moment(start).format('DD-MM-YYYY')} - ${moment(end).format('DD-MM-YYYY')}`;
                             },
                             messageTop: function() {
                                 const start = $('#start_date').val();
@@ -623,7 +623,16 @@
                             filename: function() {
                                 const start = $('#start_date').val();
                                 const end = $('#end_date').val();
-                                return `Cashflow_PT_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
+                                return `Cashflow_Project_${moment(start).format('YYYYMMDD')}_${moment(end).format('YYYYMMDD')}`;
+                            },
+                            customizeData: function(exportData) {
+                                exportData.header.push('Detail Transaksi');
+
+                                const filteredRows = table.rows({ search: 'applied', order: 'applied' }).data().toArray();
+
+                                exportData.body.forEach(function(row, index) {
+                                    row.push(filteredRows[index]?.detail_transaksi_export ?? '-');
+                                });
                             },
                             customize: function(xlsx) {
                                 const sheet = xlsx.xl.worksheets['sheet1.xml'];
