@@ -149,9 +149,9 @@
                                                accept=".jpg,.jpeg,.png,.pdf">
                                         <small class="text-muted">
                                             @if($payment->bukti_payment)
-                                                File saat ini: {{ $payment->bukti_payment }}
+                                                File saat ini: {{ $payment->bukti_payment }}. Upload baru akan otomatis dikompresi bila berupa gambar.
                                             @else
-                                                Belum ada file
+                                                Belum ada file. Upload gambar baru akan otomatis dikompresi.
                                             @endif
                                         </small>
                                     </div>

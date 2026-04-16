@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Models\Nota;
 use App\Models\NotaTransaction;
 use App\Models\NotaPayment;
@@ -248,7 +249,7 @@ class ConstructionTransactionController extends Controller
             if ($request->hasFile('bukti_nota')) {
                 $file = $request->file('bukti_nota');
                 $filename = 'konstruksi_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota/konstruksi', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota/konstruksi', 'public', $filename);
             }
 
             // Data untuk nota header
@@ -493,7 +494,7 @@ class ConstructionTransactionController extends Controller
                 
                 $file = $request->file('bukti_nota');
                 $filename = 'konstruksi_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota/konstruksi', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota/konstruksi', 'public', $filename);
             }
 
             // ROLLBACK LOGIC - jika transaksi lama adalah CASH dan PAID

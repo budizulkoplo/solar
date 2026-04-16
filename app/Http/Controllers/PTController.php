@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Models\Nota;
 use App\Models\NotaTransaction;
 use App\Models\NotaPayment;
@@ -180,7 +181,7 @@ class PTController extends Controller
             if ($request->hasFile('bukti_nota')) {
                 $file = $request->file('bukti_nota');
                 $filename = 'nota_pt_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota_pt', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota_pt', 'public', $filename);
             }
 
             // Gunakan subtotal dari form
@@ -687,7 +688,7 @@ class PTController extends Controller
                 
                 $file = $request->file('bukti_nota');
                 $filename = 'nota_pt_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota_pt', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota_pt', 'public', $filename);
             }
 
             // Gunakan subtotal dari form

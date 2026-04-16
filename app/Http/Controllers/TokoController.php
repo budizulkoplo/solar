@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Models\Nota;
 use App\Models\NotaTransaction;
 use App\Models\NotaPayment;
@@ -343,7 +344,7 @@ class TokoController extends Controller
             if ($request->hasFile('bukti_nota')) {
                 $file = $request->file('bukti_nota');
                 $filename = 'nota_toko_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota', 'public', $filename);
             }
 
             // Hitung total
@@ -1011,7 +1012,7 @@ class TokoController extends Controller
 
                 $file = $request->file('bukti_nota');
                 $filename = 'nota_toko_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota', 'public', $filename);
             }
 
             $subtotal = collect($request->transactions)->sum(function ($transaction) {

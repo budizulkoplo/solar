@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Models\Unit;
 use App\Models\UnitDetail;
 use App\Models\Penjualan;
@@ -185,7 +186,7 @@ class AgencySaleController extends Controller
             if ($request->hasFile('bukti_nota')) {
                 $file = $request->file('bukti_nota');
                 $filename = 'agency_sale_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('agency_sales', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'agency_sales', 'public', $filename);
             }
 
             // Hitung total
@@ -388,7 +389,7 @@ class AgencySaleController extends Controller
                 
                 $file = $request->file('bukti_nota');
                 $filename = 'agency_sale_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('agency_sales', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'agency_sales', 'public', $filename);
             }
 
             // Hitung total

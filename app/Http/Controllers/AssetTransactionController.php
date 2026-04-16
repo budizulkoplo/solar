@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Exports\AssetExport;
 use App\Models\Asset;
 use App\Models\AssetDepreciation;
@@ -190,7 +191,7 @@ class AssetTransactionController extends Controller
             if ($request->hasFile('bukti_nota')) {
                 $file = $request->file('bukti_nota');
                 $filename = 'nota_asset_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $buktiNotaPath = $file->storeAs('bukti_nota', $filename, 'public');
+                $buktiNotaPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_nota', 'public', $filename);
             }
 
             // Hitung total

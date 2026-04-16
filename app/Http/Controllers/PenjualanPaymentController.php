@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Models\PenjualanPayment;
 use App\Models\Penjualan;
 use App\Models\UnitDetail;
@@ -356,8 +357,8 @@ class PenjualanPaymentController extends Controller
             if ($request->hasFile('bukti_payment')) {
                 $file = $request->file('bukti_payment');
                 $filename = 'bukti_payment_' . time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('public/bukti_payment', $filename);
-                $buktiPayment = $filename;
+                $storedPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_payment', 'public', $filename);
+                $buktiPayment = basename($storedPath);
             }
             
             // Auto determine jenis_payment jika tidak dipilih
@@ -523,8 +524,8 @@ class PenjualanPaymentController extends Controller
                 
                 $file = $request->file('bukti_payment');
                 $filename = 'bukti_payment_' . time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('public/bukti_payment', $filename);
-                $payment->bukti_payment = $filename;
+                $storedPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_payment', 'public', $filename);
+                $payment->bukti_payment = basename($storedPath);
             }
             
             // Ambil data rekening baru

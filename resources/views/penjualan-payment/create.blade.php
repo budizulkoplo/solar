@@ -402,7 +402,7 @@
                                     <label class="form-label">Bukti Pembayaran (Opsional)</label>
                                     <input type="file" class="form-control" name="bukti_payment" 
                                            accept=".jpg,.jpeg,.png,.pdf">
-                                    <small class="text-muted">Format: JPG, PNG, PDF. Maks: 8MB</small>
+                                    <small class="text-muted">Format: JPG, PNG, PDF. Maks: 8MB. File gambar akan otomatis dikompresi saat upload.</small>
                                 </div>
                                 
                                 <div class="alert alert-success">

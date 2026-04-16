@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageCompressionService;
 use App\Models\PencairanBank;
 use App\Models\Penjualan;
 use App\Models\UnitDetail;
@@ -312,8 +313,8 @@ class PencairanBankController extends Controller
             if ($request->hasFile('bukti_pencairan')) {
                 $file = $request->file('bukti_pencairan');
                 $filename = 'bukti_pencairan_' . time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('public/bukti_pencairan', $filename);
-                $buktiPencairan = $filename;
+                $storedPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_pencairan', 'public', $filename);
+                $buktiPencairan = basename($storedPath);
             }
             
             // Auto determine jenis_pencairan jika tidak dipilih
@@ -652,8 +653,8 @@ class PencairanBankController extends Controller
                 
                 $file = $request->file('bukti_pencairan');
                 $filename = 'bukti_pencairan_' . time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('public/bukti_pencairan', $filename);
-                $pencairan->bukti_pencairan = $filename;
+                $storedPath = app(ImageCompressionService::class)->storeUploadedFile($file, 'bukti_pencairan', 'public', $filename);
+                $pencairan->bukti_pencairan = basename($storedPath);
             }
             
             // Update data
