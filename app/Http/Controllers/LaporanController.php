@@ -619,6 +619,7 @@ class LaporanController extends Controller
                             WHEN 'termin_3' THEN 'Termin 3'
                             WHEN 'retensi' THEN 'Retensi'
                             WHEN 'sbum' THEN 'SBUM'
+                            WHEN 'pencairan' THEN 'Pencairan'
                             WHEN 'lunas' THEN 'Pelunasan'
                             ELSE 'Pembayaran Lainnya'
                         END
@@ -636,6 +637,7 @@ class LaporanController extends Controller
                             WHEN 'termin_3' THEN 'Termin 3'
                             WHEN 'retensi' THEN 'Retensi'
                             WHEN 'sbum' THEN 'SBUM'
+                            WHEN 'pencairan' THEN 'Pencairan'
                             WHEN 'lunas' THEN 'Pelunasan'
                             ELSE 'Lainnya'
                         END,

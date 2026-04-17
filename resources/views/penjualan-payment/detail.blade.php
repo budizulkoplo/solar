@@ -357,6 +357,7 @@
                                                 'termin_3' => 'Termin 3',
                                                 'retensi' => 'Point Retensi',
                                                 'sbum' => 'SBUM',
+                                                'pencairan' => 'Pencairan',
                                                 'lunas' => 'Pelunasan',
                                                 'lainnya' => 'Lainnya'
                                             ];
@@ -376,6 +377,7 @@
                                                 'termin_3' => 'bi-3-circle',
                                                 'retensi' => 'bi-shield-lock',
                                                 'sbum' => 'bi-receipt',
+                                                'pencairan' => 'bi-bank',
                                                 'lunas' => 'bi-check-circle',
                                                 'lainnya' => 'bi-currency-exchange'
                                             ];

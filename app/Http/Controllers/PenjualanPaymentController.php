@@ -319,7 +319,7 @@ class PenjualanPaymentController extends Controller
     {
         $request->validate([
             'penjualan_id' => 'required|exists:penjualans,id',
-            'jenis_payment' => 'required|in:dp_awal,dp_uang_muka,termin_1,termin_2,termin_3,retensi,sbum,lunas,lainnya',
+            'jenis_payment' => 'required|in:dp_awal,dp_uang_muka,termin_1,termin_2,termin_3,retensi,sbum,pencairan,lunas,lainnya',
             'termin_ke' => 'nullable|integer|min:1',
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
@@ -423,7 +423,15 @@ class PenjualanPaymentController extends Controller
                 'nominal' => $request->nominal,
                 'saldo_awal' => $saldoAwal,
                 'saldo_akhir' => $rekening->saldo,
-                'keterangan' => "Pembayaran " . ($jenisPayment == 'dp_awal' ? 'DP Awal' : $jenisPayment) . 
+                'keterangan' => "Pembayaran " . match ($jenisPayment) {
+                    'dp_awal' => 'DP Awal',
+                    'dp_uang_muka' => 'DP Uang Muka',
+                    'retensi' => 'Retensi',
+                    'sbum' => 'SBUM',
+                    'pencairan' => 'Pencairan',
+                    'lunas' => 'Pelunasan',
+                    default => ucfirst(str_replace('_', ' ', $jenisPayment)),
+                } .
                                 " - Penjualan: {$penjualan->kode_penjualan} - Unit: " . 
                                 ($penjualan->unitDetail->unit->namaunit ?? '') . 
                                 " - Customer: " . ($penjualan->customer->nama_lengkap ?? '')
@@ -464,7 +472,7 @@ class PenjualanPaymentController extends Controller
         $payment = PenjualanPayment::with('penjualan')->findOrFail($id);
         
         $request->validate([
-            'jenis_payment' => 'required|in:dp_awal,dp_uang_muka,termin_1,termin_2,termin_3,retensi,sbum,lunas,lainnya',
+            'jenis_payment' => 'required|in:dp_awal,dp_uang_muka,termin_1,termin_2,termin_3,retensi,sbum,pencairan,lunas,lainnya',
             'termin_ke' => 'nullable|integer|min:1',
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
@@ -566,7 +574,15 @@ class PenjualanPaymentController extends Controller
                 'nominal' => $request->nominal,
                 'saldo_awal' => $saldoAwalBaru,
                 'saldo_akhir' => $rekeningBaru->saldo,
-                'keterangan' => "Pembayaran " . ($request->jenis_payment == 'dp_awal' ? 'DP Awal' : $request->jenis_payment) . 
+                'keterangan' => "Pembayaran " . match ($request->jenis_payment) {
+                    'dp_awal' => 'DP Awal',
+                    'dp_uang_muka' => 'DP Uang Muka',
+                    'retensi' => 'Retensi',
+                    'sbum' => 'SBUM',
+                    'pencairan' => 'Pencairan',
+                    'lunas' => 'Pelunasan',
+                    default => ucfirst(str_replace('_', ' ', $request->jenis_payment)),
+                } .
                                 " - Penjualan: {$penjualan->kode_penjualan} - Unit: " . 
                                 ($penjualan->unitDetail->unit->namaunit ?? '') . 
                                 " - Customer: " . ($penjualan->customer->nama_lengkap ?? '')

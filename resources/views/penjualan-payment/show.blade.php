@@ -49,6 +49,7 @@
                                                         'termin_3' => 'Termin 3',
                                                         'retensi' => 'Point Retensi',
                                                         'sbum' => 'SBUM',
+                                                        'pencairan' => 'Pencairan',
                                                         'lunas' => 'Pelunasan',
                                                         'lainnya' => 'Lainnya'
                                                     ];

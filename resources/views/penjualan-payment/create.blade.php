@@ -243,6 +243,7 @@
                                                             'termin_3' => 'Termin 3',
                                                             'retensi' => 'Retensi',
                                                             'sbum' => 'SBUM',
+                                                            'pencairan' => 'Pencairan',
                                                             'lunas' => 'Pelunasan',
                                                             'lainnya' => 'Lainnya'
                                                         ];
@@ -314,6 +315,7 @@
                                         <option value="termin_3">Termin 3</option>
                                         <option value="retensi">Retensi</option>
                                         <option value="sbum">SBUM</option>
+                                        <option value="pencairan">Pencairan</option>
                                         @if($sisaBelumDibayar < $penjualan->harga_jual * 0.1)
                                             <option value="lunas">Pelunasan</option>
                                         @endif

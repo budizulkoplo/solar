@@ -58,6 +58,7 @@
                                             <option value="termin_3" {{ $payment->jenis_payment == 'termin_3' ? 'selected' : '' }}>Termin 3</option>
                                             <option value="retensi" {{ $payment->jenis_payment == 'retensi' ? 'selected' : '' }}>Point Retensi</option>
                                             <option value="sbum" {{ $payment->jenis_payment == 'sbum' ? 'selected' : '' }}>SBUM</option>
+                                            <option value="pencairan" {{ $payment->jenis_payment == 'pencairan' ? 'selected' : '' }}>Pencairan</option>
                                             <option value="lunas" {{ $payment->jenis_payment == 'lunas' ? 'selected' : '' }}>Pelunasan</option>
                                             <option value="lainnya" {{ $payment->jenis_payment == 'lainnya' ? 'selected' : '' }}>Lainnya</option>
                                         </select>
