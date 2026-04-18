@@ -13,6 +13,9 @@
                         @endif
                     </div>
                     <div class="d-flex gap-2">
+                        <a href="{{ route('laporan.unit-status-updates') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-file-earmark-text"></i> Laporan Update Status
+                        </a>
                         <button class="btn btn-sm btn-info" onclick="showAllStatusStats()">
                             <i class="bi bi-bar-chart"></i> Lihat Semua Status
                         </button>
@@ -1252,6 +1255,58 @@
                     };
                     return statusMap[status] || status;
                 }
+
+                function formatDateTime(dateTime) {
+                    if (!dateTime) return '-';
+
+                    const parsedDate = new Date(dateTime);
+                    if (Number.isNaN(parsedDate.getTime())) return dateTime;
+
+                    return parsedDate.toLocaleString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+
+                function renderUpdateLogs(logs) {
+                    if (!logs || !logs.length) {
+                        return `
+                            <div class="alert alert-light border mb-0">
+                                Belum ada riwayat perubahan status.
+                            </div>
+                        `;
+                    }
+
+                    let rows = logs.map((log, index) => `
+                        <tr>
+                            <td class="text-center">${index + 1}</td>
+                            <td>${formatDateTime(log.updatetime || log.created_at)}</td>
+                            <td><span class="badge ${getStatusBadgeClass(log.old_status)}">${formatStatus(log.old_status)}</span></td>
+                            <td><span class="badge ${getStatusBadgeClass(log.new_status)}">${formatStatus(log.new_status)}</span></td>
+                            <td>${log.update_user || '-'}</td>
+                        </tr>
+                    `).join('');
+
+                    return `
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="5%" class="text-center">No</th>
+                                        <th width="25%">Waktu Update</th>
+                                        <th width="20%">Status Lama</th>
+                                        <th width="20%">Status Baru</th>
+                                        <th>Update User</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    `;
+                }
                 
                 // Submit form customer (booking)
                 $('#frmCustomer').submit(function(e) {
@@ -1558,11 +1613,7 @@
                                     <h6>Informasi Booking</h6>
                                     <p><strong>Kode Booking:</strong> ${data.booking.kode_booking}</p>
                                     <p><strong>Tipe Penjualan:</strong> ${data.booking.tipe_penjualan || '-'}</p>
-<<<<<<< HEAD
-                                    <p><strong>Booking:</strong> Rp ${data.booking.dp_awal.toLocaleString('id-ID')}</p>
-=======
                                     <p><strong>DP Awal:</strong> Rp ${data.booking.dp_awal.toLocaleString('id-ID')}</p>
->>>>>>> 8819a3e43fcb44f2707daef5e1b8d584491b26b6
                                     <p><strong>Tanggal Booking:</strong> ${new Date(data.booking.tanggal_booking).toLocaleDateString('id-ID')}</p>
                                 `;
                             }
@@ -1578,7 +1629,12 @@
                                 `;
                             }
                             
-                            html += `</div></div>`;
+                            html += `
+                                    <hr>
+                                    <h6>Riwayat Update Status</h6>
+                                    ${renderUpdateLogs(data.update_logs)}
+                                </div>
+                            </div>`;
                             
                             $('#detailUnitContent').html(html);
                             $('#modalDetailUnit').modal('show');

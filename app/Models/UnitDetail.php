@@ -47,6 +47,11 @@ class UnitDetail extends Model
         return $this->belongsTo(Penjualan::class, 'penjualan_id');
     }
 
+    public function updateLogs()
+    {
+        return $this->hasMany(UnitDetailUpdateLog::class, 'idunitdetail');
+    }
+
     // Scope untuk filter status
     public function scopeStatus($query, $status)
     {

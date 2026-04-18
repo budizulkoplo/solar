@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Customer;
 use App\Models\Booking;
 use App\Models\Penjualan;
+use App\Models\UnitDetailUpdateLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -110,6 +111,7 @@ class UnitDetailController extends Controller
                 $unitDetail->status = 'tersedia';
                 $unitDetail->tipe_penjualan = null; // Reset tipe penjualan karena kembali ke tersedia
                 $unitDetail->save();
+                $this->logStatusUpdate($unitDetail->id, $oldStatus, $unitDetail->status);
                 
                 DB::commit();
                 
@@ -163,6 +165,7 @@ class UnitDetailController extends Controller
             // Update status unit detail
             $unitDetail->status = $validated['status'];
             $unitDetail->save();
+            $this->logStatusUpdate($unitDetail->id, $oldStatus, $unitDetail->status);
             
             DB::commit();
             
@@ -365,6 +368,24 @@ class UnitDetailController extends Controller
         return $prefix . $date . $newNumber;
     }
 
+    private function logStatusUpdate($unitDetailId, $oldStatus, $newStatus)
+    {
+        if ($oldStatus === $newStatus) {
+            return;
+        }
+
+        $user = auth()->user();
+        $updateUser = $user?->name ?: $user?->username ?: 'system';
+
+        UnitDetailUpdateLog::create([
+            'idunitdetail' => $unitDetailId,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'updatetime' => now(),
+            'update_user' => $updateUser,
+        ]);
+    }
+
     public function getStatistics(Request $request)
     {
         try {
@@ -444,7 +465,11 @@ class UnitDetailController extends Controller
                 'unit.jenisUnit',
                 'customer',
                 'booking',
-                'penjualan'
+                'penjualan',
+                'updateLogs' => function ($query) {
+                    $query->orderByDesc('updatetime')
+                        ->orderByDesc('created_at');
+                }
             ])->findOrFail($id);
             
             return response()->json([

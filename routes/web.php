@@ -225,6 +225,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     Route::prefix('laporan')->middleware(['role:superadmin|admin|hrd|pengurus|keuangan|direktur|manager|adminpt|marketing', 'global.app'])->group(function () {
         Route::get('/bookings', [LaporanController::class, 'bookings'])->name('laporan.bookings');
         Route::get('/penjualan', [LaporanController::class, 'penjualan'])->name('laporan.penjualan');
+        Route::get('/update-status-unit', [LaporanController::class, 'unitStatusUpdates'])->name('laporan.unit-status-updates');
         Route::get('/export-bookings-pdf', [LaporanController::class, 'exportBookingsPDF'])->name('laporan.export.bookings.pdf');
         Route::get('/export-penjualan-pdf', [LaporanController::class, 'exportPenjualanPDF'])->name('laporan.export.penjualan.pdf');
         Route::get('/statistics', [LaporanController::class, 'getStatistics'])->name('laporan.statistics');

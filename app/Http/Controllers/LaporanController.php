@@ -20,6 +20,7 @@ use App\Models\TransUpdateLog;
 use App\Models\Booking;
 use App\Models\Penjualan;
 use App\Models\UnitDetail;
+use App\Models\UnitDetailUpdateLog;
 use App\Models\Customer;
 use App\Models\Project;
 use App\Models\Unit;
@@ -1696,6 +1697,128 @@ class LaporanController extends Controller
         
         $filename = 'laporan-penjualan-' . date('Y-m-d') . '.pdf';
         return $pdf->download($filename);
+    }
+
+    public function unitStatusUpdates(Request $request)
+    {
+        if ($request->ajax()) {
+            return $this->getUnitStatusUpdatesData($request);
+        }
+
+        $projects = Project::orderBy('namaproject')->get();
+        $units = Unit::orderBy('namaunit')->get(['id', 'namaunit', 'blok', 'idproject']);
+        $statuses = [
+            'tersedia',
+            'booking_unit',
+            'bi_check',
+            'pemberkasan_bank',
+            'pemberkasan_notaris',
+            'acc',
+            'tidak_acc',
+            'akad',
+            'pencairan',
+            'bast',
+            'terjual',
+        ];
+
+        return view('laporan.unit_status_updates', compact('projects', 'units', 'statuses'));
+    }
+
+    private function getUnitStatusUpdatesData(Request $request)
+    {
+        $query = UnitDetailUpdateLog::with([
+            'unitDetail.unit.project',
+            'unitDetail.unit.jenisUnit',
+            'unitDetail.customer',
+        ]);
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('updatetime', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('updatetime', '<=', $request->end_date);
+        }
+
+        if ($request->filled('project_id')) {
+            $query->whereHas('unitDetail.unit', function ($q) use ($request) {
+                $q->where('idproject', $request->project_id);
+            });
+        }
+
+        if ($request->filled('unit_id')) {
+            $query->whereHas('unitDetail', function ($q) use ($request) {
+                $q->where('idunit', $request->unit_id);
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('old_status', $request->status)
+                    ->orWhere('new_status', $request->status);
+            });
+        }
+
+        if ($request->filled('update_user')) {
+            $query->where('update_user', 'like', '%' . $request->update_user . '%');
+        }
+
+        $query->orderByDesc('updatetime')->orderByDesc('created_at');
+
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->addColumn('tanggal_update_formatted', function ($row) {
+                return $row->updatetime ? Carbon::parse($row->updatetime)->format('d/m/Y H:i') : '-';
+            })
+            ->addColumn('project_name', function ($row) {
+                return $row->unitDetail->unit->project->namaproject ?? '-';
+            })
+            ->addColumn('unit_name', function ($row) {
+                return $row->unitDetail->unit->namaunit ?? '-';
+            })
+            ->addColumn('blok', function ($row) {
+                return $row->unitDetail->unit->blok ?? '-';
+            })
+            ->addColumn('jenis_unit', function ($row) {
+                return $row->unitDetail->unit->jenisUnit->jenisunit ?? '-';
+            })
+            ->addColumn('no_rumah', function ($row) {
+                return $row->unitDetail->no_rumah ?? '-';
+            })
+            ->addColumn('customer_name', function ($row) {
+                return $row->unitDetail->customer->nama_lengkap ?? '-';
+            })
+            ->addColumn('old_status_badge', function ($row) {
+                return $this->formatUnitStatusBadge($row->old_status);
+            })
+            ->addColumn('new_status_badge', function ($row) {
+                return $this->formatUnitStatusBadge($row->new_status);
+            })
+            ->rawColumns(['old_status_badge', 'new_status_badge'])
+            ->make(true);
+    }
+
+    private function formatUnitStatusBadge($status)
+    {
+        $badgeClass = match ($status) {
+            'tersedia' => 'bg-success',
+            'booking_unit', 'bi_check', 'pemberkasan_bank', 'pemberkasan_notaris', 'akad', 'pencairan' => 'bg-warning text-dark',
+            'acc' => 'bg-info',
+            'bast' => 'bg-primary',
+            'terjual', 'tidak_acc' => 'bg-danger',
+            default => 'bg-secondary',
+        };
+
+        $label = match ($status) {
+            'booking_unit' => 'Booking Unit',
+            'bi_check' => 'BI Check',
+            'pemberkasan_bank' => 'Pemberkasan Bank',
+            'pemberkasan_notaris' => 'Pemberkasan Notaris',
+            'tidak_acc' => 'Tidak ACC',
+            default => ucfirst(str_replace('_', ' ', (string) $status)),
+        };
+
+        return '<span class="badge ' . $badgeClass . '">' . e($label) . '</span>';
     }
     
     /**
