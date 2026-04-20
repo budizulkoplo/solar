@@ -29,6 +29,42 @@ class Pembiayaan extends Model
 
     protected $dates = ['tanggal', 'jatuh_tempo', 'deleted_at'];
 
+    protected function normalizeDecimalValue($value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        $value = trim((string) $value);
+
+        // Handle legacy values stored with Indonesian thousands separators.
+        if (str_contains($value, ',') && str_contains($value, '.')) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } elseif (str_contains($value, ',')) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } else {
+            $value = str_replace('.', '', $value);
+        }
+
+        return (float) preg_replace('/[^\d.\-]/', '', $value);
+    }
+
+    public function getNominalAttribute($value): float
+    {
+        return $this->normalizeDecimalValue($value);
+    }
+
+    public function setNominalAttribute($value): void
+    {
+        $this->attributes['nominal'] = $this->normalizeDecimalValue($value);
+    }
+
     // Relationships
     public function rekening()
     {
