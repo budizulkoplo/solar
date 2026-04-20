@@ -158,7 +158,7 @@
                                     <table class="table table-sm">
                                         <tr>
                                             <th width="60%">Harga Jual</th>
-                                            <td class="text-end fw-bold">
+                                            <td class="text-end fw-bold" id="displayHargaJual">
                                                 Rp {{ number_format($penjualan->harga_jual, 0, ',', '.') }}
                                             </td>
                                         </tr>
@@ -170,7 +170,7 @@
                                         </tr>
                                         <tr>
                                             <th>Sisa Pembayaran</th>
-                                            <td class="text-end">
+                                            <td class="text-end" id="displaySisaPembayaran">
                                                 Rp {{ number_format($sisaBelumDibayar, 0, ',', '.') }}
                                             </td>
                                         </tr>
@@ -180,19 +180,19 @@
                                     <table class="table table-sm">
                                         <tr>
                                             <th width="60%">Total Dibayar</th>
-                                            <td class="text-end text-success fw-bold">
+                                            <td class="text-end text-success fw-bold" id="displayTotalDibayar">
                                                 Rp {{ number_format($totalPayment, 0, ',', '.') }}
                                             </td>
                                         </tr>
                                         <tr>
                                             <th>Sisa Belum Dibayar</th>
-                                            <td class="text-end text-danger fw-bold">
+                                            <td class="text-end text-danger fw-bold" id="displaySisaBelumDibayar">
                                                 Rp {{ number_format($sisaBelumDibayar, 0, ',', '.') }}
                                             </td>
                                         </tr>
                                         <tr>
                                             <th>Progress</th>
-                                            <td class="text-end fw-bold">
+                                            <td class="text-end fw-bold" id="displayProgressText">
                                                 {{ number_format($progress, 1) }}%
                                             </td>
                                         </tr>
@@ -206,8 +206,8 @@
                                     <span>Progress Pembayaran</span>
                                     <span>{{ number_format($progress, 1) }}%</span>
                                 </div>
-                                <div class="progress">
-                                    <div class="progress-bar bg-success" role="progressbar" 
+                                    <div class="progress">
+                                    <div class="progress-bar bg-success" role="progressbar" id="paymentProgressBar"
                                          style="width: {{ $progress }}%" 
                                          aria-valuenow="{{ $progress }}" 
                                          aria-valuemin="0" aria-valuemax="100">
@@ -300,6 +300,8 @@
                             <form id="formPayment" enctype="multipart/form-data">
                                 @csrf
                                 <input type="hidden" name="penjualan_id" value="{{ $penjualan->id }}">
+                                <input type="hidden" id="harga_jual_awal" value="{{ (float) $penjualan->harga_jual }}">
+                                <input type="hidden" id="total_payment_awal" value="{{ (float) $totalPayment }}">
                                 
                                 <div class="mb-3">
                                     <label class="form-label">Jenis Pembayaran *</label>
@@ -337,6 +339,22 @@
                                         <option value="transfer">Transfer Bank</option>
                                     </select>
                                 </div>
+
+                                @if($penjualan->metode_pembayaran == 'cash')
+                                    <div class="mb-3">
+                                        <label class="form-label">Harga Rumah Baru</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">Rp</span>
+                                            <input type="text" class="form-control numeric-input"
+                                                   name="harga_jual_baru" id="harga_jual_baru"
+                                                   value="{{ number_format($penjualan->harga_jual, 0, ',', '.') }}"
+                                                   placeholder="Kosongkan atau ubah harga rumah">
+                                        </div>
+                                        <small class="text-muted">
+                                            Khusus penjualan cash. Harga ini akan menggantikan harga jual lama saat pembayaran disimpan.
+                                        </small>
+                                    </div>
+                                @endif
                                 
                                 <!-- Rekening (Select2) -->
                                 <div class="mb-3" id="rekeningContainer">
@@ -390,7 +408,7 @@
                                                required>
                                     </div>
                                     <small class="text-muted">
-                                        Maksimal: Rp {{ number_format($sisaBelumDibayar, 0, ',', '.') }}
+                                        Maksimal: <span id="maxNominalText">Rp {{ number_format($sisaBelumDibayar, 0, ',', '.') }}</span>
                                     </small>
                                 </div>
                                 
@@ -465,6 +483,53 @@
                 }
             }
 
+            function calculateCashSaleSummary() {
+                const hargaAwal = parseNumber($('#harga_jual_awal').val());
+                const totalAwal = parseNumber($('#total_payment_awal').val());
+                const nominalInput = parseNumber($('#nominal').val());
+                const hargaBaruRaw = $('#harga_jual_baru').length ? ($('#harga_jual_baru').val() || '').trim() : '';
+                const hargaBaruInput = $('#harga_jual_baru').length ? parseNumber(hargaBaruRaw) : null;
+                const hargaAktif = $('#harga_jual_baru').length
+                    ? (hargaBaruRaw === '' ? hargaAwal : hargaBaruInput)
+                    : hargaAwal;
+                const sisaSebelum = Math.max(0, hargaAktif - totalAwal);
+                const totalSetelah = totalAwal + nominalInput;
+                const sisaSetelah = Math.max(0, hargaAktif - totalSetelah);
+                const progress = hargaAktif > 0 ? Math.min(100, (totalSetelah / hargaAktif) * 100) : 0;
+
+                return {
+                    hargaAktif,
+                    hargaBaruInput,
+                    hargaBaruRaw,
+                    totalAwal,
+                    nominalInput,
+                    sisaSebelum,
+                    totalSetelah,
+                    sisaSetelah,
+                    progress
+                };
+            }
+
+            function refreshCashSalePreview() {
+                if (!$('#harga_jual_baru').length) {
+                    return;
+                }
+
+                const summary = calculateCashSaleSummary();
+
+                $('#displayHargaJual').text(formatRupiah(summary.hargaAktif));
+                $('#displaySisaPembayaran').text(formatRupiah(summary.sisaSebelum));
+                $('#displayTotalDibayar').text(formatRupiah(summary.totalSetelah));
+                $('#displaySisaBelumDibayar').text(formatRupiah(summary.sisaSetelah));
+                $('#displayProgressText').text(summary.progress.toFixed(1) + '%');
+                $('#maxNominalText').text(formatRupiah(summary.sisaSebelum));
+
+                const progressBar = $('#paymentProgressBar');
+                progressBar.css('width', summary.progress + '%');
+                progressBar.attr('aria-valuenow', summary.progress);
+                progressBar.text(summary.progress.toFixed(1) + '%');
+            }
+
             function updateJenisPayment() {
                 const jenis = $('#jenis_payment').val();
                 const terminContainer = $('#terminContainer');
@@ -522,18 +587,25 @@
                 if (value) {
                     value = parseInt(value).toLocaleString('id-ID');
                     $(this).val(value);
+                } else {
+                    $(this).val('');
                 }
+
+                refreshCashSalePreview();
             });
             
             // Validasi nominal tidak melebihi sisa
             $('#nominal').on('blur', function() {
                 const nominal = parseFloat($(this).val().replace(/\./g, ''));
-                const sisaBelumDibayar = parseFloat("{{ $sisaBelumDibayar }}");
+                const sisaBelumDibayar = $('#harga_jual_baru').length
+                    ? calculateCashSaleSummary().sisaSebelum
+                    : parseFloat("{{ $sisaBelumDibayar }}");
                 
                 if (nominal > sisaBelumDibayar) {
                     alert('Nominal tidak boleh melebihi sisa yang belum dibayar: Rp ' + 
                           sisaBelumDibayar.toLocaleString('id-ID'));
                     $(this).val(sisaBelumDibayar.toLocaleString('id-ID'));
+                    refreshCashSalePreview();
                 }
             });
             
@@ -546,6 +618,21 @@
                 // Convert nominal back to number
                 const nominal = formData.get('nominal').replace(/\./g, '');
                 formData.set('nominal', nominal);
+
+                if ($('#harga_jual_baru').length) {
+                    const hargaJualBaru = (formData.get('harga_jual_baru') || '').replace(/\./g, '');
+                    formData.set('harga_jual_baru', hargaJualBaru);
+
+                    const summary = calculateCashSaleSummary();
+                    if (summary.hargaBaruRaw !== '' && summary.hargaBaruInput < summary.totalAwal) {
+                        alert('Harga rumah baru tidak boleh lebih kecil dari total pembayaran yang sudah direalisasi.');
+                        return;
+                    }
+                    if (parseFloat(nominal || 0) > summary.sisaSebelum) {
+                        alert('Nominal tidak boleh melebihi sisa yang belum dibayar: ' + formatRupiah(summary.sisaSebelum));
+                        return;
+                    }
+                }
                 
                 // Show loading
                 const submitBtn = $(this).find('button[type="submit"]');
@@ -588,6 +675,7 @@
                 
                 updateJenisPayment();
                 toggleRekeningFields();
+                refreshCashSalePreview();
                 
                 // Set nilai default untuk rekening jika penjualan kredit
                 @if($penjualan->metode_pembayaran == 'kredit')

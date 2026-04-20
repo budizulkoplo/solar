@@ -644,7 +644,7 @@ class PembiayaanController extends Controller
         try {
             $request->validate([
                 'tanggal' => 'required|date',
-                'pokok' => 'required|numeric|min:1',
+                'pokok' => 'nullable|numeric|min:0',
                 'administrasi' => 'nullable|numeric|min:0',
                 'margin' => 'nullable|numeric|min:0',
                 'deskripsi' => 'nullable|string|max:1000',
@@ -665,8 +665,17 @@ class PembiayaanController extends Controller
                 ->sum('pokok');
             $sisa = $pembiayaan->nominal - $totalSetoran;
 
-            if ($request->pokok > $sisa) {
-                throw new \Exception("Jumlah pokok setoran (Rp " . number_format($request->pokok, 0, ',', '.') . 
+            $pokok = (float) ($request->pokok ?? 0);
+            $administrasi = (float) ($request->administrasi ?? 0);
+            $margin = (float) ($request->margin ?? 0);
+            $total = $pokok + $administrasi + $margin;
+
+            if ($total <= 0) {
+                throw new \Exception("Minimal salah satu nilai pokok, administrasi, atau margin harus diisi");
+            }
+
+            if ($pokok > $sisa) {
+                throw new \Exception("Jumlah pokok setoran (Rp " . number_format($pokok, 0, ',', '.') . 
                                    ") melebihi sisa pembiayaans (Rp " . number_format($sisa, 0, ',', '.') . ")");
             }
 
@@ -681,17 +690,14 @@ class PembiayaanController extends Controller
                 $buktiPath = $file->storeAs('pembiayaan_setoran', $filename, 'public');
             }
 
-            // Hitung total
-            $total = $request->pokok + ($request->administrasi ?? 0) + ($request->margin ?? 0);
-
             // Simpan setoran
             $setoran = PembiayaanSetoran::create([
                 'pembiayaan_id' => $pembiayaan->id,
                 'kode_setoran' => $kodeSetoran,
                 'tanggal' => $request->tanggal,
-                'pokok' => $request->pokok,
-                'administrasi' => $request->administrasi ?? 0,
-                'margin' => $request->margin ?? 0,
+                'pokok' => $pokok,
+                'administrasi' => $administrasi,
+                'margin' => $margin,
                 'total' => $total,
                 'deskripsi' => $request->deskripsi,
                 'bukti_path' => $buktiPath,
@@ -720,7 +726,7 @@ class PembiayaanController extends Controller
             }
 
             // Cek apakah sudah lunas
-            $totalSetoranSetelah = $totalSetoran + $request->pokok;
+            $totalSetoranSetelah = $totalSetoran + $pokok;
             if ($totalSetoranSetelah >= $pembiayaan->nominal) {
                 $pembiayaan->update(['status' => 'lunas']);
             }
@@ -729,9 +735,9 @@ class PembiayaanController extends Controller
             $this->createLog($pembiayaan->id, 'setoran', 
                 "Setoran diterima: {$kodeSetoran}, " .
                 "Tanggal: " . date('d/m/Y', strtotime($request->tanggal)) . ", " .
-                "Pokok: Rp " . number_format($request->pokok, 0, ',', '.') . ", " .
-                "Administrasi: Rp " . number_format($request->administrasi ?? 0, 0, ',', '.') . ", " .
-                "Margin: Rp " . number_format($request->margin ?? 0, 0, ',', '.') . ", " .
+                "Pokok: Rp " . number_format($pokok, 0, ',', '.') . ", " .
+                "Administrasi: Rp " . number_format($administrasi, 0, ',', '.') . ", " .
+                "Margin: Rp " . number_format($margin, 0, ',', '.') . ", " .
                 "Total: Rp " . number_format($total, 0, ',', '.') . ", " .
                 "Saldo berkurang: Rp " . number_format($total, 0, ',', '.'));
 

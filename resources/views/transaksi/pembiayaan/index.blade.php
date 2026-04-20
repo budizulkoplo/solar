@@ -472,12 +472,12 @@
 
                                     {{-- Pokok --}}
                                     <div class="col-md-8">
-                                        <label class="form-label">Pokok *</label>
+                                        <label class="form-label">Pokok</label>
                                         <div class="input-group">
                                             <span class="input-group-text">Rp</span>
                                             <input type="number" class="form-control form-control-sm text-end" 
-                                                   name="pokok" id="pokok" min="1" required 
-                                                   placeholder="Jumlah pokok">
+                                                   name="pokok" id="pokok" min="0" step="0.01"
+                                                   placeholder="0">
                                         </div>
                                         <small class="text-muted" id="sisaInfo"></small>
                                     </div>
@@ -488,7 +488,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">Rp</span>
                                             <input type="number" class="form-control form-control-sm text-end" 
-                                                   name="administrasi" id="administrasiSetoran" min="0"
+                                                   name="administrasi" id="administrasiSetoran" min="0" step="0.01"
                                                    placeholder="0">
                                         </div>
                                     </div>
@@ -499,7 +499,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">Rp</span>
                                             <input type="number" class="form-control form-control-sm text-end" 
-                                                   name="margin" id="margin" min="0"
+                                                   name="margin" id="margin" min="0" step="0.01"
                                                    placeholder="0">
                                         </div>
                                     </div>
@@ -1475,6 +1475,8 @@
                 
                 let pembiayaanId = $('#pembiayaanId').val();
                 let pokok = parseNumber($('#pokok').val());
+                let administrasi = parseNumber($('#administrasiSetoran').val());
+                let margin = parseNumber($('#margin').val());
                 let sisa = parseNumber($('#setoranSisa').text());
                 let totalSetoran = parseNumber($('#totalSetoran').val());
                 
@@ -1484,13 +1486,13 @@
                     return;
                 }
                 
-                // Validasi pokok
-                if (pokok <= 0) {
-                    Swal.fire('Peringatan', 'Pokok harus lebih dari 0', 'warning');
+                // Validasi total input
+                if ((pokok + administrasi + margin) <= 0) {
+                    Swal.fire('Peringatan', 'Isi minimal salah satu nilai: pokok, administrasi, atau margin', 'warning');
                     return;
                 }
                 
-                // Validasi tidak melebihi sisa
+                // Validasi pokok tidak melebihi sisa pembiayaan
                 if (pokok > sisa) {
                     Swal.fire('Peringatan', 'Pokok (' + formatRupiah(pokok) + ') tidak boleh melebihi sisa pembiayaan (' + formatRupiah(sisa) + ')', 'warning');
                     return;

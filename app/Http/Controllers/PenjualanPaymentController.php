@@ -323,6 +323,7 @@ class PenjualanPaymentController extends Controller
             'termin_ke' => 'nullable|integer|min:1',
             'tanggal_payment' => 'required|date',
             'nominal' => 'required|numeric|min:1000',
+            'harga_jual_baru' => 'nullable|numeric|min:0',
             'metode_pembayaran' => 'required|in:cash,transfer',
             'idrek' => 'required|exists:rekening,idrek', // Ganti dari 'bank' menjadi 'idrek'
             'no_rekening' => 'nullable|string|max:50',
@@ -335,6 +336,23 @@ class PenjualanPaymentController extends Controller
             DB::beginTransaction();
             
             $penjualan = Penjualan::with('payments')->findOrFail($request->penjualan_id);
+            $totalPaymentSebelumnya = $this->getRealizedPaymentTotal($penjualan);
+            $hargaJualBaru = null;
+
+            if ($penjualan->metode_pembayaran === 'cash' && $request->filled('harga_jual_baru')) {
+                $hargaJualBaru = (float) $request->harga_jual_baru;
+
+                if ($hargaJualBaru < $totalPaymentSebelumnya) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Harga rumah baru (Rp ' . number_format($hargaJualBaru, 0, ',', '.') .
+                                    ') tidak boleh lebih kecil dari total pembayaran yang sudah direalisasi (Rp ' .
+                                    number_format($totalPaymentSebelumnya, 0, ',', '.') . ')'
+                    ], 422);
+                }
+
+                $penjualan->harga_jual = $hargaJualBaru;
+            }
             
             // Cek sisa yang belum dibayar
             $sisaBelumDibayar = $this->getSisaBelumDibayar($penjualan);
@@ -402,6 +420,13 @@ class PenjualanPaymentController extends Controller
                 'created_by' => Auth::id()
             ]);
             
+            if ($hargaJualBaru !== null && (float) $penjualan->getOriginal('harga_jual') !== $hargaJualBaru) {
+                $penjualan->update([
+                    'harga_jual' => $hargaJualBaru,
+                    'updated_by' => Auth::id()
+                ]);
+            }
+
             $penjualan->unsetRelation('payments');
             $this->syncPenjualanPaymentState($penjualan);
             
@@ -441,7 +466,7 @@ class PenjualanPaymentController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => 'Pembayaran berhasil dicatat dan saldo rekening telah ditambahkan',
+                'message' => 'Pembayaran berhasil dicatat' . ($hargaJualBaru !== null ? ' dan harga rumah diperbarui' : '') . ' serta saldo rekening telah ditambahkan',
                 'redirect' => route('penjualan-payment.detail', $penjualan->id)
             ]);
             
