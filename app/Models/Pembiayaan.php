@@ -41,15 +41,25 @@ class Pembiayaan extends Model
 
         $value = trim((string) $value);
 
-        // Handle legacy values stored with Indonesian thousands separators.
         if (str_contains($value, ',') && str_contains($value, '.')) {
             $value = str_replace('.', '', $value);
             $value = str_replace(',', '.', $value);
         } elseif (str_contains($value, ',')) {
-            $value = str_replace('.', '', $value);
-            $value = str_replace(',', '.', $value);
+            // Comma only: treat as decimal separator when not using thousand dots.
+            if (preg_match('/^\d+,\d+$/', $value)) {
+                $value = str_replace(',', '.', $value);
+            } else {
+                $value = str_replace('.', '', $value);
+                $value = str_replace(',', '.', $value);
+            }
         } else {
-            $value = str_replace('.', '', $value);
+            // Dot only: preserve DB decimal values like 500000000.00,
+            // but still normalize legacy thousand-separated values like 500.000.000.
+            if (preg_match('/^\d+\.\d{1,2}$/', $value)) {
+                // Keep decimal dot as-is.
+            } elseif (preg_match('/^\d{1,3}(\.\d{3})+$/', $value)) {
+                $value = str_replace('.', '', $value);
+            }
         }
 
         return (float) preg_replace('/[^\d.\-]/', '', $value);
