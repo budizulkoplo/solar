@@ -789,13 +789,19 @@
                 
                 value = value.toString().replace('Rp', '').trim();
                 value = value.replace(/[^\d,.-]/g, '');
-                value = value.replace(',', '.');
-                
-                let parts = value.split('.');
-                if (parts.length > 1) {
-                    value = parts[0].replace(/\./g, '') + '.' + parts.slice(1).join('');
-                } else {
-                    value = value.replace(/\./g, '');
+
+                if (value.includes(',') && value.includes('.')) {
+                    value = value.replace(/\./g, '').replace(',', '.');
+                } else if (value.includes(',')) {
+                    if (/^\d+,\d+$/.test(value)) {
+                        value = value.replace(',', '.');
+                    } else {
+                        value = value.replace(/\./g, '').replace(',', '.');
+                    }
+                } else if (value.includes('.')) {
+                    if (!/^\d+\.\d{1,2}$/.test(value)) {
+                        value = value.replace(/\./g, '');
+                    }
                 }
                 
                 let num = parseFloat(value);
