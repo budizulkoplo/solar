@@ -33,11 +33,13 @@ class PindahBukuController extends Controller
             'rekeningTujuan:idrek,norek,namarek,saldo',
             'creator:id,name'
         ])
-        ->whereHas('rekeningAsal', function($q) use ($companyId) {
-            $q->where('idcompany', $companyId);
-        })
-        ->orWhereHas('rekeningTujuan', function($q) use ($companyId) {
-            $q->where('idcompany', $companyId);
+        ->where(function ($subQuery) use ($companyId) {
+            $subQuery->whereHas('rekeningAsal', function($q) use ($companyId) {
+                $q->where('idcompany', $companyId);
+            })
+            ->orWhereHas('rekeningTujuan', function($q) use ($companyId) {
+                $q->where('idcompany', $companyId);
+            });
         });
 
         return DataTables::eloquent($query)
@@ -82,13 +84,19 @@ class PindahBukuController extends Controller
                 return $row->creator ? $row->creator->name : '-';
             })
             ->filter(function($query) use ($companyId) {
-                $search = request('search.value');
+                $search = trim((string) request('search.value'));
                 
                 if (!empty($search)) {
                     $query->where(function($q) use ($search) {
                         $q->where('kode_transaksi', 'like', "%{$search}%")
                         ->orWhere('nominal', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%")
                         ->orWhere('keterangan', 'like', "%{$search}%")
+                        ->orWhereRaw("DATE_FORMAT(tanggal, '%d/%m/%Y') like ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(tanggal, '%Y-%m-%d') like ?", ["%{$search}%"])
+                        ->orWhereHas('creator', function($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        })
                         ->orWhereHas('rekeningAsal', function($q) use ($search) {
                             $q->where('norek', 'like', "%{$search}%")
                               ->orWhere('namarek', 'like', "%{$search}%");
@@ -101,8 +109,7 @@ class PindahBukuController extends Controller
                 }
                 
                 $query->orderBy('tanggal', 'desc')
-                    ->orderBy('id', 'desc')
-                    ->limit(1000);
+                    ->orderBy('id', 'desc');
             })
             ->order(function($query) {
                 $query->orderBy('tanggal', 'desc')->orderBy('id', 'desc');
