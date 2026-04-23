@@ -559,10 +559,10 @@
                     namaRekContainer.show();
                     $('#idrek').prop('required', true);
                 } else {
-                    rekeningContainer.hide();
-                    saldoInfoContainer.hide();
-                    noRekContainer.hide();
-                    namaRekContainer.hide();
+                    rekeningContainer.show();
+                    saldoInfoContainer.show();
+                    noRekContainer.show();
+                    namaRekContainer.show();
                     $('#idrek').prop('required', false);
                 }
             }
