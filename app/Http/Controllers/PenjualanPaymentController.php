@@ -75,15 +75,19 @@ class PenjualanPaymentController extends Controller
             ])
             ->where(function ($q) {
                 $q->where('status', 'terjual')
-                ->orWhereHas('penjualan', function ($sub) {
-                    $sub->where('tipe_penjualan', 'cash');
-                });
+                ->orWhere('tipe_penjualan', 'cash');
             })
-            ->whereHas('penjualan', function($q) use ($paymentMethodFilter) {
-                if ($paymentMethodFilter !== 'all') {
-                    $q->where('metode_pembayaran', $paymentMethodFilter);
-                }
-                $q->whereIn('status_penjualan', ['process', 'selesai', 'lunas']);
+            ->where(function ($q) use ($paymentMethodFilter) {
+                $q->whereHas('penjualan', function($sub) use ($paymentMethodFilter) {
+                    if ($paymentMethodFilter !== 'all') {
+                        $sub->where('metode_pembayaran', $paymentMethodFilter);
+                    }
+                    $sub->whereIn('status_penjualan', ['process', 'selesai', 'lunas']);
+                })
+                ->orWhere(function ($sub) {
+                    $sub->where('tipe_penjualan', 'cash')
+                        ->doesntHave('penjualan'); 
+                });
             })
             // Filter by project yang aktif
             ->whereHas('unit', function($query) use ($projectId) {
