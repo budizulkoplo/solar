@@ -73,7 +73,12 @@ class PenjualanPaymentController extends Controller
                     $q->where('status_payment', 'realized');
                 }
             ])
-            ->where('status', 'terjual')
+            ->where(function ($q) {
+                $q->where('status', 'terjual')
+                ->orWhereHas('penjualan', function ($sub) {
+                    $sub->where('tipe_penjualan', 'cash');
+                });
+            })
             ->whereHas('penjualan', function($q) use ($paymentMethodFilter) {
                 if ($paymentMethodFilter !== 'all') {
                     $q->where('metode_pembayaran', $paymentMethodFilter);
