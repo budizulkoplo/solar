@@ -34,7 +34,7 @@ class KodetransaksiController extends Controller
             ->addIndexColumn()
             ->addColumn('nama_coa', fn($row) => $row->coa ? $row->coa->name : '-')
             ->addColumn('nama_header', fn($row) => $row->header ? $row->header->keterangan : '-')
-            ->addColumn('nama_neraca', fn($row) => $row->neraca ? $row->neraca->rincian : '-')
+            ->addColumn('nama_neraca', fn($row) => $row->neraca ? $row->neraca->rincian. ' - ' . $row->neraca->header : '-')
             ->addColumn('nama_labarugi', fn($row) => $row->labarugi ? $row->labarugi->rincian : '-')
             ->addColumn('action', function($row){
                 return '
