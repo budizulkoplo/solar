@@ -8,18 +8,26 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Carbon\Carbon;
 
-class KodetransaksiExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, ShouldAutoSize
+class KodetransaksiExport extends DefaultValueBinder implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithCustomValueBinder, WithTitle
 {
+    protected int $rowNumber = 1;
+
     /**
      * @return \Illuminate\Support\Collection
      */
     public function collection()
     {
-        return Kodetransaksi::with(['coa', 'header', 'neraca', 'labarugi'])->get();
+        return Kodetransaksi::with(['coa', 'header', 'neraca', 'labarugi'])
+            ->orderBy('kodetransaksi')
+            ->get();
     }
 
     public function headings(): array
@@ -39,9 +47,8 @@ class KodetransaksiExport implements FromCollection, WithHeadings, WithMapping, 
 
     public function map($row): array
     {
-        static $no = 1;
         return [
-            $no++,
+            $this->rowNumber++,
             $row->kodetransaksi,
             $row->transaksi,
             $row->header ? $row->header->keterangan : '-',
@@ -53,8 +60,21 @@ class KodetransaksiExport implements FromCollection, WithHeadings, WithMapping, 
         ];
     }
 
+    public function bindValue(Cell $cell, $value)
+    {
+        if ($cell->getColumn() === 'B') {
+            $cell->setValueExplicit((string) $value, DataType::TYPE_STRING);
+
+            return true;
+        }
+
+        return parent::bindValue($cell, $value);
+    }
+
     public function styles(Worksheet $sheet)
     {
+        $lastRow = max($sheet->getHighestRow(), 1);
+
         // Header styling
         $sheet->getStyle('A1:I1')->applyFromArray([
             'font' => [
@@ -72,24 +92,31 @@ class KodetransaksiExport implements FromCollection, WithHeadings, WithMapping, 
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                    'color' => ['rgb' => '000000']
+                    'color' => ['rgb' => 'CED4DA']
                 ]
             ]
         ]);
 
         // Data rows styling
-        $lastRow = $this->collection()->count() + 1;
-        $sheet->getStyle('A2:I' . $lastRow)->applyFromArray([
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                    'color' => ['rgb' => '000000']
+        if ($lastRow >= 2) {
+            $sheet->getStyle('A2:I' . $lastRow)->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => 'DEE2E6']
+                    ]
+                ],
+                'alignment' => [
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
+                    'wrapText' => true
                 ]
-            ],
-            'alignment' => [
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER
-            ]
-        ]);
+            ]);
+
+            $sheet->getStyle('A2:B' . $lastRow)->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('H2:I' . $lastRow)->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        }
 
         // Auto filter
         $sheet->setAutoFilter('A1:I1');
@@ -99,6 +126,7 @@ class KodetransaksiExport implements FromCollection, WithHeadings, WithMapping, 
 
         // Set row height for header
         $sheet->getRowDimension(1)->setRowHeight(25);
+        $sheet->getDefaultRowDimension()->setRowHeight(22);
 
         return [
             1 => ['font' => ['bold' => true]],
@@ -118,5 +146,10 @@ class KodetransaksiExport implements FromCollection, WithHeadings, WithMapping, 
             'H' => 20,  // Tanggal Dibuat
             'I' => 20,  // Tanggal Diupdate
         ];
+    }
+
+    public function title(): string
+    {
+        return 'Kode Transaksi';
     }
 }

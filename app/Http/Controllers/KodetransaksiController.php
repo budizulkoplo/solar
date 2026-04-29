@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\KodetransaksiExport;
 use App\Models\Kodetransaksi;
 use App\Models\Coa;
 use App\Models\TransaksiHdr;
 use App\Models\NeracaHdr;
 use App\Models\LabaRugiHdr;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 use PDF;
@@ -101,8 +103,16 @@ class KodetransaksiController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // Export Excel (CSV format)
+    // Export Excel
     public function exportExcel(Request $request)
+    {
+        $filename = 'kode-transaksi-' . Carbon::now()->format('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new KodetransaksiExport(), $filename);
+    }
+
+    // Export CSV
+    public function exportCsv(Request $request)
     {
         $data = Kodetransaksi::with(['coa', 'header', 'neraca', 'labarugi'])->get();
         $filename = 'kode-transaksi-' . Carbon::now()->format('Y-m-d_H-i-s') . '.csv';
@@ -174,6 +184,6 @@ class KodetransaksiController extends Controller
     // Export Excel dengan format .xlsx (alternatif menggunakan PHP Spreadsheet langsung)
     public function exportExcelXlsx(Request $request)
     {
-        return $this->exportExcel($request); // Untuk sementara gunakan CSV
+        return $this->exportExcel($request);
     }
 }
