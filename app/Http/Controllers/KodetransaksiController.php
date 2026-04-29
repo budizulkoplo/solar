@@ -154,7 +154,7 @@ class KodetransaksiController extends Controller
                     $item->transaksi,
                     $item->header ? $item->header->keterangan : '-',
                     $item->coa ? $item->coa->name : '-',
-                    $item->neraca ? $item->neraca->rincian : '-',
+                    $item->neraca ? $item->neraca->rincian . ' - ' . $item->neraca->header : '-',
                     $item->labarugi ? $item->labarugi->rincian : '-',
                     $item->created_at ? Carbon::parse($item->created_at)->format('d/m/Y H:i') : '-',
                     $item->updated_at ? Carbon::parse($item->updated_at)->format('d/m/Y H:i') : '-'
