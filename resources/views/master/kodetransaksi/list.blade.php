@@ -136,18 +136,106 @@
                     dropdownParent: $('#modalData'),
                     width: '100%',
                     placeholder: 'Pilih opsi',
-                    allowClear: true
+                    allowClear: true,
+                    templateResult: formatNeracaOption,
+                    templateSelection: formatNeracaSelection
                 });
+            }
+
+            // Format untuk menampilkan badge di dropdown Neraca (Modal)
+            function formatNeracaOption(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                
+                var $option = $(option.element);
+                var header = $option.data('header');
+                
+                if (header) {
+                    var $span = $('<span class="neraca-option-wrapper">' +
+                        '<span class="option-rincian">' + option.text + '</span>' +
+                        '<span class="option-badge">' + header + '</span>' +
+                        '</span>');
+                    return $span;
+                }
+                
+                return option.text;
+            }
+            
+            function formatNeracaSelection(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                
+                var $option = $(option.element);
+                var header = $option.data('header');
+                
+                if (header) {
+                    return option.text + ' [' + header + ']';
+                }
+                
+                return option.text;
             }
 
             // Fungsi untuk inisialisasi Select2 di tabel
             function initSelect2Table() {
-                $('.select2-table').select2({
-                    width: '100%',
-                    placeholder: 'Pilih opsi',
-                    allowClear: true,
-                    dropdownParent: $('body')
+                $('.select2-table').each(function() {
+                    var $select = $(this);
+                    var isNeraca = $select.hasClass('table-neraca');
+                    
+                    if (isNeraca) {
+                        $select.select2({
+                            width: '100%',
+                            placeholder: 'Pilih opsi',
+                            allowClear: true,
+                            dropdownParent: $('body'),
+                            templateResult: formatNeracaOptionTable,
+                            templateSelection: formatNeracaSelectionTable
+                        });
+                    } else {
+                        $select.select2({
+                            width: '100%',
+                            placeholder: 'Pilih opsi',
+                            allowClear: true,
+                            dropdownParent: $('body')
+                        });
+                    }
                 });
+            }
+            
+            // Format untuk tabel
+            function formatNeracaOptionTable(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                
+                var $option = $(option.element);
+                var header = $option.data('header');
+                
+                if (header) {
+                    var $span = $('<div class="neraca-option-wrapper">' +
+                        '<div class="option-rincian">' + option.text + '</div>' +
+                        '<div class="option-badge-table">' + header + '</div>' +
+                        '</div>');
+                    return $span;
+                }
+                
+                return option.text;
+            }
+            
+            function formatNeracaSelectionTable(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                
+                var $option = $(option.element);
+                var header = $option.data('header');
+                
+                if (header) {
+                    return option.text + ' [' + header + ']';
+                }
+                
+                return option.text;
             }
 
             // Fungsi untuk menampilkan error
@@ -236,7 +324,11 @@
                         render: function(data, type, row) {
                             let options = `<option value="">-- Pilih Neraca --</option>`;
                             @foreach($neracaHeaders as $neraca)
-                                options += `<option value="{{ $neraca->id }}" ${data == {{ $neraca->id }} ? 'selected' : ''}>{{ $neraca->rincian }}</option>`;
+                                options += `<option value="{{ $neraca->id }}" 
+                                    data-header="{{ $neraca->header }}"
+                                    ${data == {{ $neraca->id }} ? 'selected' : ''}>
+                                    {{ $neraca->rincian }}
+                                </option>`;
                             @endforeach
                             return `<select class="form-select form-select-sm select2-table table-neraca" data-id="${row.id}" data-field="idneraca">${options}</select>`;
                         },
@@ -286,11 +378,10 @@
                 }
             });
 
-            // Export Excel - Solusi 1: Menggunakan iframe
+            // Export Excel
             $('#btnExportExcel').click(function(e) {
                 e.preventDefault();
                 
-                // Tampilkan loading
                 exportLoading = Swal.fire({
                     title: 'Export Data',
                     text: 'Sedang menyiapkan file...',
@@ -301,11 +392,9 @@
                     }
                 });
                 
-                // Gunakan iframe untuk download
                 const downloadFrame = document.getElementById('downloadFrame');
                 downloadFrame.src = "{{ route('kodetransaksi.export.excel') }}";
                 
-                // Set timeout untuk menutup loading setelah beberapa detik
                 setTimeout(() => {
                     if (exportLoading) {
                         exportLoading.close();
@@ -318,7 +407,7 @@
                             showConfirmButton: false
                         });
                     }
-                }, 3000); // 3 detik
+                }, 3000);
             });
 
             // Update langsung dari table untuk semua field
@@ -374,7 +463,6 @@
                             }
                         });
                     } else {
-                        // Reload data untuk mengembalikan nilai sebelumnya
                         tb.ajax.reload(null, false);
                     }
                 });
@@ -384,16 +472,10 @@
             $('#btnTambah').click(function(){
                 $('#frmData')[0].reset();
                 $('#idData').val('');
-                
-                // Reset Select2 di modal
                 $('.select2-modal').val(null).trigger('change');
-                
-                // Set modal title
                 $('.modal-title').text('Tambah Kode Transaksi');
-                
                 $('#modalData').modal('show');
                 
-                // Inisialisasi Select2 untuk modal
                 setTimeout(() => {
                     initSelect2Modal();
                 }, 100);
@@ -446,7 +528,7 @@
                 });
             });
 
-            // Edit Data - menggunakan event delegation
+            // Edit Data
             $(document).on('click', '.btn-edit', function(){
                 let id = $(this).data('id');
                 
@@ -473,19 +555,13 @@
                         $('#idData').val(d.id);
                         $('#kodetransaksi').val(d.kodetransaksi);
                         $('#transaksi').val(d.transaksi);
-                        
-                        // Set nilai untuk Select2 di modal
                         $('#modalHeader').val(d.idheader).trigger('change');
                         $('#modalCoa').val(d.idcoa).trigger('change');
                         $('#modalNeraca').val(d.idneraca).trigger('change');
                         $('#modalLabaRugi').val(d.idlabarugi).trigger('change');
-                        
-                        // Set modal title
                         $('.modal-title').text('Edit Kode Transaksi');
-                        
                         $('#modalData').modal('show');
                         
-                        // Inisialisasi Select2 untuk modal
                         setTimeout(() => {
                             initSelect2Modal();
                         }, 100);
@@ -501,7 +577,7 @@
                 });
             });
 
-            // Delete Data - menggunakan event delegation
+            // Delete Data
             $(document).on('click', '.btn-delete', function(){
                 let id = $(this).data('id');
                 let kode = $(this).data('kode');
@@ -558,12 +634,10 @@
                 });
             });
 
-            // Inisialisasi Select2 untuk modal saat modal ditampilkan
             $('#modalData').on('shown.bs.modal', function () {
                 initSelect2Modal();
             });
 
-            // Reset Select2 saat modal ditutup
             $('#modalData').on('hidden.bs.modal', function () {
                 $('.select2-modal').val(null).trigger('change');
             });
@@ -597,6 +671,64 @@
             }
             .btn-group {
                 white-space: nowrap;
+            }
+
+            /* Style untuk Neraca Option dengan Badge */
+            .neraca-option-wrapper {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding: 4px 0;
+            }
+            
+            .option-rincian {
+                font-weight: 600;
+                color: #1e293b;
+                font-size: 0.85rem;
+            }
+            
+            .option-badge,
+            .option-badge-table {
+                display: inline-block;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                font-size: 0.7rem;
+                font-weight: 500;
+                padding: 2px 12px;
+                border-radius: 20px;
+                letter-spacing: 0.3px;
+                width: fit-content;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            }
+            
+            .option-badge-table {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            }
+            
+            /* Hover effect untuk Select2 options */
+            .select2-container--bootstrap-5 .select2-results__option--highlighted .option-rincian {
+                color: white !important;
+            }
+            
+            .select2-container--bootstrap-5 .select2-results__option--highlighted .option-badge,
+            .select2-container--bootstrap-5 .select2-results__option--highlighted .option-badge-table {
+                background: rgba(255,255,255,0.25);
+                color: white;
+            }
+            
+            /* Styling untuk dropdown container */
+            .select2-dropdown {
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            }
+            
+            .select2-container--bootstrap-5 .select2-results__option {
+                padding: 8px 12px;
+                margin: 2px 0;
+            }
+            
+            .select2-container--bootstrap-5 .select2-results__option--highlighted {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             }
         </style>
     </x-slot>
