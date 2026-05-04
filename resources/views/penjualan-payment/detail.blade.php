@@ -158,7 +158,19 @@
                                         </tr>
                                         <tr>
                                             <th>Tanggal Akad</th>
-                                            <td>{{ $penjualan->tanggal_akad ? \Carbon\Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y') : '-' }}</td>
+                                            <td>
+                                                <span id="tanggalAkadText">
+                                                    {{ $penjualan->tanggal_akad ? \Carbon\Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y') : '-' }}
+                                                </span>
+                                                @if($penjualan->metode_pembayaran == 'cash')
+                                                    <button type="button"
+                                                            class="btn btn-warning btn-sm ms-2"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#modalEditTanggalAkad">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                @endif
+                                            </td>
                                         </tr>
                                         <tr>
                                             <th>Status Penjualan</th>
@@ -662,8 +674,74 @@
         </div>
     </div>
 
+    @if($penjualan->metode_pembayaran == 'cash')
+        <div class="modal fade" id="modalEditTanggalAkad" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form id="formEditTanggalAkad">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Edit Tanggal Akad</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Tanggal Akad</label>
+                                <input type="date"
+                                       class="form-control"
+                                       name="tanggal_akad"
+                                       id="tanggalAkadInput"
+                                       value="{{ $penjualan->tanggal_akad ? \Carbon\Carbon::parse($penjualan->tanggal_akad)->format('Y-m-d') : '' }}"
+                                       required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" class="btn btn-primary" id="btnSimpanTanggalAkad">
+                                Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <x-slot name="jscustom">
         <script>
+            @if($penjualan->metode_pembayaran == 'cash')
+                $('#formEditTanggalAkad').submit(function(e) {
+                    e.preventDefault();
+
+                    const button = $('#btnSimpanTanggalAkad');
+                    button.prop('disabled', true).text('Menyimpan...');
+
+                    $.ajax({
+                        url: "{{ route('penjualan-payment.update-tanggal-akad', $penjualan->id) }}",
+                        type: 'PUT',
+                        data: {
+                            _token: "{{ csrf_token() }}",
+                            tanggal_akad: $('#tanggalAkadInput').val()
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $('#tanggalAkadText').text(response.tanggal_akad);
+                                $('#modalEditTanggalAkad').modal('hide');
+                                alert(response.message);
+                            } else {
+                                alert(response.message || 'Tanggal akad gagal diperbarui');
+                            }
+                        },
+                        error: function(xhr) {
+                            const message = xhr.responseJSON?.message || 'Terjadi kesalahan saat memperbarui tanggal akad';
+                            alert(message);
+                        },
+                        complete: function() {
+                            button.prop('disabled', false).text('Simpan');
+                        }
+                    });
+                });
+            @endif
+
             function deletePayment(id) {
                 if (confirm('Apakah Anda yakin ingin menghapus pembayaran ini?')) {
                     $.ajax({

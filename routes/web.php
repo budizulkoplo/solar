@@ -772,7 +772,8 @@ Route::prefix('penjualan-payment')->middleware(['role:superadmin|admin|hrd|pengu
     Route::get('/detail/{penjualanId}', [PenjualanPaymentController::class, 'detail'])->name('detail');
     Route::get('/create/{penjualanId}', [PenjualanPaymentController::class, 'createByPenjualan'])->name('create-by-penjualan');
     Route::post('/', [PenjualanPaymentController::class, 'store'])->name('store');
-    
+    Route::put('/{penjualanId}/tanggal-akad', [PenjualanPaymentController::class, 'updateTanggalAkad'])->name('update-tanggal-akad');
+
     Route::get('/{id}/edit', [PenjualanPaymentController::class, 'edit'])->name('edit');
     Route::put('/{id}', [PenjualanPaymentController::class, 'update'])->name('update');
     Route::delete('/{id}', [PenjualanPaymentController::class, 'destroy'])->name('destroy');

@@ -284,6 +284,34 @@ class PenjualanPaymentController extends Controller
         
         return view('penjualan-payment.detail', compact('penjualan', 'totalPayment', 'sisaBelumDibayar', 'progress'));
     }
+
+    public function updateTanggalAkad(Request $request, $penjualanId)
+    {
+        $request->validate([
+            'tanggal_akad' => 'required|date',
+        ]);
+
+        $penjualan = Penjualan::whereIn('status_penjualan', ['process', 'selesai', 'lunas'])
+            ->findOrFail($penjualanId);
+
+        if ($penjualan->metode_pembayaran !== 'cash') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tanggal akad hanya dapat diubah untuk penjualan cash.',
+            ], 422);
+        }
+
+        $penjualan->update([
+            'tanggal_akad' => $request->tanggal_akad,
+            'updated_by' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tanggal akad berhasil diperbarui.',
+            'tanggal_akad' => Carbon::parse($penjualan->tanggal_akad)->format('d/m/Y'),
+        ]);
+    }
     
     // Create pembayaran untuk penjualan tertentu
     public function createByPenjualan($penjualanId)
