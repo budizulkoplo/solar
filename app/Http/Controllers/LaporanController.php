@@ -1072,62 +1072,35 @@ class LaporanController extends Controller
 
         /**
          * ==================================================
-         * 2. PINDAH BUKU - REKENING ASAL (OUT)
+         * 2. PINDAH BUKU
          * ==================================================
          */
-        $pbkOut = DB::table('transaksi_pindah_buku as pbk')
+        $pindahBukuQuery = DB::table('cashflows as cf')
             ->select(
-                DB::raw('pbk.id * -1 as id'),
+                DB::raw('cf.id * -1 as id'),
                 DB::raw('NULL as id_payment'),
-                'pbk.kode_transaksi as nota_no',
-                'pbk.tanggal',
-                DB::raw("CONCAT('(', pbk.kode_transaksi, ') Pindah Buku') as kodetransaksi"),
+                DB::raw('COALESCE(cf.kode_transaksi, "-") as nota_no'),
+                'cf.tanggal',
+                DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pindah Buku') as kodetransaksi"),
                 DB::raw('"Pindah Buku" as kategori'),
-                'pbk.keterangan as namatransaksi',
-                'pbk.nominal as jumlah_transaksi',
-                DB::raw('0 as pemasukan'),
-                DB::raw('pbk.nominal as pengeluaran'),
-                DB::raw('0 as saldo'),
+                DB::raw('COALESCE(pbk.keterangan, cf.keterangan) as namatransaksi'),
+                'cf.nominal as jumlah_transaksi',
+                DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
+                DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
+                'cf.saldo_akhir as saldo',
                 DB::raw('NULL as namavendor'),
-                'r_asal.namarek as rekening',
+                'r.namarek as rekening',
                 'cu.company_name as nama_company',
-                'pbk.idcompany'
+                'r.idcompany'
             )
-            ->join('rekening as r_asal', 'pbk.rekening_asal_id', '=', 'r_asal.idrek')
-            ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
-            ->where('pbk.status', 'completed')
-            ->whereNotNull('pbk.idcompany')
-         
-            ->whereBetween('pbk.tanggal', [$startDate, $endDate]);
-
-        /**
-         * ==================================================
-         * 3. PINDAH BUKU - REKENING TUJUAN (IN)
-         * ==================================================
-         */
-        $pbkIn = DB::table('transaksi_pindah_buku as pbk')
-            ->select(
-                DB::raw('pbk.id * -1 as id'),
-                DB::raw('NULL as id_payment'),
-                'pbk.kode_transaksi as nota_no',
-                'pbk.tanggal',
-                DB::raw("CONCAT('(', pbk.kode_transaksi, ') Pindah Buku') as kodetransaksi"),
-                DB::raw('"Pindah Buku" as kategori'),
-                'pbk.keterangan as namatransaksi',
-                'pbk.nominal as jumlah_transaksi',
-                DB::raw('pbk.nominal as pemasukan'),
-                DB::raw('0 as pengeluaran'),
-                DB::raw('0 as saldo'),
-                DB::raw('NULL as namavendor'),
-                'r_tujuan.namarek as rekening',
-                'cu.company_name as nama_company',
-                'pbk.idcompany'
-            )
-            ->join('rekening as r_tujuan', 'pbk.rekening_tujuan_id', '=', 'r_tujuan.idrek')
-            ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
-            ->where('pbk.status', 'completed')
-            ->whereNotNull('pbk.idcompany')
-            ->whereBetween('pbk.tanggal', [$startDate, $endDate]);
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->leftJoin('company_units as cu', 'r.idcompany', '=', 'cu.id')
+            ->leftJoin('transaksi_pindah_buku as pbk', 'cf.kode_transaksi', '=', 'pbk.kode_transaksi')
+            ->whereNull('cf.idnota')
+            ->where('cf.kode_transaksi', 'like', 'PBK-%')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate]);
 
         /**
          * ==================================================
@@ -1136,8 +1109,7 @@ class LaporanController extends Controller
          */
         $data = $notaQuery
             ->unionAll($pembiayaanQuery)
-            ->unionAll($pbkOut)
-            ->unionAll($pbkIn)
+            ->unionAll($pindahBukuQuery)
             ->orderBy('tanggal', 'asc')
             ->orderBy('nota_no', 'asc')
             ->get();
@@ -1156,6 +1128,7 @@ class LaporanController extends Controller
                 COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END),0) as total_pengeluaran
             ')
             ->where('n.status', 'paid')
+            ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
             ->whereNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate])
@@ -1201,6 +1174,19 @@ class LaporanController extends Controller
             })
             ->first();
 
+        $pindahBukuTotals = DB::table('cashflows as cf')
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END),0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END),0) as total_pengeluaran
+            ')
+            ->whereNull('cf.idnota')
+            ->where('cf.kode_transaksi', 'like', 'PBK-%')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
+            ->first();
+
         /**
          * ==================================================
          * 6. SALDO AKHIR
@@ -1219,8 +1205,8 @@ class LaporanController extends Controller
         return response()->json([
             'data' => $data,
             'total' => [
-                'pemasukan'   => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0),
-                'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0),
+                'pemasukan'   => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0) + ($pindahBukuTotals->total_pemasukan ?? 0),
+                'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0) + ($pindahBukuTotals->total_pengeluaran ?? 0),
                 'saldo_akhir' => $lastCashflow->saldo_akhir ?? 0
             ]
         ]);

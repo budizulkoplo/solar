@@ -656,6 +656,14 @@ class AssetTransactionController extends Controller
                         <i class="bi bi-cash-coin"></i>
                     </button>';
 
+                $depreciationBtn = $row->status === 'aktif'
+                    ? '<button class="btn btn-sm btn-success generate-depreciation-asset" data-id="'.$row->id.'" data-name="'.e($row->nama_aset).'">
+                        <i class="bi bi-calculator"></i> Penyusutan
+                    </button>'
+                    : '<button class="btn btn-sm btn-success" disabled>
+                        <i class="bi bi-calculator"></i> Penyusutan
+                    </button>';
+
                 $deleteBtn = $canDelete ? 
                     '<button class="btn btn-sm btn-danger delete-asset" data-id="'.$row->id.'" data-name="'.$row->nama_aset.'"><i class="bi bi-trash"></i></button>' :
                     '<button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>';
@@ -669,6 +677,7 @@ class AssetTransactionController extends Controller
                     </button>
                     '.$disposalBtn.'
                     '.$rentBtn.'
+                    '.$depreciationBtn.'
                     '.$deleteBtn.'
                 </div>';
             })
@@ -705,70 +714,91 @@ class AssetTransactionController extends Controller
         DB::beginTransaction();
         try {
             $request->validate([
-                'periode' => 'required|date_format:Y-m'
+                'periode_awal' => 'required_without:periode|date_format:Y-m',
+                'periode_akhir' => 'required_without:periode|date_format:Y-m|after_or_equal:periode_awal',
+                'periode' => 'nullable|date_format:Y-m',
+                'asset_id' => 'required|exists:assets,id'
             ]);
 
-            $periode = $request->periode . '-01';
+            $periodeAwalInput = $request->periode_awal ?: $request->periode;
+            $periodeAkhirInput = $request->periode_akhir ?: $request->periode;
+            $periodeAwal = \Carbon\Carbon::createFromFormat('Y-m-d', $periodeAwalInput . '-01')->startOfMonth();
+            $periodeAkhir = \Carbon\Carbon::createFromFormat('Y-m-d', $periodeAkhirInput . '-01')->startOfMonth();
             $projectId = session('active_project_id');
 
-            // Ambil semua aset aktif
-            $assets = Asset::where('idproject', $projectId)
+            // Ambil aset aktif yang dipilih
+            $asset = Asset::where('idproject', $projectId)
                 ->where('status', 'aktif')
-                ->where('tanggal_mulai_susut', '<=', $periode)
-                ->get();
+                ->where('id', $request->asset_id)
+                ->where('tanggal_mulai_susut', '<=', $periodeAkhir->toDateString())
+                ->first();
+
+            if (!$asset) {
+                throw new \Exception('Asset aktif tidak ditemukan atau belum masuk periode penyusutan.');
+            }
+
+            $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                ->where('status', 'terposting')
+                ->exists();
+
+            if ($hasPostedDepreciation) {
+                throw new \Exception('Penyusutan tidak dapat dikalkulasi ulang karena sudah ada penyusutan terposting.');
+            }
+
+            AssetDepreciation::where('asset_id', $asset->id)->delete();
 
             $count = 0;
-            foreach ($assets as $asset) {
-                // Cek apakah sudah ada penyusutan untuk periode ini
-                $existing = AssetDepreciation::where('asset_id', $asset->id)
-                    ->where('periode', $periode)
+            for ($periode = $periodeAwal->copy(); $periode->lte($periodeAkhir); $periode->addMonth()) {
+                $periodeTanggal = $periode->toDateString();
+
+                if ($asset->tanggal_mulai_susut && $asset->tanggal_mulai_susut->copy()->startOfMonth()->gt($periode)) {
+                    continue;
+                }
+
+                $lastDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                    ->where('periode', '<', $periodeTanggal)
+                    ->orderBy('periode', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
 
-                if (!$existing) {
-                    // Cek penyusutan terakhir
-                    $lastDepreciation = AssetDepreciation::where('asset_id', $asset->id)
-                        ->orderBy('periode', 'desc')
-                        ->first();
-
-                    $bulanKe = $lastDepreciation ? $lastDepreciation->bulan_ke + 1 : 1;
-                    
-                    // Hentikan jika sudah melebihi umur ekonomis
-                    if ($bulanKe > $asset->umur_ekonomis) {
-                        continue;
-                    }
-
-                    $nilaiPenyusutan = $asset->calculateMonthlyDepreciation();
-                    $akumulasiSebelum = $lastDepreciation ? $lastDepreciation->akumulasi_penyusutan : 0;
-                    $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
-                    
-                    // Nilai buku tidak boleh kurang dari nilai residu
-                    $nilaiBuku = $asset->harga_perolehan - $akumulasiSekarang;
-                    if ($nilaiBuku < $asset->nilai_residu) {
-                        $nilaiPenyusutan = $asset->harga_perolehan - $asset->nilai_residu - $akumulasiSebelum;
-                        $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
-                        $nilaiBuku = $asset->nilai_residu;
-                    }
-
-                    AssetDepreciation::create([
-                        'asset_id' => $asset->id,
-                        'periode' => $periode,
-                        'bulan_ke' => $bulanKe,
-                        'nilai_penyusutan' => $nilaiPenyusutan,
-                        'akumulasi_penyusutan' => $akumulasiSekarang,
-                        'nilai_buku' => $nilaiBuku,
-                        'status' => 'terbentuk',
-                        'keterangan' => 'Penyusutan bulanan'
-                    ]);
-
-                    $count++;
+                $bulanKe = $lastDepreciation ? $lastDepreciation->bulan_ke + 1 : 1;
+                
+                // Hentikan jika sudah melebihi umur ekonomis
+                if ($bulanKe > $asset->umur_ekonomis) {
+                    continue;
                 }
+
+                $nilaiPenyusutan = $asset->calculateMonthlyDepreciation();
+                $akumulasiSebelum = $lastDepreciation ? $lastDepreciation->akumulasi_penyusutan : 0;
+                $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
+                
+                // Nilai buku tidak boleh kurang dari nilai residu
+                $nilaiBuku = $asset->harga_perolehan - $akumulasiSekarang;
+                if ($nilaiBuku < $asset->nilai_residu) {
+                    $nilaiPenyusutan = $asset->harga_perolehan - $asset->nilai_residu - $akumulasiSebelum;
+                    $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
+                    $nilaiBuku = $asset->nilai_residu;
+                }
+
+                AssetDepreciation::create([
+                    'asset_id' => $asset->id,
+                    'periode' => $periodeTanggal,
+                    'bulan_ke' => $bulanKe,
+                    'nilai_penyusutan' => $nilaiPenyusutan,
+                    'akumulasi_penyusutan' => $akumulasiSekarang,
+                    'nilai_buku' => $nilaiBuku,
+                    'status' => 'terbentuk',
+                    'keterangan' => 'Penyusutan bulanan'
+                ]);
+
+                $count++;
             }
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil generate {$count} penyusutan aset untuk periode {$request->periode}"
+                'message' => "Berhasil generate {$count} penyusutan aset untuk periode {$periodeAwalInput} sampai {$periodeAkhirInput}"
             ]);
 
         } catch (\Exception $e) {
@@ -811,6 +841,10 @@ class AssetTransactionController extends Controller
 
         if ($request->filled('metode')) {
             $query->where('metode_penyusutan', $request->metode);
+        }
+
+        if ($request->filled('nota_id')) {
+            $query->where('idnota', $request->nota_id);
         }
 
         if ($request->filled('date_from')) {

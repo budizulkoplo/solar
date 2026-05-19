@@ -12,9 +12,6 @@
                         <a href="{{ route('transaksi.asset.index') }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-left"></i> Kembali ke Transaksi
                         </a>
-                        <button class="btn btn-success" id="btnGenerateDepreciation">
-                            <i class="bi bi-calculator"></i> Generate Penyusutan
-                        </button>
                         <button class="btn btn-primary" id="btnExportAsset">
                             <i class="bi bi-download"></i> Download Excel
                         </button>
@@ -91,7 +88,7 @@
         </div>
 
             <!-- Filters -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="assetFilterCard">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="bi bi-filter"></i> Filter
@@ -330,16 +327,30 @@
                 </div>
                 <form id="frmGenerateDepreciation">
                     @csrf
+                    <input type="hidden" id="depreciationAssetId" name="asset_id">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Periode (Tahun-Bulan) *</label>
-                            <input type="month" class="form-control" name="periode" 
-                                   value="{{ date('Y-m') }}" required>
-                            <small class="text-muted">Pilih periode untuk generate penyusutan</small>
+                            <label class="form-label">Asset</label>
+                            <input type="text" class="form-control" id="depreciationAssetName" readonly>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Periode Awal *</label>
+                                <input type="month" class="form-control" name="periode_awal" id="periodeAwal"
+                                       value="{{ date('Y-m') }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Periode Akhir *</label>
+                                <input type="month" class="form-control" name="periode_akhir" id="periodeAkhir"
+                                       value="{{ date('Y-m') }}" required>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">Pilih rentang bulan dan tahun untuk generate penyusutan.</small>
+                            </div>
                         </div>
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
-                            Sistem akan generate penyusutan untuk semua asset aktif
+                            Sistem akan generate penyusutan hanya untuk asset yang dipilih.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -450,11 +461,17 @@
         <script>
         $(document).ready(function() {
             let tbAssets = null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const notaIdFilter = urlParams.get('nota_id') || '';
             let today = new Date();
             let firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
 
-            $('#filterDateFrom').val(firstDay.toISOString().split('T')[0]);
-            $('#filterDateTo').val(today.toISOString().split('T')[0]);
+            if (!notaIdFilter) {
+                $('#filterDateFrom').val(firstDay.toISOString().split('T')[0]);
+                $('#filterDateTo').val(today.toISOString().split('T')[0]);
+            } else {
+                $('#assetFilterCard').hide();
+            }
 
             function initSelect2Asset() {
                 if ($.fn.select2) {
@@ -519,8 +536,9 @@
                         data: function(d) {
                             d.status = $('#filterStatus').val();
                             d.metode = $('#filterMetode').val();
-                            d.date_from = $('#filterDateFrom').val();
-                            d.date_to = $('#filterDateTo').val();
+                            d.date_from = notaIdFilter ? '' : $('#filterDateFrom').val();
+                            d.date_to = notaIdFilter ? '' : $('#filterDateTo').val();
+                            d.nota_id = notaIdFilter;
                         }
                     },
                     columns: [
@@ -605,8 +623,9 @@
                         summary_only: true,
                         status: $('#filterStatus').val(),
                         metode: $('#filterMetode').val(),
-                        date_from: $('#filterDateFrom').val(),
-                        date_to: $('#filterDateTo').val()
+                        date_from: notaIdFilter ? '' : $('#filterDateFrom').val(),
+                        date_to: notaIdFilter ? '' : $('#filterDateTo').val(),
+                        nota_id: notaIdFilter
                     },
                     success: function(res) {
                         if (res.summary) {
@@ -624,8 +643,10 @@
                 initDataTable();
             });
             
-            // Generate depreciation
-            $('#btnGenerateDepreciation').click(function() {
+            // Generate depreciation per asset
+            $(document).on('click', '.generate-depreciation-asset', function() {
+                $('#depreciationAssetId').val($(this).data('id'));
+                $('#depreciationAssetName').val($(this).data('name'));
                 $('#modalGenerateDepreciation').modal('show');
             });
             
@@ -635,7 +656,7 @@
                 
                 Swal.fire({
                     title: 'Generate Penyusutan?',
-                    text: "Apakah Anda yakin ingin generate penyusutan untuk periode ini?",
+                    text: "Penyusutan asset ini akan dikalkulasi ulang sesuai rentang periode yang dipilih.",
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Ya, Generate!',
@@ -644,7 +665,9 @@
                     preConfirm: () => {
                         return $.post("{{ route('transaksi.asset.generate.depreciation') }}", {
                             _token: '{{ csrf_token() }}',
-                            periode: $('input[name="periode"]').val()
+                            asset_id: $('#depreciationAssetId').val(),
+                            periode_awal: $('#periodeAwal').val(),
+                            periode_akhir: $('#periodeAkhir').val()
                         }).then(response => {
                             if (!response.success) {
                                 throw new Error(response.message);
@@ -1025,8 +1048,9 @@
                 let params = new URLSearchParams({
                     status: $('#filterStatus').val(),
                     metode: $('#filterMetode').val(),
-                    date_from: $('#filterDateFrom').val(),
-                    date_to: $('#filterDateTo').val()
+                    date_from: notaIdFilter ? '' : $('#filterDateFrom').val(),
+                    date_to: notaIdFilter ? '' : $('#filterDateTo').val(),
+                    nota_id: notaIdFilter
                 }).toString();
                 
                 window.open(`{{ route('transaksi.asset.export') }}?${params}`, '_blank');
