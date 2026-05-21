@@ -709,6 +709,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -781,6 +782,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -1069,6 +1071,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -1173,6 +1176,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
