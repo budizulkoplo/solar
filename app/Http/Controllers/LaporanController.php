@@ -360,6 +360,14 @@ class LaporanController extends Controller
                 'kt.transaksi as nama_transaksi'
             )
             ->whereIn('nt.idnota', $notaIds)
+            ->whereNull('nt.deleted_at')
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('notas as n')
+                    ->whereColumn('n.id', 'nt.idnota')
+                    ->where('n.status', 'paid')
+                    ->whereNull('n.deleted_at');
+            })
             ->orderBy('nt.idnota')
             ->orderBy('nt.id')
             ->get()
@@ -531,6 +539,7 @@ class LaporanController extends Controller
                     ) as kode_transaksi_display
                 ")
             )
+            ->whereNull('nt.deleted_at')
             ->groupBy('nt.idnota');
 
         $penjualanPaymentCashflowWhere = "
@@ -593,6 +602,7 @@ class LaporanController extends Controller
                 $join->on('n.id', '=', 'kts.idnota');
             })
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idproject', $activeProjectId)
             ->whereNotNull('n.idproject') // Hanya yang punya project
             ->whereBetween('n.tanggal', [$startDate, $endDate]);
@@ -732,6 +742,7 @@ class LaporanController extends Controller
             ')
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idproject', $activeProjectId)
             ->whereBetween('n.tanggal', [$startDate, $endDate])
             ->first();
@@ -978,6 +989,7 @@ class LaporanController extends Controller
                     ) as kode_transaksi_display
                 ")
             )
+            ->whereNull('nt.deleted_at')
             ->groupBy('nt.idnota');
 
         /**
@@ -1012,6 +1024,7 @@ class LaporanController extends Controller
                 $join->on('n.id', '=', 'kts.idnota');
             })
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
             ->whereNull('n.idproject')
@@ -1128,6 +1141,7 @@ class LaporanController extends Controller
                 COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END),0) as total_pengeluaran
             ')
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
             ->whereNull('n.idproject')
