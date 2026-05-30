@@ -166,7 +166,7 @@
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                                             <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" inputmode="numeric"></td>
                                             <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
@@ -181,8 +181,8 @@
                                             <td colspan="2">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text">PPN</span>
-                                                    <input type="number" class="form-control form-control-sm text-end" 
-                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" min="0" value="0">
+                                                    <input type="text" class="form-control form-control-sm text-end" 
+                                                           name="ppn" id="ppnAmount" placeholder="Nominal PPN" value="0" inputmode="numeric">
                                                 </div>
                                             </td>
                                             <td class="text-end"><strong>PPN:</strong></td>
@@ -199,8 +199,8 @@
                                                 </select>
                                             </td>
                                             <td>
-                                                <input type="number" class="form-control form-control-sm" 
-                                                       id="diskonValue" placeholder="Nilai" style="display:none;">
+                                                <input type="text" class="form-control form-control-sm text-end" 
+                                                       id="diskonValue" placeholder="Nilai" style="display:none;" inputmode="numeric">
                                             </td>
                                             <td class="text-end"><strong>Diskon:</strong></td>
                                             <td colspan="2"><input type="text" class="form-control form-control-sm text-end" id="diskonDisplay" value="Rp 0" readonly></td>
@@ -505,12 +505,42 @@
                 }).format(num);
             }
 
+            function formatNumberInput(value) {
+                const number = parseNumber(value);
+                if (!number) {
+                    return '';
+                }
+
+                return new Intl.NumberFormat('id-ID', {
+                    maximumFractionDigits: 0
+                }).format(number);
+            }
+
+            function formatQtyInput(value) {
+                const number = parseNumber(value);
+                return Number(number).toFixed(3).replace(/\.?0+$/, '') || '0';
+            }
+
+            function applyMoneyInputFormat(input) {
+                const $input = $(input);
+                const formatted = formatNumberInput($input.val());
+                $input.val(formatted || '0');
+            }
+
             // Parse nilai dari format Rupiah atau angka biasa
             function parseNumber(value) {
                 if (!value && value !== 0) return 0;
                 
                 if (typeof value === 'string') {
-                    value = value.replace(/[^\d.-]/g, '');
+                    value = value.trim();
+                    value = value.replace(/[^\d,.-]/g, '');
+                    if (value.includes(',')) {
+                        value = value.replace(/\./g, '').replace(',', '.');
+                    } else if (/^-?\d+\.\d{1,2}$/.test(value)) {
+                        // Keep DB decimal values like 100000.00 as decimals.
+                    } else {
+                        value = value.replace(/\./g, '');
+                    }
                 }
                 
                 let num = parseFloat(value);
@@ -548,7 +578,7 @@
                         </td>
                         <td><input type="text" class="form-control form-control-sm" name="transactions[0][description]" required></td>
                         <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[0][jml]" value="1" min="1" ></td>
-                        <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" min="0"></td>
+                        <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[0][nominal]" value="0" inputmode="numeric"></td>
                         <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[0][total]" value="0" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                     </tr>
@@ -714,17 +744,26 @@
 
             // Hitung total per row
             $(document).on('input', '.jml, .nominal', function() {
+                if ($(this).hasClass('nominal')) {
+                    applyMoneyInputFormat(this);
+                }
+
                 let row = $(this).closest('tr');
                 let jml = parseNumber(row.find('.jml').val());
                 let nominal = parseNumber(row.find('.nominal').val());
                 let total = jml * nominal;
-                row.find('.total').val(total);
+                row.find('.total').val(formatNumberInput(total) || '0');
                 
                 calculateSubtotal();
             });
 
+            $(document).on('focus', '.jml, .nominal, #ppnAmount, #diskonValue', function() {
+                setTimeout(() => this.select(), 0);
+            });
+
             // Hitung input PPN
             $(document).on('input', '#ppnAmount', function() {
+                applyMoneyInputFormat(this);
                 calculateGrandTotal();
             });
 
@@ -743,6 +782,9 @@
 
             // Handle Diskon value input
             $(document).on('input', '#diskonValue', function() {
+                if ($('#diskonType').val() === 'nominal') {
+                    applyMoneyInputFormat(this);
+                }
                 calculateGrandTotal();
             });
 
@@ -754,7 +796,7 @@
                     subtotal += val;
                 });
                 
-                $('#subtotal').val(parseNumber(subtotal));
+                $('#subtotal').val(formatNumberInput(subtotal) || '0');
                 
                 calculateGrandTotal();
             }
@@ -766,7 +808,7 @@
                 
                 // Hitung PPN
                 let ppnAmount = parseNumber($('#ppnAmount').val());
-                $('#ppnDisplay').val(parseNumber(ppnAmount));
+                $('#ppnDisplay').val(formatNumberInput(ppnAmount) || '0');
                 
                 // Hitung Diskon
                 let diskonAmount = 0;
@@ -779,14 +821,14 @@
                     diskonAmount = diskonValue;
                 }
                 
-                $('#diskonDisplay').val(parseNumber(diskonAmount));
+                $('#diskonDisplay').val(formatNumberInput(diskonAmount) || '0');
                 
                 // Hitung Grand Total = subtotal + ppn - diskon
                 let grandTotal = (subtotal-diskonAmount)+ppnAmount;
                 
                 if (grandTotal < 0) grandTotal = 0;
                 
-                $('#grandTotal').val(parseNumber(grandTotal));
+                $('#grandTotal').val(formatNumberInput(grandTotal) || '0');
                 
                 // Cek saldo
                 checkSaldoCukup();
@@ -814,7 +856,7 @@
                     </td>
                     <td><input type="text" class="form-control form-control-sm" name="transactions[${rowIndex}][description]" required></td>
                     <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${rowIndex}][jml]" value="1" min="1"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" min="0"></td>
+                    <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${rowIndex}][nominal]" value="0" inputmode="numeric"></td>
                     <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${rowIndex}][total]" value="0" readonly></td>
                     <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                 </tr>`;
@@ -1092,9 +1134,9 @@
                                             </select>
                                         </td>
                                         <td><input type="text" class="form-control form-control-sm" name="transactions[${newRowIndex}][description]" value="${transaction.description || ''}" required></td>
-                                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${transaction.jml || 1}" min="1" ></td>
-                                        <td><input type="number" class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${transaction.nominal || 0}" min="0"></td>
-                                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${transaction.total || 0}" readonly></td>
+                                        <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${newRowIndex}][jml]" value="${formatQtyInput(transaction.jml || 1)}" min="1" ></td>
+                                        <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${newRowIndex}][nominal]" value="${formatNumberInput(transaction.nominal || 0)}" inputmode="numeric"></td>
+                                        <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${newRowIndex}][total]" value="${formatNumberInput(transaction.total || 0)}" readonly></td>
                                         <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                     </tr>
                                 `;
@@ -1220,6 +1262,13 @@
                     formData.append('_method', 'PUT');
                 }
 
+                $('#tblDetail tbody tr').each(function() {
+                    const nominalInput = $(this).find('.nominal');
+                    const totalInput = $(this).find('.total');
+                    formData.set(nominalInput.attr('name'), parseNumber(nominalInput.val()).toFixed(2));
+                    formData.set(totalInput.attr('name'), parseNumber(totalInput.val()).toFixed(2));
+                });
+
                 // Ambil nilai PPN dan Diskon
                 let ppnAmount = parseNumber($('#ppnAmount').val());
                 let diskonAmount = parseNumber($('#diskonDisplay').val());
@@ -1228,8 +1277,9 @@
                 // Tambahkan subtotal ke form data
                 formData.append('subtotal', subtotal.toFixed(2));
                 
+                formData.set('ppn', ppnAmount.toFixed(2));
+
                 if (ppnAmount > 0) {
-                    formData.append('ppn', ppnAmount.toFixed(2));
                     formData.append('ppn_kode', '3001');
                 }
                 

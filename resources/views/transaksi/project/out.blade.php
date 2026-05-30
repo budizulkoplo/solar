@@ -750,6 +750,11 @@
                 return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
+            function formatQtyInput(value) {
+                const number = parseNumber(value);
+                return Number(number).toFixed(3).replace(/\.?0+$/, '') || '0';
+            }
+
             function parseNumber(value) {
                 if (!value && value !== 0) return 0;
                 
@@ -766,8 +771,15 @@
                     }
                     
                     if (typeof value === 'string') {
-                        value = value.replace(/[^\d,-]/g, '');
-                        value = value.replace(',', '.');
+                        value = value.trim();
+                        value = value.replace(/[^\d,.-]/g, '');
+                        if (value.includes(',')) {
+                            value = value.replace(/\./g, '').replace(',', '.');
+                        } else if (/^-?\d+\.\d{1,2}$/.test(value)) {
+                            // Keep DB decimal values like 100000.00 as decimals.
+                        } else {
+                            value = value.replace(/\./g, '');
+                        }
                     }
                     
                     let num = parseFloat(value);
@@ -781,9 +793,7 @@
             function calculateSubtotal() {
                 let subtotal = 0;
                 $('.total').each(function() {
-                    let val = $(this).val() || '0';
-                    val = val.toString().replace(/[^\d.-]/g, '');
-                    subtotal += parseFloat(val) || 0;
+                    subtotal += parseNumber($(this).val());
                 });
                 
                 let subtotalInstance = AutoNumeric.getAutoNumericElement($('#subtotal')[0]);
@@ -1210,9 +1220,9 @@
                                                 </select>
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[${index}][description]" value="${transaction.description || ''}" required></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${transaction.jml || 1}" min="1"></td>
+                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${formatQtyInput(transaction.jml || 1)}" min="1"></td>
                                             <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${index}][nominal]" value="${transaction.nominal || 0}"></td>
-                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${transaction.total || 0}" readonly></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${formatNumber(transaction.total || 0)}" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
                                     `;
@@ -1382,7 +1392,7 @@
                 let jml = row.find('.jml').val() || 1;
                 let nominal = parseNumber($(this));
                 let total = jml * nominal;
-                row.find('.total').val(total);
+                row.find('.total').val(formatNumber(total));
                 calculateSubtotal();
             });
 
@@ -1391,8 +1401,12 @@
                 let jml = $(this).val() || 1;
                 let nominal = parseNumber(row.find('.nominal'));
                 let total = jml * nominal;
-                row.find('.total').val(total);
+                row.find('.total').val(formatNumber(total));
                 calculateSubtotal();
+            });
+
+            $(document).on('focus', '.jml, .nominal, #ppnAmount, #diskonValue', function() {
+                setTimeout(() => this.select(), 0);
             });
 
             $(document).on('input', '#ppnAmount', function() {
