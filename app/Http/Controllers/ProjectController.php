@@ -11,6 +11,7 @@ use App\Models\KodeTransaksi;
 use App\Models\Rekening;
 use App\Models\Vendor;
 use App\Models\Project;
+use App\Models\CustomerToko;
 use App\Models\PekerjaanKonstruksi;
 use App\Models\TransUpdateLog;
 use Illuminate\Http\Request;
@@ -30,14 +31,20 @@ class ProjectController extends Controller
         $constructionJobs = $isConstructionProject
             ? $this->getConstructionJobsForReceipt($projectId)
             : collect();
+        $customerToko = CustomerToko::orderBy('nama_lengkap')->get(['id', 'nama_lengkap', 'no_hp']);
 
-        return view('transaksi.project.in', compact('isConstructionProject', 'kodeTransaksi', 'constructionJobs'));
+        return view('transaksi.project.in', compact('isConstructionProject', 'kodeTransaksi', 'constructionJobs', 'customerToko'));
     }
 
     // Halaman transaksi keluar (out)
     public function out()
     {
-        return view('transaksi.project.out');
+        $projectId = session('active_project_id');
+        $project = Project::find($projectId);
+        $isConstructionProject = (int) ($project->idretail ?? 0) === 5;
+        $customerToko = CustomerToko::orderBy('nama_lengkap')->get(['id', 'nama_lengkap', 'no_hp']);
+
+        return view('transaksi.project.out', compact('isConstructionProject', 'customerToko'));
     }
 
     // Datatable untuk transaksi
@@ -45,7 +52,8 @@ class ProjectController extends Controller
     {
         $query = Nota::with([
                 'project:id,namaproject',
-                'vendor:id,namavendor'
+                'vendor:id,namavendor',
+                'customerToko:id,nama_lengkap,no_hp'
             ])
             ->where('cashflow', $type)
             ->where('idproject', session('active_project_id'));
@@ -90,6 +98,12 @@ class ProjectController extends Controller
                         ->orWhere('namatransaksi', 'like', "%{$search}%")
                         ->orWhere('total', 'like', "%{$search}%")
                         ->orWhere('namauser', 'like', "%{$search}%")
+                        ->orWhere('keterangan_customer', 'like', "%{$search}%")
+                        ->orWhereHas('customerToko', function($q) use ($search) {
+                            $q->where('nama_lengkap', 'like', "%{$search}%")
+                              ->orWhere('no_hp', 'like', "%{$search}%")
+                              ->orWhere('kode_customer', 'like', "%{$search}%");
+                        })
                         ->orWhereHas('vendor', function($q) use ($search) {
                             $q->where('namavendor', 'like', "%{$search}%");
                         })
@@ -132,6 +146,8 @@ class ProjectController extends Controller
                 'ppn_kode' => 'nullable|string',
                 'diskon_kode' => 'nullable|string',
                 'subtotal' => 'required|numeric|min:0', // Tambah validasi subtotal dari form
+                'customer_toko_id' => 'nullable|exists:customer_toko,id',
+                'keterangan_customer' => 'nullable|string|max:255',
             ]);
 
             // Ambil user yang login
@@ -204,6 +220,8 @@ class ProjectController extends Controller
                 'namauser' => $namauser,
                 'type' => $selectedPekerjaan ? 'konstruksi' : null,
                 'pekerjaan_konstruksi_id' => $selectedPekerjaan?->id,
+                'customer_toko_id' => $request->customer_toko_id,
+                'keterangan_customer' => $request->keterangan_customer,
             ];
 
             // Buat nota header
@@ -254,8 +272,13 @@ class ProjectController extends Controller
             }
 
             // Buat log untuk transaksi baru
+            $customerName = $request->customer_toko_id
+                ? CustomerToko::find($request->customer_toko_id)?->nama_lengkap
+                : null;
+
             $this->createUpdateLog($nota->id, $nota->nota_no, 
-                "Transaksi dibuat - No: {$nota->nota_no}, Total: Rp " . number_format($total, 0, ',', '.'));
+                "Transaksi dibuat - No: {$nota->nota_no}, Total: Rp " . number_format($total, 0, ',', '.') .
+                ($customerName ? ", Customer: {$customerName}" : ''));
 
             // Jika cash, langsung buat pembayaran
             if ($request->paymen_method == 'cash') {
@@ -316,11 +339,13 @@ class ProjectController extends Controller
             'ppn' => 'PPN',
             'diskon' => 'Diskon',
             'total' => 'Total',
+            'customer_toko_id' => 'Customer',
+            'keterangan_customer' => 'Keterangan Customer',
             'status' => 'Status'
         ];
         
         foreach ($fields as $field => $label) {
-            if (isset($oldData[$field]) && isset($newData[$field])) {
+            if (array_key_exists($field, $oldData) && array_key_exists($field, $newData)) {
                 if ($oldData[$field] != $newData[$field]) {
                     $oldValue = $oldData[$field];
                     $newValue = $newData[$field];
@@ -331,6 +356,11 @@ class ProjectController extends Controller
                         $newVendor = Vendor::find($newValue);
                         $oldValue = $oldVendor ? $oldVendor->namavendor : 'Tidak ada';
                         $newValue = $newVendor ? $newVendor->namavendor : 'Tidak ada';
+                    } elseif ($field == 'customer_toko_id') {
+                        $oldCustomer = CustomerToko::find($oldValue);
+                        $newCustomer = CustomerToko::find($newValue);
+                        $oldValue = $oldCustomer ? $oldCustomer->nama_lengkap : 'Tidak ada';
+                        $newValue = $newCustomer ? $newCustomer->nama_lengkap : 'Tidak ada';
                     } elseif ($field == 'idrek') {
                         $oldRek = Rekening::find($oldValue);
                         $newRek = Rekening::find($newValue);
@@ -694,6 +724,7 @@ class ProjectController extends Controller
             $nota = Nota::with([
                 'project',
                 'vendor', 
+                'customerToko',
                 'rekening',
                 'pekerjaanKonstruksi.kodeTransaksi',
                 'transactions' => function($q) {
@@ -751,6 +782,7 @@ class ProjectController extends Controller
         try {
             $nota = Nota::with([
                 'vendor',
+                'customerToko',
                 'pekerjaanKonstruksi.kodeTransaksi',
                 'transactions' => function($q) {
                     $q->with('kodeTransaksi')
@@ -826,6 +858,8 @@ class ProjectController extends Controller
                 'old_rekening' => 'nullable|exists:rekening,idrek',
                 'old_grand_total' => 'nullable|numeric|min:0',
                 'subtotal' => 'required|numeric|min:0',
+                'customer_toko_id' => 'nullable|exists:customer_toko,id',
+                'keterangan_customer' => 'nullable|string|max:255',
             ]);
 
             // Cari nota yang akan diupdate
@@ -925,6 +959,8 @@ class ProjectController extends Controller
                 'bukti_nota' => $buktiNotaPath,
                 'type' => $selectedPekerjaan ? 'konstruksi' : null,
                 'pekerjaan_konstruksi_id' => $selectedPekerjaan?->id,
+                'customer_toko_id' => $request->customer_toko_id,
+                'keterangan_customer' => $request->keterangan_customer,
             ];
 
             $nota->update($updateData);
