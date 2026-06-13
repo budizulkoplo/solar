@@ -11,6 +11,23 @@ use Illuminate\Support\Str;
 
 class GlobalApp
 {
+    private function applyRoleFilter($query, array $roles, bool $includeNull = false): void
+    {
+        $query->where(function ($q) use ($roles, $includeNull) {
+            foreach ($roles as $role) {
+                $q->orWhere('role', 'like', "%;$role;%")
+                  ->orWhere('role', 'like', "$role;%")
+                  ->orWhere('role', 'like', "%;$role")
+                  ->orWhere('role', '=', $role);
+            }
+
+            if ($includeNull) {
+                $q->orWhereNull('role')
+                  ->orWhere('role', '');
+            }
+        });
+    }
+
     private function buildTree($elements, $parentId = null)
     {
         $branch = [];
@@ -34,19 +51,13 @@ class GlobalApp
         }
 
         $activeModule = session('active_project_module');
-        $userRole = $user->getRoleNames()->first();
+        $userRoles = $user->getRoleNames()->toArray();
 
         // Ambil menu sesuai role TANPA filter module yang ketat
         $menuQuery = Menu::orderBy('seq', 'asc');
         
-        if ($userRole) {
-            $menuQuery->where(function ($q) use ($userRole) {
-                $q->where('role', 'like', "%;$userRole;%")
-                  ->orWhere('role', 'like', "$userRole;%")
-                  ->orWhere('role', 'like', "%;$userRole")
-                  ->orWhere('role', '=', $userRole)
-                  ->orWhereNull('role');
-            });
+        if ($userRoles) {
+            $this->applyRoleFilter($menuQuery, $userRoles, true);
         }
 
         // Hanya filter module jika ada activeModule DAN bukan untuk menu utama
@@ -79,6 +90,7 @@ class GlobalApp
             'profile.update',
             'profile.destroy',
             'profile.upload',
+            'dashboard.chart_data',
             'dashboard.pesananHariIniData',
         ];
 
@@ -117,11 +129,13 @@ class GlobalApp
             $currentRoute === 'pegawai.list') {
             // Cek apakah role punya akses ke module HRIS
             $hasHrisAccess = Menu::where('module', 'hris')
-                ->where(function ($q) use ($userRole) {
-                    $q->where('role', 'like', "%;$userRole;%")
-                      ->orWhere('role', 'like', "$userRole;%")
-                      ->orWhere('role', 'like', "%;$userRole")
-                      ->orWhere('role', '=', $userRole);
+                ->where(function ($q) use ($userRoles) {
+                    foreach ($userRoles as $role) {
+                        $q->orWhere('role', 'like', "%;$role;%")
+                          ->orWhere('role', 'like', "$role;%")
+                          ->orWhere('role', 'like', "%;$role")
+                          ->orWhere('role', '=', $role);
+                    }
                 })
                 ->exists();
             
@@ -137,7 +151,7 @@ class GlobalApp
         if (!$hasAccess) {
             \Log::info('Access denied', [
                 'user_id' => $user->id,
-                'user_role' => $userRole,
+                'user_roles' => $userRoles,
                 'current_route' => $currentRoute,
                 'allowed_routes' => $allowedRoutes,
                 'active_module' => $activeModule,

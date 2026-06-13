@@ -121,16 +121,42 @@
             // Ambil module aktif dari session
             $activeModule = session('active_project_module', null);
 
+            function menuRoleList($menu) {
+                return array_filter(explode(';', $menu->role));
+            }
+
+            function menuModuleOk($menu, $activeModule) {
+                return !$menu->module || ($activeModule && $menu->module == $activeModule);
+            }
+
+            function menuHasRole($menu, $userRoles) {
+                return count(array_intersect(menuRoleList($menu), $userRoles)) > 0;
+            }
+
+            function menuHasAccessibleDescendant($allMenu, $menuId, $userRoles, $activeModule) {
+                $children = $allMenu->filter(fn($m) => $m->parent_id == $menuId);
+
+                foreach ($children as $child) {
+                    if (menuModuleOk($child, $activeModule) && menuHasRole($child, $userRoles)) {
+                        return true;
+                    }
+
+                    if (menuHasAccessibleDescendant($allMenu, $child->id, $userRoles, $activeModule)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             function getChildMenu($allMenu, $parentId, $userRoles, $activeModule) {
                 $children = $allMenu->filter(fn($m) => $m->parent_id == $parentId)
-                                    ->filter(function($m) use ($userRoles, $activeModule) {
-                                        $roles = array_filter(explode(';', $m->role));
-                                        $hasRole = count(array_intersect($roles, $userRoles)) > 0;
+                                    ->filter(function($m) use ($allMenu, $userRoles, $activeModule) {
+                                        $moduleOk = menuModuleOk($m, $activeModule);
+                                        $hasRole = menuHasRole($m, $userRoles);
+                                        $hasAccessibleDescendant = menuHasAccessibleDescendant($allMenu, $m->id, $userRoles, $activeModule);
 
-                                        // Jika menu punya module, harus sama dengan active module
-                                        $moduleOk = !$m->module || ($activeModule && $m->module == $activeModule);
-
-                                        return $hasRole && $moduleOk;
+                                        return $moduleOk && ($hasRole || $hasAccessibleDescendant);
                                     });
 
                 return $children;

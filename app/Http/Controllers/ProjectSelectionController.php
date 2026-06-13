@@ -14,7 +14,7 @@ class ProjectSelectionController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $userRole = $user->getRoleNames()->first();
+        $userRoles = $user->getRoleNames()->toArray();
 
         // 🔹 Ambil daftar project user
         $projects = $user->projects()
@@ -42,11 +42,13 @@ class ProjectSelectionController extends Controller
             ->where('module', '!=', 'project')
             ->where('module', '!=', 'agency')
             ->where('module', '!=', 'kontruksi')
-            ->where(function ($q) use ($userRole) {
-                $q->where('role', 'like', "%;$userRole;%")
-                    ->orWhere('role', 'like', "$userRole;%")
-                    ->orWhere('role', 'like', "%;$userRole")
-                    ->orWhere('role', '=', $userRole);
+            ->where(function ($q) use ($userRoles) {
+                foreach ($userRoles as $role) {
+                    $q->orWhere('role', 'like', "%;$role;%")
+                        ->orWhere('role', 'like', "$role;%")
+                        ->orWhere('role', 'like', "%;$role")
+                        ->orWhere('role', '=', $role);
+                }
             })
             ->select('module', DB::raw('MIN(icon) as icon'))
             ->groupBy('module')

@@ -84,6 +84,9 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'dashboard'])
         ->middleware('global.app:admin')
         ->name('dashboard');
+    Route::get('/dashboard/chart-data', [AdminDashboardController::class, 'getChartData'])
+        ->middleware('global.app:admin')
+        ->name('dashboard.chart_data');
     Route::get('/admin/pesanan-hari-ini', [AdminDashboardController::class, 'pesananHariIni']);
     Route::get('/admin/data-pesanan-hari-ini', [AdminDashboardController::class, 'pesananHariIniData'])
         ->name('dashboard.pesananHariIniData');
