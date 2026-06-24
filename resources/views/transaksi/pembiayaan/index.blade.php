@@ -865,6 +865,8 @@
                 $('#uploadedFiles').empty();
                 $('#existingFiles').empty();
                 $('input[name="deleted_files"]').remove();
+                editOriginalNominal = 0;
+                editOriginalRekeningId = null;
                 
                 if (currentType === 'project') {
                     loadProjectInfo();
@@ -890,6 +892,8 @@
 
             // Ambil saldo rekening
             let currentSaldo = 0;
+            let editOriginalNominal = 0;
+            let editOriginalRekeningId = null;
 
             // Update saldo rekening
             $('#rekeningId').change(function() {
@@ -912,8 +916,16 @@
 
             // Update saldo setelah pembiayaan
             function updateSaldoAfter() {
-                let nominal = parseFloat($('#nominal').val()) || 0;
-                let saldoAfter = currentSaldo + nominal;
+                let nominal = parseNumber($('#nominal').val()) || 0;
+                let selectedRekeningId = $('#rekeningId').val();
+                let pembiayaanId = $('#idPembiayaan').val();
+                let adjustment = nominal;
+
+                if (pembiayaanId && selectedRekeningId && selectedRekeningId == editOriginalRekeningId) {
+                    adjustment = nominal - editOriginalNominal;
+                }
+
+                let saldoAfter = currentSaldo + adjustment;
                 $('#saldoAfterDisplay').text(formatRupiah(saldoAfter));
             }
 
@@ -1211,6 +1223,8 @@
                         
                         // Isi form dengan data existing
                         resetForm();
+                        editOriginalNominal = parseNumber(data.nominal);
+                        editOriginalRekeningId = data.rekening_id;
                         $('#idPembiayaan').val(data.id);
                         $('#judul').val(data.judul);
                         $('#jenisPembiayaan').val(data.jenis);

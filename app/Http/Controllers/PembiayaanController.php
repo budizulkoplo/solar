@@ -363,15 +363,12 @@ class PembiayaanController extends Controller
         try {
             $pembiayaan = Pembiayaan::with(['dokumen'])->findOrFail($id);
 
-            // Cek jika sudah ada setoran
-            $totalSetoran = PembiayaanSetoran::where('pembiayaan_id', $id)->where('status', 'paid')->sum('pokok');
-            if ($totalSetoran > 0) {
-                throw new \Exception("Pembiayaan sudah memiliki setoran, tidak dapat diedit");
-            }
-
             return response()->json([
                 'success' => true,
-                'data' => $pembiayaan
+                'data' => $pembiayaan,
+                'summary' => [
+                    'total_setoran' => PembiayaanSetoran::where('pembiayaan_id', $id)->where('status', 'paid')->sum('pokok')
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -400,7 +397,7 @@ class PembiayaanController extends Controller
                 'deskripsi' => 'nullable|string|max:1000',
                 'dokumen' => 'nullable|array',
                 'dokumen.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:5120',
-                'deleted_files' => 'nullable|array'
+                'deleted_files' => 'nullable'
             ]);
 
             $companyId = session('active_company_id');
@@ -408,17 +405,21 @@ class PembiayaanController extends Controller
 
             // Cari pembiayaan lama
             $pembiayaan = Pembiayaan::with(['rekening'])->findOrFail($id);
-        
 
-            // Cek jika sudah ada setoran
             $totalSetoran = PembiayaanSetoran::where('pembiayaan_id', $id)->where('status', 'paid')->sum('pokok');
-            if ($totalSetoran > 0) {
-                throw new \Exception("Pembiayaan sudah memiliki setoran, tidak dapat diedit");
+            $newNominal = (float) $request->nominal;
+            if ($newNominal < (float) $totalSetoran) {
+                throw new \Exception(
+                    "Nominal pembiayaan tidak boleh lebih kecil dari total pokok yang sudah terbayar (Rp " .
+                    number_format($totalSetoran, 0, ',', '.') . ")"
+                );
             }
 
             // Simpan data lama untuk log
             $oldData = $pembiayaan->toArray();
             $oldNominal = $pembiayaan->nominal;
+            $oldRekening = $pembiayaan->rekening;
+            $oldRekeningId = $pembiayaan->rekening_id;
 
             // Validasi rekening milik company
             $rekening = Rekening::where('idrek', $request->rekening_id)
@@ -430,20 +431,32 @@ class PembiayaanController extends Controller
             }
 
             // Hitung selisih nominal untuk penyesuaian saldo
-            $selisihNominal = $request->nominal - $oldNominal;
+            $selisihNominal = $newNominal - $oldNominal;
+            $rekeningBerubah = (int) $oldRekeningId !== (int) $request->rekening_id;
+            $newStatus = $totalSetoran >= $newNominal ? 'lunas' : 'completed';
 
             // Update pembiayaan
             $pembiayaan->update([
                 'judul' => $request->judul,
                 'rekening_id' => $request->rekening_id,
-                'nominal' => $request->nominal,
+                'nominal' => $newNominal,
                 'tanggal' => $request->tanggal,
-                'deskripsi' => $request->deskripsi
+                'deskripsi' => $request->deskripsi,
+                'status' => $newStatus
             ]);
 
             // Hapus file yang dihapus
-            if ($request->has('deleted_files')) {
-                foreach ($request->deleted_files as $fileId) {
+            if ($request->filled('deleted_files')) {
+                $deletedFiles = is_array($request->deleted_files)
+                    ? $request->deleted_files
+                    : explode(',', $request->deleted_files);
+
+                foreach ($deletedFiles as $fileId) {
+                    $fileId = trim($fileId);
+                    if ($fileId === '') {
+                        continue;
+                    }
+
                     $dokumen = PembiayaanDokumen::find($fileId);
                     if ($dokumen) {
                         Storage::disk('public')->delete($dokumen->path_file);
@@ -469,24 +482,52 @@ class PembiayaanController extends Controller
                 }
             }
 
-            // PENYESUAIAN SALDO jika nominal berubah
-            if ($selisihNominal != 0) {
-                $saldoAwal = $rekening->saldo;
-                $rekening->saldo += $selisihNominal;
+            // PENYESUAIAN SALDO jika nominal atau rekening berubah
+            if ($rekeningBerubah) {
+                if ($oldRekening) {
+                    $saldoAwalOld = $oldRekening->saldo;
+                    $oldRekening->saldo -= $oldNominal;
+                    $oldRekening->save();
+
+                    Cashflow::create([
+                        'idrek' => $oldRekening->idrek,
+                        'tanggal' => $pembiayaan->tanggal,
+                        'cashflow' => 'out',
+                        'nominal' => $oldNominal,
+                        'saldo_awal' => $saldoAwalOld,
+                        'saldo_akhir' => $oldRekening->saldo,
+                        'keterangan' => "Penyesuaian Pembiayaan: {$pembiayaan->judul} (Rekening lama)",
+                        'kode_transaksi' => $pembiayaan->kode_pembiayaan . '-ADJ'
+                    ]);
+                }
+
+                $saldoAwalNew = $rekening->saldo;
+                $rekening->saldo += $newNominal;
                 $rekening->save();
-                
-                // Catat cashflow untuk penyesuaian
-                $cashflowType = $selisihNominal > 0 ? 'in' : 'out';
-                $cashflowNominal = abs($selisihNominal);
-                
+
                 Cashflow::create([
                     'idrek' => $rekening->idrek,
                     'tanggal' => $pembiayaan->tanggal,
-                    'cashflow' => $cashflowType,
-                    'nominal' => $cashflowNominal,
+                    'cashflow' => 'in',
+                    'nominal' => $newNominal,
+                    'saldo_awal' => $saldoAwalNew,
+                    'saldo_akhir' => $rekening->saldo,
+                    'keterangan' => "Penyesuaian Pembiayaan: {$pembiayaan->judul} (Rekening baru)",
+                    'kode_transaksi' => $pembiayaan->kode_pembiayaan . '-ADJ'
+                ]);
+            } elseif ($selisihNominal != 0) {
+                $saldoAwal = $rekening->saldo;
+                $rekening->saldo += $selisihNominal;
+                $rekening->save();
+
+                Cashflow::create([
+                    'idrek' => $rekening->idrek,
+                    'tanggal' => $pembiayaan->tanggal,
+                    'cashflow' => $selisihNominal > 0 ? 'in' : 'out',
+                    'nominal' => abs($selisihNominal),
                     'saldo_awal' => $saldoAwal,
                     'saldo_akhir' => $rekening->saldo,
-                    'keterangan' => "Penyesuaian Pembiayaan: {$pembiayaan->judul} " . 
+                    'keterangan' => "Penyesuaian Pembiayaan: {$pembiayaan->judul} " .
                                    ($selisihNominal > 0 ? "(Penambahan)" : "(Pengurangan)"),
                     'kode_transaksi' => $pembiayaan->kode_pembiayaan . '-ADJ'
                 ]);
@@ -499,7 +540,11 @@ class PembiayaanController extends Controller
                 if ($selisihNominal != 0) {
                     $logMessage .= ". Saldo disesuaikan: " . ($selisihNominal > 0 ? "+" : "") . 
                                   "Rp " . number_format($selisihNominal, 0, ',', '.');
+                } elseif ($rekeningBerubah) {
+                    $logMessage .= ". Saldo dipindahkan ke rekening baru";
                 }
+                $logMessage .= ". Total pokok terbayar: Rp " . number_format($totalSetoran, 0, ',', '.') .
+                               ", status: " . $newStatus;
                 $this->createLog($pembiayaan->id, 'update', $logMessage);
             }
 
@@ -507,8 +552,12 @@ class PembiayaanController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Pembiayaan berhasil diupdate' . ($selisihNominal != 0 ? ' dan saldo telah disesuaikan' : ''),
-                'data' => $pembiayaan
+                'message' => 'Pembiayaan berhasil diupdate' . (($selisihNominal != 0 || $rekeningBerubah) ? ' dan saldo telah disesuaikan' : ''),
+                'data' => $pembiayaan,
+                'summary' => [
+                    'total_setoran' => $totalSetoran,
+                    'sisa' => $newNominal - $totalSetoran
+                ]
             ]);
 
         } catch (\Exception $e) {
