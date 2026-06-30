@@ -124,6 +124,19 @@
                             <label class="form-label">Tanggal Sampai</label>
                             <input type="date" class="form-control" id="filterDateTo">
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Periode Susut Awal</label>
+                            <input type="month" class="form-control" id="filterPeriodeAwal" value="{{ date('Y-m') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Periode Susut Akhir</label>
+                            <input type="month" class="form-control" id="filterPeriodeAkhir" value="{{ date('Y-m') }}">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-success w-100" id="btnGenerateFilteredDepreciation">
+                                <i class="bi bi-calculator"></i> Susutkan dari Filter
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -350,7 +363,7 @@
                         </div>
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
-                            Sistem akan generate penyusutan hanya untuk asset yang dipilih.
+                            <span id="depreciationHelpText">Sistem akan generate penyusutan hanya untuk asset yang dipilih.</span>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -513,6 +526,8 @@
             function formatNumber(num) {
                 return new Intl.NumberFormat('id-ID').format(num);
             }
+
+            let depreciationMode = 'single';
             
             // Parse number
             function parseNumber(str) {
@@ -645,8 +660,24 @@
             
             // Generate depreciation per asset
             $(document).on('click', '.generate-depreciation-asset', function() {
+                depreciationMode = 'single';
                 $('#depreciationAssetId').val($(this).data('id'));
                 $('#depreciationAssetName').val($(this).data('name'));
+                $('#depreciationHelpText').text('Sistem akan generate penyusutan hanya untuk asset yang dipilih.');
+                $('#periodeAwal').val($('#filterPeriodeAwal').val() || '{{ date('Y-m') }}');
+                $('#periodeAkhir').val($('#filterPeriodeAkhir').val() || '{{ date('Y-m') }}');
+                $('#modalGenerateDepreciation .modal-title').text('Generate Penyusutan Bulanan');
+                $('#modalGenerateDepreciation').modal('show');
+            });
+
+            $('#btnGenerateFilteredDepreciation').on('click', function() {
+                depreciationMode = 'global';
+                $('#depreciationAssetId').val('');
+                $('#depreciationAssetName').val('Semua asset aktif sesuai filter saat ini');
+                $('#depreciationHelpText').text('Sistem akan generate penyusutan untuk semua asset aktif yang sesuai filter daftar asset.');
+                $('#periodeAwal').val($('#filterPeriodeAwal').val() || '{{ date('Y-m') }}');
+                $('#periodeAkhir').val($('#filterPeriodeAkhir').val() || '{{ date('Y-m') }}');
+                $('#modalGenerateDepreciation .modal-title').text('Generate Penyusutan dari Filter');
                 $('#modalGenerateDepreciation').modal('show');
             });
             
@@ -656,18 +687,34 @@
                 
                 Swal.fire({
                     title: 'Generate Penyusutan?',
-                    text: "Penyusutan asset ini akan dikalkulasi ulang sesuai rentang periode yang dipilih.",
+                    text: depreciationMode === 'global'
+                        ? "Penyusutan semua asset aktif dari filter akan dikalkulasi ulang sesuai rentang periode yang dipilih."
+                        : "Penyusutan asset ini akan dikalkulasi ulang sesuai rentang periode yang dipilih.",
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Ya, Generate!',
                     cancelButtonText: 'Batal',
                     showLoaderOnConfirm: true,
                     preConfirm: () => {
-                        return $.post("{{ route('transaksi.asset.generate.depreciation') }}", {
+                        const payload = {
                             _token: '{{ csrf_token() }}',
-                            asset_id: $('#depreciationAssetId').val(),
                             periode_awal: $('#periodeAwal').val(),
                             periode_akhir: $('#periodeAkhir').val()
+                        };
+
+                        if (depreciationMode === 'global') {
+                            payload.global = 1;
+                            payload.status = $('#filterStatus').val();
+                            payload.metode = $('#filterMetode').val();
+                            payload.date_from = notaIdFilter ? '' : $('#filterDateFrom').val();
+                            payload.date_to = notaIdFilter ? '' : $('#filterDateTo').val();
+                            payload.nota_id = notaIdFilter;
+                        } else {
+                            payload.asset_id = $('#depreciationAssetId').val();
+                        }
+
+                        return $.post("{{ route('transaksi.asset.generate.depreciation') }}", {
+                            ...payload
                         }).then(response => {
                             if (!response.success) {
                                 throw new Error(response.message);

@@ -717,7 +717,13 @@ class AssetTransactionController extends Controller
                 'periode_awal' => 'required_without:periode|date_format:Y-m',
                 'periode_akhir' => 'required_without:periode|date_format:Y-m|after_or_equal:periode_awal',
                 'periode' => 'nullable|date_format:Y-m',
-                'asset_id' => 'required|exists:assets,id'
+                'asset_id' => 'nullable|exists:assets,id',
+                'global' => 'nullable|boolean',
+                'status' => 'nullable|string',
+                'metode' => 'nullable|string',
+                'nota_id' => 'nullable',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date|after_or_equal:date_from',
             ]);
 
             $periodeAwalInput = $request->periode_awal ?: $request->periode;
@@ -726,79 +732,70 @@ class AssetTransactionController extends Controller
             $periodeAkhir = \Carbon\Carbon::createFromFormat('Y-m-d', $periodeAkhirInput . '-01')->startOfMonth();
             $projectId = session('active_project_id');
 
-            // Ambil aset aktif yang dipilih
-            $asset = Asset::where('idproject', $projectId)
-                ->where('status', 'aktif')
-                ->where('id', $request->asset_id)
-                ->where('tanggal_mulai_susut', '<=', $periodeAkhir->toDateString())
-                ->first();
-
-            if (!$asset) {
-                throw new \Exception('Asset aktif tidak ditemukan atau belum masuk periode penyusutan.');
-            }
-
-            $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
-                ->where('status', 'terposting')
-                ->exists();
-
-            if ($hasPostedDepreciation) {
-                throw new \Exception('Penyusutan tidak dapat dikalkulasi ulang karena sudah ada penyusutan terposting.');
-            }
-
-            AssetDepreciation::where('asset_id', $asset->id)->delete();
-
-            $count = 0;
-            for ($periode = $periodeAwal->copy(); $periode->lte($periodeAkhir); $periode->addMonth()) {
-                $periodeTanggal = $periode->toDateString();
-
-                if ($asset->tanggal_mulai_susut && $asset->tanggal_mulai_susut->copy()->startOfMonth()->gt($periode)) {
-                    continue;
-                }
-
-                $lastDepreciation = AssetDepreciation::where('asset_id', $asset->id)
-                    ->where('periode', '<', $periodeTanggal)
-                    ->orderBy('periode', 'desc')
-                    ->orderBy('id', 'desc')
+            if ($request->filled('asset_id')) {
+                $asset = Asset::where('idproject', $projectId)
+                    ->where('status', 'aktif')
+                    ->where('id', $request->asset_id)
+                    ->where('tanggal_mulai_susut', '<=', $periodeAkhir->toDateString())
                     ->first();
 
-                $bulanKe = $lastDepreciation ? $lastDepreciation->bulan_ke + 1 : 1;
-                
-                // Hentikan jika sudah melebihi umur ekonomis
-                if ($bulanKe > $asset->umur_ekonomis) {
+                if (!$asset) {
+                    throw new \Exception('Asset aktif tidak ditemukan atau belum masuk periode penyusutan.');
+                }
+
+                $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                    ->where('status', 'terposting')
+                    ->exists();
+
+                if ($hasPostedDepreciation) {
+                    throw new \Exception('Penyusutan tidak dapat dikalkulasi ulang karena sudah ada penyusutan terposting.');
+                }
+
+                $count = $this->generateDepreciationForAsset($asset, $periodeAwal, $periodeAkhir);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Berhasil generate {$count} penyusutan aset untuk periode {$periodeAwalInput} sampai {$periodeAkhirInput}"
+                ]);
+            }
+
+            $assets = $this->buildAssetListQuery($request)
+                ->where('status', 'aktif')
+                ->where('tanggal_mulai_susut', '<=', $periodeAkhir->toDateString())
+                ->get();
+
+            if ($assets->isEmpty()) {
+                throw new \Exception('Tidak ada asset aktif dari filter yang sudah masuk periode penyusutan.');
+            }
+
+            $assetCount = 0;
+            $depreciationCount = 0;
+            $skippedPosted = 0;
+
+            foreach ($assets as $asset) {
+                $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                    ->where('status', 'terposting')
+                    ->exists();
+
+                if ($hasPostedDepreciation) {
+                    $skippedPosted++;
                     continue;
                 }
 
-                $nilaiPenyusutan = $asset->calculateMonthlyDepreciation();
-                $akumulasiSebelum = $lastDepreciation ? $lastDepreciation->akumulasi_penyusutan : 0;
-                $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
-                
-                // Nilai buku tidak boleh kurang dari nilai residu
-                $nilaiBuku = $asset->harga_perolehan - $akumulasiSekarang;
-                if ($nilaiBuku < $asset->nilai_residu) {
-                    $nilaiPenyusutan = $asset->harga_perolehan - $asset->nilai_residu - $akumulasiSebelum;
-                    $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
-                    $nilaiBuku = $asset->nilai_residu;
-                }
-
-                AssetDepreciation::create([
-                    'asset_id' => $asset->id,
-                    'periode' => $periodeTanggal,
-                    'bulan_ke' => $bulanKe,
-                    'nilai_penyusutan' => $nilaiPenyusutan,
-                    'akumulasi_penyusutan' => $akumulasiSekarang,
-                    'nilai_buku' => $nilaiBuku,
-                    'status' => 'terbentuk',
-                    'keterangan' => 'Penyusutan bulanan'
-                ]);
-
-                $count++;
+                $created = $this->generateDepreciationForAsset($asset, $periodeAwal, $periodeAkhir);
+                $assetCount++;
+                $depreciationCount += $created;
             }
 
             DB::commit();
 
+            $skipMessage = $skippedPosted > 0 ? " {$skippedPosted} asset dilewati karena sudah memiliki penyusutan terposting." : '';
+
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil generate {$count} penyusutan aset untuk periode {$periodeAwalInput} sampai {$periodeAkhirInput}"
+                'message' => "Berhasil generate {$depreciationCount} penyusutan untuk {$assetCount} asset aktif dari filter periode {$periodeAwalInput} sampai {$periodeAkhirInput}.{$skipMessage}"
             ]);
 
         } catch (\Exception $e) {
@@ -856,6 +853,58 @@ class AssetTransactionController extends Controller
         }
 
         return $query;
+    }
+
+    private function generateDepreciationForAsset(Asset $asset, \Carbon\Carbon $periodeAwal, \Carbon\Carbon $periodeAkhir): int
+    {
+        AssetDepreciation::where('asset_id', $asset->id)->delete();
+
+        $count = 0;
+        for ($periode = $periodeAwal->copy(); $periode->lte($periodeAkhir); $periode->addMonth()) {
+            $periodeTanggal = $periode->toDateString();
+
+            if ($asset->tanggal_mulai_susut && $asset->tanggal_mulai_susut->copy()->startOfMonth()->gt($periode)) {
+                continue;
+            }
+
+            $lastDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                ->where('periode', '<', $periodeTanggal)
+                ->orderBy('periode', 'desc')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $bulanKe = $lastDepreciation ? $lastDepreciation->bulan_ke + 1 : 1;
+
+            if ($bulanKe > $asset->umur_ekonomis) {
+                continue;
+            }
+
+            $nilaiPenyusutan = $asset->calculateMonthlyDepreciation();
+            $akumulasiSebelum = $lastDepreciation ? $lastDepreciation->akumulasi_penyusutan : 0;
+            $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
+            $nilaiBuku = $asset->harga_perolehan - $akumulasiSekarang;
+
+            if ($nilaiBuku < $asset->nilai_residu) {
+                $nilaiPenyusutan = $asset->harga_perolehan - $asset->nilai_residu - $akumulasiSebelum;
+                $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
+                $nilaiBuku = $asset->nilai_residu;
+            }
+
+            AssetDepreciation::create([
+                'asset_id' => $asset->id,
+                'periode' => $periodeTanggal,
+                'bulan_ke' => $bulanKe,
+                'nilai_penyusutan' => $nilaiPenyusutan,
+                'akumulasi_penyusutan' => $akumulasiSekarang,
+                'nilai_buku' => $nilaiBuku,
+                'status' => 'terbentuk',
+                'keterangan' => 'Penyusutan bulanan'
+            ]);
+
+            $count++;
+        }
+
+        return $count;
     }
 
     /**

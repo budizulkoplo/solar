@@ -45,6 +45,7 @@ Dokumen ini merangkum struktur database aktif project `solar` dan rancangan rela
 - `coa`: chart of accounts.
 - `kodetransaksi`: kode transaksi dan mapping COA/laporan.
 - `neraca_hdr`: struktur neraca.
+- `neraca_adjustments`: koreksi nilai laporan neraca per periode/module/scope tanpa mengubah transaksi asli.
 - `labarugi_hdr`: struktur laba rugi.
 - Tabel backup: `kodetransaksi20251205`, `neraca_hdr_copy1`, `labarugi_hdr_copy1`.
 

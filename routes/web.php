@@ -235,6 +235,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
         Route::get('/neraca', [LaporanController::class, 'neraca'])->name('laporan.neraca');
         Route::get('/neraca/data', [LaporanController::class, 'neracaData'])->name('laporan.neraca.data');
+        Route::post('/neraca/adjustment', [LaporanController::class, 'saveNeracaAdjustment'])->name('laporan.neraca.adjustment');
         
         Route::get('/laba-rugi', [LaporanController::class, 'labaRugi'])->name('laporan.laba-rugi');
         Route::get('/laba-rugi/data', [LaporanController::class, 'labaRugiData'])->name('laporan.laba-rugi.data');

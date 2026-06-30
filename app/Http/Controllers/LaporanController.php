@@ -25,6 +25,7 @@ use App\Models\Customer;
 use App\Models\Project;
 use App\Models\Unit;
 use App\Models\KodeTransaksi;
+use App\Models\NeracaAdjustment;
 use Yajra\DataTables\Facades\DataTables;
 use App\Exports\VisitExport;
 use App\Exports\CashflowDetailExport;
@@ -1947,7 +1948,8 @@ class LaporanController extends Controller
                     'start' => $startDate,
                     'end' => $endDate,
                     'module' => $module
-                ]
+                ],
+                'adjustments' => $this->getNeracaAdjustments($module, $startDate, $endDate)
             ]);
         } catch (\Exception $e) {
             \Log::error('Error generating neraca:', [
@@ -1960,6 +1962,94 @@ class LaporanController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function saveNeracaAdjustment(Request $request)
+    {
+        $data = $request->validate([
+            'module' => 'required|in:project,company',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'side' => 'required|in:aktiva,pasiva',
+            'row_key' => 'required|string|max:191',
+            'label' => 'required|string|max:255',
+            'value' => 'required|numeric',
+            'note' => 'nullable|string',
+        ]);
+
+        try {
+            $scopeId = $this->getNeracaScopeId($data['module']);
+
+            $adjustment = NeracaAdjustment::updateOrCreate(
+                [
+                    'module' => $data['module'],
+                    'scope_id' => $scopeId,
+                    'start_date' => $data['start_date'],
+                    'end_date' => $data['end_date'],
+                    'side' => $data['side'],
+                    'row_key' => $data['row_key'],
+                ],
+                [
+                    'label' => $data['label'],
+                    'value' => $data['value'],
+                    'note' => $data['note'] ?? null,
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id(),
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nilai neraca berhasil disimpan',
+                'adjustment' => [
+                    'side' => $adjustment->side,
+                    'row_key' => $adjustment->row_key,
+                    'label' => $adjustment->label,
+                    'value' => (float) $adjustment->value,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan adjustment: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function getNeracaAdjustments(string $module, string $startDate, string $endDate): array
+    {
+        $scopeId = $this->getNeracaScopeId($module);
+
+        return NeracaAdjustment::query()
+            ->where('module', $module)
+            ->where('scope_id', $scopeId)
+            ->whereDate('start_date', $startDate)
+            ->whereDate('end_date', $endDate)
+            ->get()
+            ->mapWithKeys(function ($adjustment) {
+                return [$adjustment->side . ':' . $adjustment->row_key => [
+                    'side' => $adjustment->side,
+                    'row_key' => $adjustment->row_key,
+                    'label' => $adjustment->label,
+                    'value' => (float) $adjustment->value,
+                ]];
+            })
+            ->all();
+    }
+
+    private function getNeracaScopeId(string $module): int
+    {
+        if ($module === 'company') {
+            $scopeId = (int) session('active_company_id');
+        } else {
+            $scopeId = (int) session('active_project_id');
+        }
+
+        if (!$scopeId) {
+            throw new \Exception($module === 'company' ? 'Company ID tidak ditemukan' : 'Project ID tidak ditemukan');
+        }
+
+        return $scopeId;
     }
 
     /**
