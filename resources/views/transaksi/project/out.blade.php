@@ -118,6 +118,26 @@
                                         </select>
                                     </div>
 
+                                    @if($isConstructionProject)
+                                    <div class="col-md-9">
+                                        <label class="form-label">Customer</label>
+                                        <select class="form-select form-select-sm" name="customer_toko_id" id="customerId">
+                                            <option value="">-- Pilih Customer --</option>
+                                            @foreach($customerToko as $customer)
+                                                <option value="{{ $customer->id }}">
+                                                    {{ $customer->nama_lengkap }}{{ $customer->no_hp ? ' | ' . $customer->no_hp : '' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <small class="text-success" id="customerStoreFeedback" style="display:none;"></small>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary w-100" id="btnTambahCustomerToko">
+                                            <i class="bi bi-person-plus"></i> Customer Baru
+                                        </button>
+                                    </div>
+                                    @endif
+
                                     {{-- Tanggal Tempo --}}
                                     <div class="col-md-6" id="tglTempoContainer" style="display:none;">
                                         <label class="form-label">Tanggal Tempo *</label>
@@ -293,6 +313,12 @@
                                             <th>Project</th>
                                             <td id="viewProject">-</td>
                                         </tr>
+                                        @if($isConstructionProject)
+                                        <tr>
+                                            <th>Customer</th>
+                                            <td id="viewCustomer">-</td>
+                                        </tr>
+                                        @endif
                                         <tr>
                                             <th>Vendor</th>
                                             <td id="viewVendor">-</td>
@@ -391,6 +417,43 @@
             </div>
         </div>
     </div>
+
+    @if($isConstructionProject)
+    <div class="modal fade" id="modalCustomerToko" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="frmCustomerToko">
+                    @csrf
+                    <div class="modal-header">
+                        <h6 class="modal-title">Customer Baru</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger py-2 px-3 small d-none" id="customerTokoError"></div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Nama Customer *</label>
+                                <input type="text" class="form-control form-control-sm" name="nama_lengkap" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">No HP *</label>
+                                <input type="text" class="form-control form-control-sm" name="no_hp" maxlength="20" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Alamat *</label>
+                                <textarea class="form-control form-control-sm" name="alamat" rows="2" required></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitCustomerToko">Simpan Customer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <x-slot name="jscustom">
         <style>
@@ -750,6 +813,11 @@
                 return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
+            function formatQtyInput(value) {
+                const number = parseNumber(value);
+                return Number(number).toFixed(3).replace(/\.?0+$/, '') || '0';
+            }
+
             function parseNumber(value) {
                 if (!value && value !== 0) return 0;
                 
@@ -766,8 +834,15 @@
                     }
                     
                     if (typeof value === 'string') {
-                        value = value.replace(/[^\d,-]/g, '');
-                        value = value.replace(',', '.');
+                        value = value.trim();
+                        value = value.replace(/[^\d,.-]/g, '');
+                        if (value.includes(',')) {
+                            value = value.replace(/\./g, '').replace(',', '.');
+                        } else if (/^-?\d+\.\d{1,2}$/.test(value)) {
+                            // Keep DB decimal values like 100000.00 as decimals.
+                        } else {
+                            value = value.replace(/\./g, '');
+                        }
                     }
                     
                     let num = parseFloat(value);
@@ -781,9 +856,7 @@
             function calculateSubtotal() {
                 let subtotal = 0;
                 $('.total').each(function() {
-                    let val = $(this).val() || '0';
-                    val = val.toString().replace(/[^\d.-]/g, '');
-                    subtotal += parseFloat(val) || 0;
+                    subtotal += parseNumber($(this).val());
                 });
                 
                 let subtotalInstance = AutoNumeric.getAutoNumericElement($('#subtotal')[0]);
@@ -862,7 +935,6 @@
             let oldRekening = null;
             let oldGrandTotal = 0;
             let rowIndex = 1;
-
             // ============= SELECT2 =============
             function initializeSelect2() {
                 if (typeof $.fn.select2 !== 'undefined') {
@@ -882,12 +954,36 @@
                 }
             }
 
+            function initCustomerSelect() {
+                return;
+            }
+
+            function customerText(nota) {
+                const customer = nota.customer_toko || nota.customer;
+                if (!customer) return '-';
+                return `${customer.nama_lengkap || '-'}${customer.no_hp ? ' | ' + customer.no_hp : ''}`;
+            }
+
+            function setSelectedCustomer(customer) {
+                if (!@json($isConstructionProject) || !customer) {
+                    return;
+                }
+
+                const label = `${customer.nama_lengkap || '-'}${customer.no_hp ? ' | ' + customer.no_hp : ''}`;
+                if ($(`#customerId option[value="${customer.id}"]`).length) {
+                    $('#customerId').val(String(customer.id)).trigger('change');
+                } else {
+                    $('#customerId').append(new Option(label, customer.id, true, true)).trigger('change');
+                }
+            }
+
             // ============= RESET FORM =============
             function resetForm() {
                 $('#frmNota')[0].reset();
                 $('#idNota').val('');
                 $('#oldRekening').val('');
                 $('#oldGrandTotal').val('');
+                $('#customerId').val('').trigger('change');
                 $('#buktiPreview').hide();
                 $('#tglTempoContainer').hide();
                 $('#tglTempo').prop('required', false);
@@ -948,6 +1044,7 @@
                 setTimeout(() => {
                     initAutoNumeric();
                     initializeSelect2();
+                    initCustomerSelect();
                     rowIndex = 1;
                 }, 300);
             }
@@ -1015,6 +1112,7 @@
                             $('#viewTanggal').text(nota.tanggal ? new Date(nota.tanggal).toLocaleDateString('id-ID') : '-');
                             $('#viewNamaTransaksi').text(nota.namatransaksi || '-');
                             $('#viewProject').text(nota.project ? nota.project.namaproject : '-');
+                            $('#viewCustomer').text(customerText(nota));
                             $('#viewVendor').text(nota.vendor ? nota.vendor.namavendor : '-');
                             $('#viewUser').text(nota.namauser || '-');
                             $('#viewPaymentMethod').text(nota.paymen_method === 'cash' ? 'Cash' : 'Tempo');
@@ -1167,6 +1265,7 @@
                             
                             $('#notaNo').val(nota.nota_no);
                             $('#namatransaksi').val(nota.namatransaksi);
+                            setSelectedCustomer(nota.customer_toko || nota.customer);
                             $('#paymenMethod').val(nota.paymen_method).trigger('change');
                             $('#tanggalNota').val(nota.tanggal);
                             
@@ -1210,9 +1309,9 @@
                                                 </select>
                                             </td>
                                             <td><input type="text" class="form-control form-control-sm" name="transactions[${index}][description]" value="${transaction.description || ''}" required></td>
-                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${transaction.jml || 1}" min="1"></td>
-                                            <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${index}][nominal]" value="${transaction.nominal || 0}"></td>
-                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${transaction.total || 0}" readonly></td>
+                                            <td><input type="number" class="form-control form-control-sm text-end jml" name="transactions[${index}][jml]" value="${formatQtyInput(transaction.jml || 1)}" min="1"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end nominal" name="transactions[${index}][nominal]" value="${formatNumber(transaction.nominal || 0)}"></td>
+                                            <td><input type="text" class="form-control form-control-sm text-end total" name="transactions[${index}][total]" value="${formatNumber(transaction.total || 0)}" readonly></td>
                                             <td><button type="button" class="btn btn-sm btn-danger removeRow">x</button></td>
                                         </tr>
                                     `;
@@ -1262,6 +1361,7 @@
                             setTimeout(() => {
                                 initAutoNumeric();
                                 initializeSelect2();
+                                initCustomerSelect();
                             }, 500);
                             
                         } else {
@@ -1382,7 +1482,7 @@
                 let jml = row.find('.jml').val() || 1;
                 let nominal = parseNumber($(this));
                 let total = jml * nominal;
-                row.find('.total').val(total);
+                row.find('.total').val(formatNumber(total));
                 calculateSubtotal();
             });
 
@@ -1391,8 +1491,12 @@
                 let jml = $(this).val() || 1;
                 let nominal = parseNumber(row.find('.nominal'));
                 let total = jml * nominal;
-                row.find('.total').val(total);
+                row.find('.total').val(formatNumber(total));
                 calculateSubtotal();
+            });
+
+            $(document).on('focus', '.jml, .nominal, #ppnAmount, #diskonValue', function() {
+                setTimeout(() => this.select(), 0);
             });
 
             $(document).on('input', '#ppnAmount', function() {
@@ -1447,6 +1551,47 @@
                     $('#tglTempoContainer').hide();
                     $('#tglTempo').prop('required', false);
                 }
+            });
+
+            $('#btnTambahCustomerToko').on('click', function() {
+                $('#frmCustomerToko')[0].reset();
+                $('#customerTokoError').addClass('d-none').text('');
+                $('#modalCustomerToko').modal('show');
+            });
+
+            $('#frmCustomerToko').on('submit', function(e) {
+                e.preventDefault();
+
+                const btn = $('#btnSubmitCustomerToko');
+                btn.prop('disabled', true).text('Menyimpan...');
+
+                $.ajax({
+                    url: "{{ route('toko.customers.store') }}",
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(res) {
+                        btn.prop('disabled', false).text('Simpan Customer');
+
+                        if (!res.success) {
+                            $('#customerTokoError').removeClass('d-none').text(res.message);
+                            return;
+                        }
+
+                        setSelectedCustomer(res.data);
+                        $('#modalCustomerToko').modal('hide');
+                        Swal.fire('Berhasil!', res.message, 'success');
+                    },
+                    error: function(xhr) {
+                        btn.prop('disabled', false).text('Simpan Customer');
+
+                        let msg = xhr.responseJSON?.message || 'Gagal menambahkan customer';
+                        if (xhr.responseJSON?.errors) {
+                            msg = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                        }
+
+                        $('#customerTokoError').removeClass('d-none').text(msg);
+                    }
+                });
             });
 
             $('#buktiNota').change(function() {
@@ -1669,6 +1814,7 @@
                 setTimeout(() => {
                     initAutoNumeric();
                     initializeSelect2();
+                    initCustomerSelect();
                 }, 300);
             });
 
@@ -1688,6 +1834,7 @@
             setTimeout(() => {
                 initAutoNumeric();
                 initializeSelect2();
+                initCustomerSelect();
             }, 500);
 
         });

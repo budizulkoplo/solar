@@ -122,6 +122,10 @@
                 return 'Rp ' + number.toLocaleString('id-ID');
             }
 
+            function parseRupiah(value) {
+                return Number(String(value || '0').replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
+            }
+
             function formatDisplayDate(dateString) {
                 const date = new Date(dateString);
                 return date.toLocaleDateString('id-ID', {
@@ -137,6 +141,68 @@
                     .replace(/\s+/g, ' ')
                     .trim()
                     .toLowerCase();
+            }
+
+            function makeNeracaRowKey(side, row, index) {
+                return `${side}-${index}-${normalizeTemplateLabel(row.label).replace(/[^a-z0-9]+/g, '-')}`;
+            }
+
+            function applyNeracaAdjustments(rows, side, adjustments) {
+                rows.forEach((row, index) => {
+                    row.side = side;
+                    row.rowKey = makeNeracaRowKey(side, row, index);
+
+                    const adjustment = adjustments?.[`${side}:${row.rowKey}`];
+                    if (!row.isHeader && !row.isSubtotal && adjustment) {
+                        row.value = Number(adjustment.value || 0);
+                        row.adjusted = true;
+                    }
+                });
+            }
+
+            function recalculateTemplateSubtotals(rows) {
+                let activeHeaderIndex = -1;
+
+                rows.forEach((row, index) => {
+                    if (row.isHeader) {
+                        activeHeaderIndex = index;
+                        return;
+                    }
+
+                    if (!row.isSubtotal) {
+                        return;
+                    }
+
+                    const items = rows.slice(activeHeaderIndex + 1, index);
+                    row.value = items
+                        .filter(item => !item.isHeader && !item.isSubtotal)
+                        .reduce((total, item) => total + Number(item.value || 0), 0);
+                });
+            }
+
+            function getTemplateLeafTotal(rows) {
+                return rows
+                    .filter(row => !row.isHeader && !row.isSubtotal)
+                    .reduce((total, row) => total + Number(row.value || 0), 0);
+            }
+
+            function renderEditableValueCell(row) {
+                if (row.isHeader || !row.label) {
+                    return '';
+                }
+
+                if (row.isSubtotal) {
+                    return formatRupiah(row.value || 0);
+                }
+
+                return `
+                    <input type="text"
+                        class="form-control form-control-sm text-end neraca-value-input ${row.adjusted ? 'is-valid' : ''}"
+                        value="${Number(row.value || 0).toLocaleString('id-ID')}"
+                        data-side="${row.side}"
+                        data-row-key="${row.rowKey}"
+                        data-label="${String(row.label || '').replace(/"/g, '&quot;')}">
+                `;
             }
 
             function collectTemplateValueMap(groups) {
@@ -212,11 +278,10 @@
                     { no: '', label: 'Sub Total Ekuitas', value: 0, isSubtotal: true },
                 ];
 
-                const sumRows = rows => rows.filter(row => !row.isHeader && !row.isSubtotal).reduce((total, row) => total + Number(row.value || 0), 0);
-
-                pasivaRows.find(row => row.label === 'Sub Total Hutang Jangka Pendek').value = sumRows(pasivaRows.slice(1, 8));
-                pasivaRows.find(row => row.label === 'Sub Total Hutang Jangka Panjang').value = sumRows(pasivaRows.slice(10, 16));
-                pasivaRows.find(row => row.label === 'Sub Total Ekuitas').value = sumRows(pasivaRows.slice(18, 20));
+                applyNeracaAdjustments(aktivaRows, 'aktiva', response.adjustments || {});
+                applyNeracaAdjustments(pasivaRows, 'pasiva', response.adjustments || {});
+                recalculateTemplateSubtotals(aktivaRows);
+                recalculateTemplateSubtotals(pasivaRows);
 
                 return { aktivaRows, pasivaRows };
             }
@@ -237,17 +302,23 @@
                         <tr>
                             <td class="text-center ${aktivaClass}">${aktiva.no || ''}</td>
                             <td class="${aktivaClass}">${aktiva.label || ''}</td>
-                            <td class="text-end ${aktivaClass}">${aktiva.isHeader ? '' : formatRupiah(aktiva.value || 0)}</td>
+                            <td class="text-end ${aktivaClass}">${renderEditableValueCell(aktiva)}</td>
                             <td class="text-center ${pasivaClass}">${pasiva.no || ''}</td>
                             <td class="${pasivaClass}">${pasiva.label || ''}</td>
-                            <td class="text-end ${pasivaClass}">${pasiva.isHeader ? '' : formatRupiah(pasiva.value || 0)}</td>
+                            <td class="text-end ${pasivaClass}">${renderEditableValueCell(pasiva)}</td>
                         </tr>
                     `;
                 }
 
                 $('#tbodyNeracaTemplate').html(html);
-                $('#templateTotalAktiva').text(formatRupiah(response.summary.total_aktiva_raw || 0));
-                $('#templateTotalPasiva').text(formatRupiah(response.summary.total_pasiva_raw || 0));
+                const totalAktiva = getTemplateLeafTotal(aktivaRows);
+                const totalPasiva = getTemplateLeafTotal(pasivaRows);
+                response.summary.total_aktiva_raw = totalAktiva;
+                response.summary.total_pasiva_raw = totalPasiva;
+                response.summary.balance = Math.abs(totalAktiva - totalPasiva) < 0.5;
+                response.summary.difference_raw = Math.abs(totalAktiva - totalPasiva);
+                $('#templateTotalAktiva').text(formatRupiah(totalAktiva));
+                $('#templateTotalPasiva').text(formatRupiah(totalPasiva));
                 $('#templateNeracaLayout').removeClass('d-none');
                 $('#legacyNeracaLayout').addClass('d-none');
             }
@@ -419,9 +490,48 @@
                 });
             }
 
+            function saveNeracaAdjustment(input) {
+                const $input = $(input);
+                const value = parseRupiah($input.val());
+                const side = $input.data('side');
+                const rowKey = $input.data('row-key');
+                const label = $input.data('label');
+
+                $input.val(value.toLocaleString('id-ID'));
+
+                return $.post("{{ route('laporan.neraca.adjustment') }}", {
+                    _token: '{{ csrf_token() }}',
+                    module: $('#module').val(),
+                    start_date: $('#start_date').val(),
+                    end_date: $('#end_date').val(),
+                    side: side,
+                    row_key: rowKey,
+                    label: label,
+                    value: value
+                }).done(function(response) {
+                    if (response.success) {
+                        $input.addClass('is-valid');
+                    }
+                }).fail(function(xhr) {
+                    alert(xhr.responseJSON?.message || 'Gagal menyimpan nilai neraca');
+                });
+            }
+
             $(document).ready(function() {
                 $('#btnFilter').on('click', loadNeraca);
                 $('#start_date, #end_date, #module').on('change', loadNeraca);
+                $(document).on('change blur', '.neraca-value-input', function(e) {
+                    if (e.type === 'blur' && this.dataset.savedOnChange === '1') {
+                        this.dataset.savedOnChange = '';
+                        return;
+                    }
+
+                    if (e.type === 'change') {
+                        this.dataset.savedOnChange = '1';
+                    }
+
+                    saveNeracaAdjustment(this).done(loadNeraca);
+                });
                 loadNeraca();
             });
         </script>

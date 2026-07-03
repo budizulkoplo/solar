@@ -84,6 +84,9 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'dashboard'])
         ->middleware('global.app:admin')
         ->name('dashboard');
+    Route::get('/dashboard/chart-data', [AdminDashboardController::class, 'getChartData'])
+        ->middleware('global.app:admin')
+        ->name('dashboard.chart_data');
     Route::get('/admin/pesanan-hari-ini', [AdminDashboardController::class, 'pesananHariIni']);
     Route::get('/admin/data-pesanan-hari-ini', [AdminDashboardController::class, 'pesananHariIniData'])
         ->name('dashboard.pesananHariIniData');
@@ -232,6 +235,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
         Route::get('/neraca', [LaporanController::class, 'neraca'])->name('laporan.neraca');
         Route::get('/neraca/data', [LaporanController::class, 'neracaData'])->name('laporan.neraca.data');
+        Route::post('/neraca/adjustment', [LaporanController::class, 'saveNeracaAdjustment'])->name('laporan.neraca.adjustment');
         
         Route::get('/laba-rugi', [LaporanController::class, 'labaRugi'])->name('laporan.laba-rugi');
         Route::get('/laba-rugi/data', [LaporanController::class, 'labaRugiData'])->name('laporan.laba-rugi.data');

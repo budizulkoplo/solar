@@ -35,6 +35,7 @@ class AdminDashboardController extends Controller
         // Tampilkan dashboard sesuai module yang dipilih
         switch($activeModule) {
             case 'project':
+            case 'kontruksi':
                 return $this->dashboardProject();
             case 'hris':
                 return $this->dashboardHRIS();
@@ -69,7 +70,7 @@ class AdminDashboardController extends Controller
         $projectInfo = [
             'nama' => $project->namaproject ?? 'Tidak diketahui',
             'company' => $project->companyUnit->company_name ?? 'Tidak diketahui',
-            'module' => 'Project'
+            'module' => session('active_project_module') === 'kontruksi' ? 'Konstruksi' : 'Project'
         ];
 
         return view('dashboard.project', compact(
@@ -386,7 +387,7 @@ class AdminDashboardController extends Controller
         $module = session('active_project_module');
         
         try {
-            if ($module == 'project') {
+            if (in_array($module, ['project', 'kontruksi'], true)) {
                 $projectId = session('active_project_id');
                 if (!$projectId) {
                     return response()->json([

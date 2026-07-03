@@ -16,6 +16,8 @@ class PindahBukuController extends Controller
     // Halaman index pindah buku
     public function index()
     {
+        $this->syncMissingCompanyIds();
+
         return view('transaksi.pindahbuku.index');
     }
 
@@ -27,6 +29,8 @@ class PindahBukuController extends Controller
         if (!$companyId) {
             return DataTables::collection(collect([]))->toJson();
         }
+
+        $this->syncMissingCompanyIds();
 
         $query = TransaksiPindahBuku::with([
             'rekeningAsal:idrek,norek,namarek,saldo',
@@ -584,5 +588,17 @@ class PindahBukuController extends Controller
         }
         
         return $changes;
+    }
+
+    private function syncMissingCompanyIds()
+    {
+        DB::table('transaksi_pindah_buku as pbk')
+            ->join('rekening as r', 'pbk.rekening_asal_id', '=', 'r.idrek')
+            ->whereNull('pbk.idcompany')
+            ->whereNotNull('r.idcompany')
+            ->update([
+                'pbk.idcompany' => DB::raw('r.idcompany'),
+                'pbk.updated_at' => now(),
+            ]);
     }
 }

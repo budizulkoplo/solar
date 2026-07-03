@@ -28,7 +28,7 @@
                                  $no=0;   
                                 @endphp
                                 @foreach ($roles as $item)
-                                    <li class="list-group-item {{ ($no==0?'active':'') }} d-flex justify-content-between align-items-start" style="cursor: pointer" onClick="treajax('{{ $item->name }}')">
+                                    <li class="list-group-item {{ ($no==0?'active':'') }} d-flex justify-content-between align-items-start" style="cursor: pointer" onClick='treajax(@json($item->name))'>
                                         <span class="rolename">{{ $item->name }}</span> 
                                     </li>
                                     @php
@@ -57,6 +57,7 @@
     <x-slot name="jscustom">
         <script>
             function treajax(group){
+                let treeReady = false;
                 $('#jstree_demo_div').jstree("destroy").empty();
                 $('#jstree_demo_div').jstree({
                     'core' : {
@@ -67,15 +68,30 @@
                         }
                     }
                     },
-                    "plugins" : [ "checkbox" ]
+                    'checkbox': {
+                        'three_state': true,
+                        'cascade': 'up+down+undetermined'
+                    },
+                    "plugins" : [ "checkbox", "changed" ]
+                });
+                $("#jstree_demo_div").bind("ready.jstree", function () {
+                    treeReady = true;
                 });
                 $("#jstree_demo_div").bind("changed.jstree",
                     function (e, data) {
+                        if (!treeReady || !data.changed || (!data.changed.selected.length && !data.changed.deselected.length)) {
+                            return;
+                        }
+
                         $.ajax({
-                        method: "PUT",
-                        url: "{{ route('menu.update') }}",
-                        data: { id: data.node.id, aktif: data.node.state.selected ,gp:group }
-                        })
+                            method: "PUT",
+                            url: "{{ route('menu.update') }}",
+                            data: {
+                                selected_ids: data.changed.selected,
+                                deselected_ids: data.changed.deselected,
+                                gp: group
+                            }
+                        });
                     });
                 }
             $( document ).ready(function() {

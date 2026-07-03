@@ -25,6 +25,7 @@ use App\Models\Customer;
 use App\Models\Project;
 use App\Models\Unit;
 use App\Models\KodeTransaksi;
+use App\Models\NeracaAdjustment;
 use Yajra\DataTables\Facades\DataTables;
 use App\Exports\VisitExport;
 use App\Exports\CashflowDetailExport;
@@ -360,6 +361,14 @@ class LaporanController extends Controller
                 'kt.transaksi as nama_transaksi'
             )
             ->whereIn('nt.idnota', $notaIds)
+            ->whereNull('nt.deleted_at')
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('notas as n')
+                    ->whereColumn('n.id', 'nt.idnota')
+                    ->where('n.status', 'paid')
+                    ->whereNull('n.deleted_at');
+            })
             ->orderBy('nt.idnota')
             ->orderBy('nt.id')
             ->get()
@@ -531,6 +540,7 @@ class LaporanController extends Controller
                     ) as kode_transaksi_display
                 ")
             )
+            ->whereNull('nt.deleted_at')
             ->groupBy('nt.idnota');
 
         $penjualanPaymentCashflowWhere = "
@@ -593,6 +603,7 @@ class LaporanController extends Controller
                 $join->on('n.id', '=', 'kts.idnota');
             })
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idproject', $activeProjectId)
             ->whereNotNull('n.idproject') // Hanya yang punya project
             ->whereBetween('n.tanggal', [$startDate, $endDate]);
@@ -699,6 +710,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -732,6 +744,7 @@ class LaporanController extends Controller
             ')
             ->join('nota_payments as np', 'n.id', '=', 'np.idnota')
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idproject', $activeProjectId)
             ->whereBetween('n.tanggal', [$startDate, $endDate])
             ->first();
@@ -770,6 +783,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -978,6 +992,7 @@ class LaporanController extends Controller
                     ) as kode_transaksi_display
                 ")
             )
+            ->whereNull('nt.deleted_at')
             ->groupBy('nt.idnota');
 
         /**
@@ -1012,6 +1027,7 @@ class LaporanController extends Controller
                 $join->on('n.id', '=', 'kts.idnota');
             })
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
             ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
             ->whereNull('n.idproject')
@@ -1056,6 +1072,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -1072,62 +1089,35 @@ class LaporanController extends Controller
 
         /**
          * ==================================================
-         * 2. PINDAH BUKU - REKENING ASAL (OUT)
+         * 2. PINDAH BUKU
          * ==================================================
          */
-        $pbkOut = DB::table('transaksi_pindah_buku as pbk')
+        $pindahBukuQuery = DB::table('cashflows as cf')
             ->select(
-                DB::raw('pbk.id * -1 as id'),
+                DB::raw('cf.id * -1 as id'),
                 DB::raw('NULL as id_payment'),
-                'pbk.kode_transaksi as nota_no',
-                'pbk.tanggal',
-                DB::raw("CONCAT('(', pbk.kode_transaksi, ') Pindah Buku') as kodetransaksi"),
+                DB::raw('COALESCE(cf.kode_transaksi, "-") as nota_no'),
+                'cf.tanggal',
+                DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pindah Buku') as kodetransaksi"),
                 DB::raw('"Pindah Buku" as kategori'),
-                'pbk.keterangan as namatransaksi',
-                'pbk.nominal as jumlah_transaksi',
-                DB::raw('0 as pemasukan'),
-                DB::raw('pbk.nominal as pengeluaran'),
-                DB::raw('0 as saldo'),
+                DB::raw('COALESCE(pbk.keterangan, cf.keterangan) as namatransaksi'),
+                'cf.nominal as jumlah_transaksi',
+                DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
+                DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
+                'cf.saldo_akhir as saldo',
                 DB::raw('NULL as namavendor'),
-                'r_asal.namarek as rekening',
+                'r.namarek as rekening',
                 'cu.company_name as nama_company',
-                'pbk.idcompany'
+                'r.idcompany'
             )
-            ->join('rekening as r_asal', 'pbk.rekening_asal_id', '=', 'r_asal.idrek')
-            ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
-            ->where('pbk.status', 'completed')
-            ->whereNotNull('pbk.idcompany')
-         
-            ->whereBetween('pbk.tanggal', [$startDate, $endDate]);
-
-        /**
-         * ==================================================
-         * 3. PINDAH BUKU - REKENING TUJUAN (IN)
-         * ==================================================
-         */
-        $pbkIn = DB::table('transaksi_pindah_buku as pbk')
-            ->select(
-                DB::raw('pbk.id * -1 as id'),
-                DB::raw('NULL as id_payment'),
-                'pbk.kode_transaksi as nota_no',
-                'pbk.tanggal',
-                DB::raw("CONCAT('(', pbk.kode_transaksi, ') Pindah Buku') as kodetransaksi"),
-                DB::raw('"Pindah Buku" as kategori'),
-                'pbk.keterangan as namatransaksi',
-                'pbk.nominal as jumlah_transaksi',
-                DB::raw('pbk.nominal as pemasukan'),
-                DB::raw('0 as pengeluaran'),
-                DB::raw('0 as saldo'),
-                DB::raw('NULL as namavendor'),
-                'r_tujuan.namarek as rekening',
-                'cu.company_name as nama_company',
-                'pbk.idcompany'
-            )
-            ->join('rekening as r_tujuan', 'pbk.rekening_tujuan_id', '=', 'r_tujuan.idrek')
-            ->join('company_units as cu', 'pbk.idcompany', '=', 'cu.id')
-            ->where('pbk.status', 'completed')
-            ->whereNotNull('pbk.idcompany')
-            ->whereBetween('pbk.tanggal', [$startDate, $endDate]);
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->leftJoin('company_units as cu', 'r.idcompany', '=', 'cu.id')
+            ->leftJoin('transaksi_pindah_buku as pbk', 'cf.kode_transaksi', '=', 'pbk.kode_transaksi')
+            ->whereNull('cf.idnota')
+            ->where('cf.kode_transaksi', 'like', 'PBK-%')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate]);
 
         /**
          * ==================================================
@@ -1136,8 +1126,7 @@ class LaporanController extends Controller
          */
         $data = $notaQuery
             ->unionAll($pembiayaanQuery)
-            ->unionAll($pbkOut)
-            ->unionAll($pbkIn)
+            ->unionAll($pindahBukuQuery)
             ->orderBy('tanggal', 'asc')
             ->orderBy('nota_no', 'asc')
             ->get();
@@ -1156,6 +1145,8 @@ class LaporanController extends Controller
                 COALESCE(SUM(CASE WHEN n.cashflow = "out" THEN np.jumlah ELSE 0 END),0) as total_pengeluaran
             ')
             ->where('n.status', 'paid')
+            ->whereNull('n.deleted_at')
+            ->where('n.idcompany', session('active_company_id'))
             ->whereNotNull('n.idcompany')
             ->whereNull('n.idproject')
             ->whereBetween('n.tanggal', [$startDate, $endDate])
@@ -1186,6 +1177,7 @@ class LaporanController extends Controller
                             $pb->select(DB::raw(1))
                                 ->from('pembiayaan_setoran as ps')
                                 ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+                                ->whereNull('ps.deleted_at')
                                 ->whereNull('p.deleted_at')
                                 ->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)");
                         });
@@ -1199,6 +1191,19 @@ class LaporanController extends Controller
                         });
                 });
             })
+            ->first();
+
+        $pindahBukuTotals = DB::table('cashflows as cf')
+            ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END),0) as total_pemasukan,
+                COALESCE(SUM(CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END),0) as total_pengeluaran
+            ')
+            ->whereNull('cf.idnota')
+            ->where('cf.kode_transaksi', 'like', 'PBK-%')
+            ->where('r.idcompany', session('active_company_id'))
+            ->whereNull('r.idproject')
+            ->whereBetween('cf.tanggal', [$startDate, $endDate])
             ->first();
 
         /**
@@ -1219,8 +1224,8 @@ class LaporanController extends Controller
         return response()->json([
             'data' => $data,
             'total' => [
-                'pemasukan'   => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0),
-                'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0),
+                'pemasukan'   => ($totals->total_pemasukan ?? 0) + ($pembiayaanTotals->total_pemasukan ?? 0) + ($pindahBukuTotals->total_pemasukan ?? 0),
+                'pengeluaran' => ($totals->total_pengeluaran ?? 0) + ($pembiayaanTotals->total_pengeluaran ?? 0) + ($pindahBukuTotals->total_pengeluaran ?? 0),
                 'saldo_akhir' => $lastCashflow->saldo_akhir ?? 0
             ]
         ]);
@@ -1943,7 +1948,8 @@ class LaporanController extends Controller
                     'start' => $startDate,
                     'end' => $endDate,
                     'module' => $module
-                ]
+                ],
+                'adjustments' => $this->getNeracaAdjustments($module, $startDate, $endDate)
             ]);
         } catch (\Exception $e) {
             \Log::error('Error generating neraca:', [
@@ -1956,6 +1962,94 @@ class LaporanController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function saveNeracaAdjustment(Request $request)
+    {
+        $data = $request->validate([
+            'module' => 'required|in:project,company',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'side' => 'required|in:aktiva,pasiva',
+            'row_key' => 'required|string|max:191',
+            'label' => 'required|string|max:255',
+            'value' => 'required|numeric',
+            'note' => 'nullable|string',
+        ]);
+
+        try {
+            $scopeId = $this->getNeracaScopeId($data['module']);
+
+            $adjustment = NeracaAdjustment::updateOrCreate(
+                [
+                    'module' => $data['module'],
+                    'scope_id' => $scopeId,
+                    'start_date' => $data['start_date'],
+                    'end_date' => $data['end_date'],
+                    'side' => $data['side'],
+                    'row_key' => $data['row_key'],
+                ],
+                [
+                    'label' => $data['label'],
+                    'value' => $data['value'],
+                    'note' => $data['note'] ?? null,
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id(),
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nilai neraca berhasil disimpan',
+                'adjustment' => [
+                    'side' => $adjustment->side,
+                    'row_key' => $adjustment->row_key,
+                    'label' => $adjustment->label,
+                    'value' => (float) $adjustment->value,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan adjustment: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function getNeracaAdjustments(string $module, string $startDate, string $endDate): array
+    {
+        $scopeId = $this->getNeracaScopeId($module);
+
+        return NeracaAdjustment::query()
+            ->where('module', $module)
+            ->where('scope_id', $scopeId)
+            ->whereDate('start_date', $startDate)
+            ->whereDate('end_date', $endDate)
+            ->get()
+            ->mapWithKeys(function ($adjustment) {
+                return [$adjustment->side . ':' . $adjustment->row_key => [
+                    'side' => $adjustment->side,
+                    'row_key' => $adjustment->row_key,
+                    'label' => $adjustment->label,
+                    'value' => (float) $adjustment->value,
+                ]];
+            })
+            ->all();
+    }
+
+    private function getNeracaScopeId(string $module): int
+    {
+        if ($module === 'company') {
+            $scopeId = (int) session('active_company_id');
+        } else {
+            $scopeId = (int) session('active_project_id');
+        }
+
+        if (!$scopeId) {
+            throw new \Exception($module === 'company' ? 'Company ID tidak ditemukan' : 'Project ID tidak ditemukan');
+        }
+
+        return $scopeId;
     }
 
     /**

@@ -656,6 +656,14 @@ class AssetTransactionController extends Controller
                         <i class="bi bi-cash-coin"></i>
                     </button>';
 
+                $depreciationBtn = $row->status === 'aktif'
+                    ? '<button class="btn btn-sm btn-success generate-depreciation-asset" data-id="'.$row->id.'" data-name="'.e($row->nama_aset).'">
+                        <i class="bi bi-calculator"></i> Penyusutan
+                    </button>'
+                    : '<button class="btn btn-sm btn-success" disabled>
+                        <i class="bi bi-calculator"></i> Penyusutan
+                    </button>';
+
                 $deleteBtn = $canDelete ? 
                     '<button class="btn btn-sm btn-danger delete-asset" data-id="'.$row->id.'" data-name="'.$row->nama_aset.'"><i class="bi bi-trash"></i></button>' :
                     '<button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>';
@@ -669,6 +677,7 @@ class AssetTransactionController extends Controller
                     </button>
                     '.$disposalBtn.'
                     '.$rentBtn.'
+                    '.$depreciationBtn.'
                     '.$deleteBtn.'
                 </div>';
             })
@@ -705,70 +714,88 @@ class AssetTransactionController extends Controller
         DB::beginTransaction();
         try {
             $request->validate([
-                'periode' => 'required|date_format:Y-m'
+                'periode_awal' => 'required_without:periode|date_format:Y-m',
+                'periode_akhir' => 'required_without:periode|date_format:Y-m|after_or_equal:periode_awal',
+                'periode' => 'nullable|date_format:Y-m',
+                'asset_id' => 'nullable|exists:assets,id',
+                'global' => 'nullable|boolean',
+                'status' => 'nullable|string',
+                'metode' => 'nullable|string',
+                'nota_id' => 'nullable',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date|after_or_equal:date_from',
             ]);
 
-            $periode = $request->periode . '-01';
+            $periodeAwalInput = $request->periode_awal ?: $request->periode;
+            $periodeAkhirInput = $request->periode_akhir ?: $request->periode;
+            $periodeAwal = \Carbon\Carbon::createFromFormat('Y-m-d', $periodeAwalInput . '-01')->startOfMonth();
+            $periodeAkhir = \Carbon\Carbon::createFromFormat('Y-m-d', $periodeAkhirInput . '-01')->startOfMonth();
             $projectId = session('active_project_id');
 
-            // Ambil semua aset aktif
-            $assets = Asset::where('idproject', $projectId)
-                ->where('status', 'aktif')
-                ->where('tanggal_mulai_susut', '<=', $periode)
-                ->get();
-
-            $count = 0;
-            foreach ($assets as $asset) {
-                // Cek apakah sudah ada penyusutan untuk periode ini
-                $existing = AssetDepreciation::where('asset_id', $asset->id)
-                    ->where('periode', $periode)
+            if ($request->filled('asset_id')) {
+                $asset = Asset::where('idproject', $projectId)
+                    ->where('status', 'aktif')
+                    ->where('id', $request->asset_id)
+                    ->where('tanggal_mulai_susut', '<=', $periodeAkhir->toDateString())
                     ->first();
 
-                if (!$existing) {
-                    // Cek penyusutan terakhir
-                    $lastDepreciation = AssetDepreciation::where('asset_id', $asset->id)
-                        ->orderBy('periode', 'desc')
-                        ->first();
-
-                    $bulanKe = $lastDepreciation ? $lastDepreciation->bulan_ke + 1 : 1;
-                    
-                    // Hentikan jika sudah melebihi umur ekonomis
-                    if ($bulanKe > $asset->umur_ekonomis) {
-                        continue;
-                    }
-
-                    $nilaiPenyusutan = $asset->calculateMonthlyDepreciation();
-                    $akumulasiSebelum = $lastDepreciation ? $lastDepreciation->akumulasi_penyusutan : 0;
-                    $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
-                    
-                    // Nilai buku tidak boleh kurang dari nilai residu
-                    $nilaiBuku = $asset->harga_perolehan - $akumulasiSekarang;
-                    if ($nilaiBuku < $asset->nilai_residu) {
-                        $nilaiPenyusutan = $asset->harga_perolehan - $asset->nilai_residu - $akumulasiSebelum;
-                        $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
-                        $nilaiBuku = $asset->nilai_residu;
-                    }
-
-                    AssetDepreciation::create([
-                        'asset_id' => $asset->id,
-                        'periode' => $periode,
-                        'bulan_ke' => $bulanKe,
-                        'nilai_penyusutan' => $nilaiPenyusutan,
-                        'akumulasi_penyusutan' => $akumulasiSekarang,
-                        'nilai_buku' => $nilaiBuku,
-                        'status' => 'terbentuk',
-                        'keterangan' => 'Penyusutan bulanan'
-                    ]);
-
-                    $count++;
+                if (!$asset) {
+                    throw new \Exception('Asset aktif tidak ditemukan atau belum masuk periode penyusutan.');
                 }
+
+                $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                    ->where('status', 'terposting')
+                    ->exists();
+
+                if ($hasPostedDepreciation) {
+                    throw new \Exception('Penyusutan tidak dapat dikalkulasi ulang karena sudah ada penyusutan terposting.');
+                }
+
+                $count = $this->generateDepreciationForAsset($asset, $periodeAwal, $periodeAkhir);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Berhasil generate {$count} penyusutan aset untuk periode {$periodeAwalInput} sampai {$periodeAkhirInput}"
+                ]);
+            }
+
+            $assets = $this->buildAssetListQuery($request)
+                ->where('status', 'aktif')
+                ->where('tanggal_mulai_susut', '<=', $periodeAkhir->toDateString())
+                ->get();
+
+            if ($assets->isEmpty()) {
+                throw new \Exception('Tidak ada asset aktif dari filter yang sudah masuk periode penyusutan.');
+            }
+
+            $assetCount = 0;
+            $depreciationCount = 0;
+            $skippedPosted = 0;
+
+            foreach ($assets as $asset) {
+                $hasPostedDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                    ->where('status', 'terposting')
+                    ->exists();
+
+                if ($hasPostedDepreciation) {
+                    $skippedPosted++;
+                    continue;
+                }
+
+                $created = $this->generateDepreciationForAsset($asset, $periodeAwal, $periodeAkhir);
+                $assetCount++;
+                $depreciationCount += $created;
             }
 
             DB::commit();
 
+            $skipMessage = $skippedPosted > 0 ? " {$skippedPosted} asset dilewati karena sudah memiliki penyusutan terposting." : '';
+
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil generate {$count} penyusutan aset untuk periode {$request->periode}"
+                'message' => "Berhasil generate {$depreciationCount} penyusutan untuk {$assetCount} asset aktif dari filter periode {$periodeAwalInput} sampai {$periodeAkhirInput}.{$skipMessage}"
             ]);
 
         } catch (\Exception $e) {
@@ -813,6 +840,10 @@ class AssetTransactionController extends Controller
             $query->where('metode_penyusutan', $request->metode);
         }
 
+        if ($request->filled('nota_id')) {
+            $query->where('idnota', $request->nota_id);
+        }
+
         if ($request->filled('date_from')) {
             $query->whereDate('tanggal_pembelian', '>=', $request->date_from);
         }
@@ -822,6 +853,58 @@ class AssetTransactionController extends Controller
         }
 
         return $query;
+    }
+
+    private function generateDepreciationForAsset(Asset $asset, \Carbon\Carbon $periodeAwal, \Carbon\Carbon $periodeAkhir): int
+    {
+        AssetDepreciation::where('asset_id', $asset->id)->delete();
+
+        $count = 0;
+        for ($periode = $periodeAwal->copy(); $periode->lte($periodeAkhir); $periode->addMonth()) {
+            $periodeTanggal = $periode->toDateString();
+
+            if ($asset->tanggal_mulai_susut && $asset->tanggal_mulai_susut->copy()->startOfMonth()->gt($periode)) {
+                continue;
+            }
+
+            $lastDepreciation = AssetDepreciation::where('asset_id', $asset->id)
+                ->where('periode', '<', $periodeTanggal)
+                ->orderBy('periode', 'desc')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $bulanKe = $lastDepreciation ? $lastDepreciation->bulan_ke + 1 : 1;
+
+            if ($bulanKe > $asset->umur_ekonomis) {
+                continue;
+            }
+
+            $nilaiPenyusutan = $asset->calculateMonthlyDepreciation();
+            $akumulasiSebelum = $lastDepreciation ? $lastDepreciation->akumulasi_penyusutan : 0;
+            $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
+            $nilaiBuku = $asset->harga_perolehan - $akumulasiSekarang;
+
+            if ($nilaiBuku < $asset->nilai_residu) {
+                $nilaiPenyusutan = $asset->harga_perolehan - $asset->nilai_residu - $akumulasiSebelum;
+                $akumulasiSekarang = $akumulasiSebelum + $nilaiPenyusutan;
+                $nilaiBuku = $asset->nilai_residu;
+            }
+
+            AssetDepreciation::create([
+                'asset_id' => $asset->id,
+                'periode' => $periodeTanggal,
+                'bulan_ke' => $bulanKe,
+                'nilai_penyusutan' => $nilaiPenyusutan,
+                'akumulasi_penyusutan' => $akumulasiSekarang,
+                'nilai_buku' => $nilaiBuku,
+                'status' => 'terbentuk',
+                'keterangan' => 'Penyusutan bulanan'
+            ]);
+
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
