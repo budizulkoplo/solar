@@ -1147,7 +1147,7 @@ class AssetTransactionController extends Controller
     {
         DB::beginTransaction();
         try {
-            $asset = Asset::findOrFail($id);
+            $asset = Asset::with('nota')->findOrFail($id);
             
             // Cek apakah user memiliki hak akses
             $user = auth()->user();
@@ -1167,8 +1167,35 @@ class AssetTransactionController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Tidak dapat menghapus asset yang sudah memiliki penyusutan terposting'
-                ]);
+                ]); 
             }
+
+            $refundAmount = (float) ($asset->harga_perolehan ?? 0);
+
+            // Kembalikan saldo jika aset ini berasal dari nota pembayaran cash
+            $payment = $asset->nota ? NotaPayment::where('idnota', $asset->nota->id)->first() : null;
+            if ($payment && $refundAmount > 0) {
+                $rekening = Rekening::find($payment->idrek);
+                if ($rekening) {
+                    $saldoAwal = $rekening->saldo;
+                    $rekening->saldo += $refundAmount;
+                    $rekening->save();
+
+                    Cashflow::create([
+                        'idrek' => $rekening->idrek,
+                        'idnota' => $asset->nota->id,
+                        'tanggal' => now()->format('Y-m-d'),
+                        'cashflow' => 'in',
+                        'nominal' => $refundAmount,
+                        'saldo_awal' => $saldoAwal,
+                        'saldo_akhir' => $rekening->saldo,
+                        'keterangan' => 'Rollback hapus asset: ' . $asset->nama_aset,
+                    ]);
+                }
+            }
+
+            // Hapus data mutasi aset bila ada
+            AssetMutation::where('asset_id', $asset->id)->delete();
 
             // Hapus semua penyusutan terkait
             AssetDepreciation::where('asset_id', $asset->id)->delete();
