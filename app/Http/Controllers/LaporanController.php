@@ -2138,6 +2138,10 @@ class LaporanController extends Controller
                 ->orderBy('kodetransaksi.kodetransaksi')
                 ->get();
 
+            $rows = $this->mergeLabaRugiRows(
+                $rows->concat($this->getPenjualanPaymentLabaRugiRows($startDate, $endDate, $module))
+            );
+
             $pendapatanGroups = [];
             $bebanGroups = [];
             $unmappedAccounts = [];
@@ -2533,6 +2537,10 @@ class LaporanController extends Controller
             ])
             ->get();
 
+        $rows = $this->mergeLabaRugiRows(
+            $rows->concat($this->getPenjualanPaymentLabaRugiRows($startDate, $endDate, $module))
+        );
+
         $totalPendapatan = 0;
         $totalBeban = 0;
 
@@ -2554,6 +2562,109 @@ class LaporanController extends Controller
             'total_pendapatan_raw' => $totalPendapatan,
             'total_beban_raw' => $totalBeban,
         ];
+    }
+
+    private function getPenjualanPaymentLabaRugiRows(string $startDate, string $endDate, string $module)
+    {
+        $kodeTransaksiSql = $this->penjualanPaymentKodeTransaksiCaseSql();
+
+        $query = DB::table('penjualan_payments as pp')
+            ->join('penjualans as pj', 'pp.penjualan_id', '=', 'pj.id')
+            ->join('unit_details as ud', 'pj.unit_detail_id', '=', 'ud.id')
+            ->join('units as u', 'ud.idunit', '=', 'u.id')
+            ->join('kodetransaksi', function ($join) use ($kodeTransaksiSql) {
+                $join->whereRaw("kodetransaksi.kodetransaksi = {$kodeTransaksiSql}");
+            })
+            ->leftJoin('labarugi_hdr', 'kodetransaksi.idlabarugi', '=', 'labarugi_hdr.id')
+            ->where('pp.status_payment', 'realized')
+            ->whereNull('pp.deleted_at')
+            ->whereNull('pj.deleted_at')
+            ->whereBetween('pp.tanggal_payment', [$startDate, $endDate]);
+
+        $this->applyPenjualanPaymentModuleFilter($query, $module);
+
+        return $query
+            ->selectRaw('
+                kodetransaksi.id as id_kodetransaksi,
+                kodetransaksi.kodetransaksi as kode_akun,
+                kodetransaksi.transaksi as nama_akun,
+                kodetransaksi.idlabarugi as id_labarugi,
+                labarugi_hdr.rincian as rincian_labarugi,
+                labarugi_hdr.cashflow as cashflow_labarugi,
+                labarugi_hdr.kode_pemasukan as kode_pemasukan,
+                labarugi_hdr.kode_pengeluaran as kode_pengeluaran,
+                COALESCE(SUM(pp.nominal), 0) as total_in,
+                0 as total_out
+            ')
+            ->groupBy([
+                'kodetransaksi.id',
+                'kodetransaksi.kodetransaksi',
+                'kodetransaksi.transaksi',
+                'kodetransaksi.idlabarugi',
+                'labarugi_hdr.rincian',
+                'labarugi_hdr.cashflow',
+                'labarugi_hdr.kode_pemasukan',
+                'labarugi_hdr.kode_pengeluaran',
+            ])
+            ->orderBy('kodetransaksi.kodetransaksi')
+            ->get();
+    }
+
+    private function mergeLabaRugiRows($rows)
+    {
+        return $rows
+            ->groupBy('id_kodetransaksi')
+            ->map(function ($group) {
+                $row = clone $group->first();
+                $row->total_in = $group->sum(fn ($item) => (float) $item->total_in);
+                $row->total_out = $group->sum(fn ($item) => (float) $item->total_out);
+
+                return $row;
+            })
+            ->sortBy('kode_akun')
+            ->values();
+    }
+
+    private function penjualanPaymentKodeTransaksiCaseSql(): string
+    {
+        return "
+            CASE
+                WHEN pp.jenis_payment = 'sbum' THEN '1083'
+                WHEN pp.jenis_payment = 'retensi' THEN '1082'
+                WHEN LOWER(COALESCE(u.namaunit, '')) LIKE '%ruko%'
+                    OR LOWER(COALESCE(u.tipe, '')) LIKE '%ruko%' THEN '1050'
+                WHEN LOWER(CONCAT_WS(' ', u.namaunit, u.tipe)) LIKE '%komersil%'
+                    OR LOWER(CONCAT_WS(' ', u.namaunit, u.tipe)) LIKE '%komersial%' THEN '1049'
+                ELSE '1048'
+            END
+        ";
+    }
+
+    private function applyPenjualanPaymentModuleFilter($query, string $module): void
+    {
+        if ($module === 'project') {
+            $projectId = session('active_project_id');
+            if (!$projectId) {
+                throw new \Exception('Project ID tidak ditemukan');
+            }
+
+            $query->where('u.idproject', $projectId);
+            return;
+        }
+
+        if ($module === 'company') {
+            $companyId = session('active_company_id');
+            if (!$companyId) {
+                throw new \Exception('Company ID tidak ditemukan');
+            }
+
+            $query
+                ->join('projects as pp_projects', 'u.idproject', '=', 'pp_projects.id')
+                ->where('pp_projects.idcompany', $companyId);
+            return;
+        }
+
+        throw new \Exception('Module tidak dikenali');
     }
 
     private function applyFinancialModuleFilter($query, string $module): void
