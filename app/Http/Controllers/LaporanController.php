@@ -3489,6 +3489,13 @@ class LaporanController extends Controller
         $neracaName = null;
         $isLongTerm = str_contains($name, 'jangka panjang') || str_contains($name, 'long term');
 
+        if (!empty($account['is_pembiayaan']) && isset($blueprint['hutang_pembiayaan_panjang'])) {
+            return array_merge(
+                ['key' => 'hutang_pembiayaan_panjang'],
+                $blueprint['hutang_pembiayaan_panjang']
+            );
+        }
+
         if ($idNeraca && $neracaHdrMap->has($idNeraca)) {
             $neracaName = strtolower((string) ($neracaHdrMap->get($idNeraca)->rincian ?? ''));
             $isLongTerm = $isLongTerm || str_contains($neracaName, 'jangka panjang') || str_contains($neracaName, 'long term');
