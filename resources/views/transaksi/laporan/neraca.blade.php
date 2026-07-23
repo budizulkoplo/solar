@@ -209,6 +209,9 @@
                 const map = {};
 
                 (groups || []).forEach(group => {
+                    const groupKey = normalizeTemplateLabel(group.rincian);
+                    map[groupKey] = Number(group.subtotal_raw || 0);
+
                     (group.items || []).forEach(item => {
                         const key = normalizeTemplateLabel(item.nama_akun);
                         map[key] = Number(item.nilai_raw || 0);

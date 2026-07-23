@@ -2785,7 +2785,7 @@ class LaporanController extends Controller
 
         return [
             'kode' => '2-PBY-LT',
-            'nama_akun' => 'Hutang Pembiayaan Jangka Panjang',
+            'nama_akun' => 'Hutang Pembiayaan (Jangka Panjang)',
             'jenis' => 'liabilitas',
             'debit' => '0',
             'kredit' => number_format($outstanding, 0, ',', '.'),
