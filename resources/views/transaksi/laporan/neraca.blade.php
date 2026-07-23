@@ -19,6 +19,12 @@
                         <button type="button" class="btn btn-primary btn-sm" id="btnFilter">
                             <i class="bi bi-search"></i> Filter
                         </button>
+                        <button type="button" class="btn btn-success btn-sm" id="btnExportExcel">
+                            <i class="bi bi-file-earmark-excel"></i> Excel
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" id="btnPrintPdf">
+                            <i class="bi bi-file-earmark-pdf"></i> PDF
+                        </button>
                     </div>
                 </div>
             </div>
@@ -261,7 +267,7 @@
                     { no: 'd.', label: 'Hutang Jangka Pendek', value: null, isHeader: true },
                     { no: '1', label: 'Hutang Usaha', value: pasivaMap[normalizeTemplateLabel('Hutang Usaha')] ?? 0 },
                     { no: '2', label: 'Hutang Bank', value: pasivaMap[normalizeTemplateLabel('Hutang Bank')] ?? 0 },
-                    { no: '3', label: 'Hutang Pembiayaan', value: pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan / Kredit Modal Kerja')] ?? 0 },
+                    { no: '3', label: 'Hutang Pembiayaan', value: 0, systemValue: true },
                     { no: '4', label: 'Hutang Pajak', value: pasivaMap[normalizeTemplateLabel('Hutang Pajak')] ?? 0 },
                     { no: '5', label: 'Hutang Aset', value: pasivaMap[normalizeTemplateLabel('Hutang Aset')] ?? 0 },
                     { no: '6', label: 'Uang muka yang diterima (Pendapatan diterima dimuka)', value: pasivaMap[normalizeTemplateLabel('Uang Muka yang Diterima (Pendapatan Diterima Dimuka)')] ?? 0 },
@@ -270,7 +276,7 @@
                     { no: 'e.', label: 'Hutang Jangka Panjang', value: null, isHeader: true },
                     { no: '1', label: 'Hutang Usaha', value: pasivaMap[normalizeTemplateLabel('Hutang Usaha (Jangka Panjang)')] ?? 0 },
                     { no: '2', label: 'Hutang Bank', value: pasivaMap[normalizeTemplateLabel('Hutang Bank (Jangka Panjang)')] ?? 0 },
-                    { no: '3', label: 'Hutang Pembiayaan', value: response.pembiayaan?.hutang_jangka_panjang_raw ?? pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan (Jangka Panjang)')] ?? 0, systemValue: true },
+                    { no: '3', label: 'Hutang Pembiayaan', value: Math.max(0, Number(response.pembiayaan?.hutang_jangka_panjang_raw ?? pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan (Jangka Panjang)')] ?? 0)), systemValue: true },
                     { no: '4', label: 'Hutang Pajak', value: pasivaMap[normalizeTemplateLabel('Hutang Pajak (Jangka Panjang)')] ?? 0 },
                     { no: '5', label: 'Hutang Aset', value: pasivaMap[normalizeTemplateLabel('Hutang Aset (Jangka Panjang)')] ?? 0 },
                     { no: '6', label: 'Hutang Lain - lain', value: pasivaMap[normalizeTemplateLabel('Hutang Lain - lain (Jangka Panjang)')] ?? 0 },
@@ -523,6 +529,22 @@
             $(document).ready(function() {
                 $('#btnFilter').on('click', loadNeraca);
                 $('#start_date, #end_date, #module').on('change', loadNeraca);
+                $('#btnExportExcel').on('click', function() {
+                    const params = $.param({
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        module: $('#module').val()
+                    });
+                    window.location.href = "{{ route('laporan.neraca.export-excel') }}?" + params;
+                });
+                $('#btnPrintPdf').on('click', function() {
+                    const params = $.param({
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        module: $('#module').val()
+                    });
+                    window.open("{{ route('laporan.neraca.print') }}?" + params, '_blank');
+                });
                 $(document).on('change blur', '.neraca-value-input', function(e) {
                     if (e.type === 'blur' && this.dataset.savedOnChange === '1') {
                         this.dataset.savedOnChange = '';

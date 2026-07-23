@@ -2020,6 +2020,206 @@ class LaporanController extends Controller
         }
     }
 
+    public function exportNeracaExcel(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $report = $this->buildNeracaTemplateReport($startDate, $endDate, $module);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Neraca');
+        $sheet->setCellValue('A1', 'Laporan Neraca');
+        $sheet->setCellValue('A2', 'Periode: ' . $startDate . ' s/d ' . $endDate);
+        $sheet->setCellValue('A3', 'Module: ' . ($module === 'company' ? 'PT/Company' : 'Project'));
+        $sheet->setCellValue('A5', 'AKTIVA');
+        $sheet->setCellValue('D5', 'PASIVA');
+        $sheet->fromArray(['No', 'Akun', 'Nilai', 'No', 'Akun', 'Nilai'], null, 'A6');
+
+        $row = 7;
+        $maxRows = max(count($report['aktiva_rows']), count($report['pasiva_rows']));
+        for ($i = 0; $i < $maxRows; $i++) {
+            $aktiva = $report['aktiva_rows'][$i] ?? ['no' => '', 'label' => '', 'value' => null];
+            $pasiva = $report['pasiva_rows'][$i] ?? ['no' => '', 'label' => '', 'value' => null];
+
+            $sheet->setCellValue('A' . $row, $aktiva['no']);
+            $sheet->setCellValue('B' . $row, $aktiva['label']);
+            $sheet->setCellValue('C' . $row, $aktiva['value']);
+            $sheet->setCellValue('D' . $row, $pasiva['no']);
+            $sheet->setCellValue('E' . $row, $pasiva['label']);
+            $sheet->setCellValue('F' . $row, $pasiva['value']);
+            $row++;
+        }
+
+        $sheet->setCellValue('B' . $row, 'Total Aktiva');
+        $sheet->setCellValue('C' . $row, $report['total_aktiva']);
+        $sheet->setCellValue('E' . $row, 'Total Pasiva');
+        $sheet->setCellValue('F' . $row, $report['total_pasiva']);
+        $sheet->getStyle('A1:F6')->getFont()->setBold(true);
+        $sheet->getStyle('C7:C' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('F7:F' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        foreach (range('A', 'F') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'laporan-neraca-' . $module . '-' . $startDate . '-' . $endDate . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function printNeraca(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $report = $this->buildNeracaTemplateReport($startDate, $endDate, $module);
+
+        $pdf = \PDF::loadView('transaksi.laporan.pdf.neraca', [
+            'report' => $report,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'module' => $module,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('laporan-neraca-' . $module . '-' . $startDate . '-' . $endDate . '.pdf');
+    }
+
+    private function buildNeracaTemplateReport(string $startDate, string $endDate, string $module): array
+    {
+        if ($module === 'project') {
+            $saldoData = $this->getNeracaSaldoProject($startDate, $endDate);
+        } elseif ($module === 'company') {
+            $saldoData = $this->getNeracaSaldoCompany($startDate, $endDate);
+        } else {
+            throw new \Exception('Module tidak dikenali');
+        }
+
+        $neracaData = $this->buildNeracaFromSaldo($saldoData['accounts']);
+        $customAktiva = $this->buildAktivaTemplate($module, $endDate);
+        $aktivaMap = $this->makeNeracaValueMap($customAktiva['groups']);
+        $pasivaMap = $this->makeNeracaValueMap($neracaData['data']['pasiva_groups']);
+        $hutangPembiayaan = max(0, $this->getPembiayaanOutstandingValue($module, $endDate));
+
+        $aktivaRows = [
+            ['no' => 'a.', 'label' => 'Aktiva Lancar', 'value' => null, 'is_header' => true],
+            ['no' => '1', 'label' => 'Kas dan Bank (saldo)', 'value' => $aktivaMap['kas dan bank (saldo)'] ?? 0],
+            ['no' => '2', 'label' => 'Piutang Usaha', 'value' => $aktivaMap['piutang usaha'] ?? 0],
+            ['no' => '3', 'label' => 'Biaya Dibayar Dimuka', 'value' => $aktivaMap['biaya dibayar dimuka'] ?? 0],
+            ['no' => '4', 'label' => 'Uang Muka Pembelian', 'value' => $aktivaMap['uang muka pembelian'] ?? 0],
+            ['no' => '5', 'label' => 'Sewa Dibayar Dimuka', 'value' => $aktivaMap['sewa dibayar dimuka'] ?? 0],
+            ['no' => '6', 'label' => 'Persediaan Real Estate (Tanah & Bangunan Siap Jual)', 'value' => $aktivaMap['persediaan real estate (tanah & bangunan siap jual)'] ?? 0],
+            ['no' => '', 'label' => 'Bangunan', 'value' => $aktivaMap['bangunan'] ?? 0],
+            ['no' => '', 'label' => 'Bahan Baku', 'value' => $aktivaMap['bahan baku'] ?? 0],
+            ['no' => '', 'label' => 'Tanah', 'value' => $aktivaMap['tanah'] ?? 0],
+            ['no' => '', 'label' => 'Sub Total Aktiva Lancar', 'value' => 0, 'is_subtotal' => true],
+            ['no' => 'b.', 'label' => 'Aktiva Tetap', 'value' => null, 'is_header' => true],
+            ['no' => '1', 'label' => 'Tanah', 'value' => 0],
+            ['no' => '2', 'label' => 'Bangunan', 'value' => 0],
+            ['no' => '3', 'label' => 'Inventaris Kantor', 'value' => 0],
+            ['no' => '4', 'label' => 'Kendaraan', 'value' => 0],
+            ['no' => '5', 'label' => 'Peralatan Kantor', 'value' => 0],
+            ['no' => '6', 'label' => 'Peralatan Proyek', 'value' => 0],
+            ['no' => '7', 'label' => 'Akumulasi Penyusutan (-)', 'value' => 0],
+            ['no' => '', 'label' => 'Sub Total Aktiva Tetap', 'value' => 0, 'is_subtotal' => true],
+            ['no' => 'c.', 'label' => 'Aktiva Lancar Lainnya', 'value' => null, 'is_header' => true],
+            ['no' => '1', 'label' => 'Piutang Pengurus', 'value' => 0],
+            ['no' => '2', 'label' => 'Piutang Karyawan', 'value' => 0],
+            ['no' => '3', 'label' => 'Piutang Lainnya', 'value' => 0],
+            ['no' => '4', 'label' => 'Piutang Antar Perusahaan', 'value' => 0],
+            ['no' => '', 'label' => 'Sub Total Aktiva Lancar Lainnya', 'value' => 0, 'is_subtotal' => true],
+        ];
+
+        $pasivaRows = [
+            ['no' => 'd.', 'label' => 'Hutang Jangka Pendek', 'value' => null, 'is_header' => true],
+            ['no' => '1', 'label' => 'Hutang Usaha', 'value' => $pasivaMap['hutang usaha'] ?? 0],
+            ['no' => '2', 'label' => 'Hutang Bank', 'value' => $pasivaMap['hutang bank'] ?? 0],
+            ['no' => '3', 'label' => 'Hutang Pembiayaan', 'value' => 0],
+            ['no' => '4', 'label' => 'Hutang Pajak', 'value' => $pasivaMap['hutang pajak'] ?? 0],
+            ['no' => '5', 'label' => 'Hutang Aset', 'value' => $pasivaMap['hutang aset'] ?? 0],
+            ['no' => '6', 'label' => 'Uang muka yang diterima (Pendapatan diterima dimuka)', 'value' => $pasivaMap['uang muka yang diterima (pendapatan diterima dimuka)'] ?? 0],
+            ['no' => '7', 'label' => 'Hutang Lain-Lain', 'value' => $pasivaMap['hutang lain-lain'] ?? 0],
+            ['no' => '', 'label' => 'Sub Total Hutang Jangka Pendek', 'value' => 0, 'is_subtotal' => true],
+            ['no' => 'e.', 'label' => 'Hutang Jangka Panjang', 'value' => null, 'is_header' => true],
+            ['no' => '1', 'label' => 'Hutang Usaha', 'value' => $pasivaMap['hutang usaha (jangka panjang)'] ?? 0],
+            ['no' => '2', 'label' => 'Hutang Bank', 'value' => $pasivaMap['hutang bank (jangka panjang)'] ?? 0],
+            ['no' => '3', 'label' => 'Hutang Pembiayaan', 'value' => $hutangPembiayaan],
+            ['no' => '4', 'label' => 'Hutang Pajak', 'value' => $pasivaMap['hutang pajak (jangka panjang)'] ?? 0],
+            ['no' => '5', 'label' => 'Hutang Aset', 'value' => $pasivaMap['hutang aset (jangka panjang)'] ?? 0],
+            ['no' => '6', 'label' => 'Hutang Lain - lain', 'value' => $pasivaMap['hutang lain - lain (jangka panjang)'] ?? 0],
+            ['no' => '', 'label' => 'Sub Total Hutang Jangka Panjang', 'value' => 0, 'is_subtotal' => true],
+            ['no' => 'f.', 'label' => 'Ekuitas', 'value' => null, 'is_header' => true],
+            ['no' => '1', 'label' => 'Modal Disetor', 'value' => $pasivaMap['modal disetor'] ?? 0],
+            ['no' => '2', 'label' => 'Laba Ditahan', 'value' => $pasivaMap['laba ditahan'] ?? 0],
+            ['no' => '', 'label' => 'Sub Total Ekuitas', 'value' => 0, 'is_subtotal' => true],
+        ];
+
+        $this->recalculateNeracaTemplateSubtotals($aktivaRows);
+        $this->recalculateNeracaTemplateSubtotals($pasivaRows);
+
+        return [
+            'aktiva_rows' => $aktivaRows,
+            'pasiva_rows' => $pasivaRows,
+            'total_aktiva' => $this->sumNeracaLeafRows($aktivaRows),
+            'total_pasiva' => $this->sumNeracaLeafRows($pasivaRows),
+            'hutang_pembiayaan_jangka_panjang' => $hutangPembiayaan,
+        ];
+    }
+
+    private function makeNeracaValueMap(array $groups): array
+    {
+        $map = [];
+        foreach ($groups as $group) {
+            $map[$this->normalizeNeracaTemplateKey($group['rincian'] ?? '')] = (float) ($group['subtotal_raw'] ?? 0);
+            foreach (($group['items'] ?? []) as $item) {
+                $map[$this->normalizeNeracaTemplateKey($item['nama_akun'] ?? '')] = (float) ($item['nilai_raw'] ?? 0);
+            }
+            $map[$this->normalizeNeracaTemplateKey($group['subtotal_label'] ?? ('Sub Total ' . ($group['rincian'] ?? '')))] = (float) ($group['subtotal_raw'] ?? 0);
+        }
+        return $map;
+    }
+
+    private function normalizeNeracaTemplateKey(string $label): string
+    {
+        $label = str_replace('&nbsp;', ' ', $label);
+        return strtolower(trim(preg_replace('/\s+/', ' ', $label)));
+    }
+
+    private function recalculateNeracaTemplateSubtotals(array &$rows): void
+    {
+        $activeHeaderIndex = -1;
+        foreach ($rows as $index => &$row) {
+            if (!empty($row['is_header'])) {
+                $activeHeaderIndex = $index;
+                continue;
+            }
+
+            if (empty($row['is_subtotal'])) {
+                continue;
+            }
+
+            $total = 0;
+            for ($i = $activeHeaderIndex + 1; $i < $index; $i++) {
+                if (empty($rows[$i]['is_header']) && empty($rows[$i]['is_subtotal'])) {
+                    $total += (float) ($rows[$i]['value'] ?? 0);
+                }
+            }
+            $row['value'] = $total;
+        }
+        unset($row);
+    }
+
+    private function sumNeracaLeafRows(array $rows): float
+    {
+        return (float) collect($rows)
+            ->filter(fn ($row) => empty($row['is_header']) && empty($row['is_subtotal']))
+            ->sum(fn ($row) => (float) ($row['value'] ?? 0));
+    }
+
     private function getNeracaAdjustments(string $module, string $startDate, string $endDate): array
     {
         $scopeId = $this->getNeracaScopeId($module);

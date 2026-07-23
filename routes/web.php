@@ -235,6 +235,8 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
         Route::get('/neraca', [LaporanController::class, 'neraca'])->name('laporan.neraca');
         Route::get('/neraca/data', [LaporanController::class, 'neracaData'])->name('laporan.neraca.data');
+        Route::get('/neraca/export-excel', [LaporanController::class, 'exportNeracaExcel'])->name('laporan.neraca.export-excel');
+        Route::get('/neraca/print', [LaporanController::class, 'printNeraca'])->name('laporan.neraca.print');
         Route::post('/neraca/adjustment', [LaporanController::class, 'saveNeracaAdjustment'])->name('laporan.neraca.adjustment');
         
         Route::get('/laba-rugi', [LaporanController::class, 'labaRugi'])->name('laporan.laba-rugi');
