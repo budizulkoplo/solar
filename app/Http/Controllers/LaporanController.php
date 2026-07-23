@@ -2139,7 +2139,9 @@ class LaporanController extends Controller
                 ->get();
 
             $rows = $this->mergeLabaRugiRows(
-                $rows->concat($this->getPenjualanPaymentLabaRugiRows($startDate, $endDate, $module))
+                $rows
+                    ->concat($this->getPenjualanPaymentLabaRugiRows($startDate, $endDate, $module))
+                    ->concat($this->getPembiayaanMarginLabaRugiRows($startDate, $endDate, $module))
             );
 
             $pendapatanGroups = [];
@@ -2538,7 +2540,9 @@ class LaporanController extends Controller
             ->get();
 
         $rows = $this->mergeLabaRugiRows(
-            $rows->concat($this->getPenjualanPaymentLabaRugiRows($startDate, $endDate, $module))
+            $rows
+                ->concat($this->getPenjualanPaymentLabaRugiRows($startDate, $endDate, $module))
+                ->concat($this->getPembiayaanMarginLabaRugiRows($startDate, $endDate, $module))
         );
 
         $totalPendapatan = 0;
@@ -2608,6 +2612,39 @@ class LaporanController extends Controller
             ])
             ->orderBy('kodetransaksi.kodetransaksi')
             ->get();
+    }
+
+    private function getPembiayaanMarginLabaRugiRows(string $startDate, string $endDate, string $module)
+    {
+        $query = DB::table('pembiayaan_setoran as ps')
+            ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+            ->where('ps.status', 'paid')
+            ->whereNull('ps.deleted_at')
+            ->whereNull('p.deleted_at')
+            ->whereBetween('ps.tanggal', [$startDate, $endDate]);
+
+        $this->applyPembiayaanModuleFilter($query, $module);
+
+        $margin = (float) $query->sum('ps.margin');
+
+        if (abs($margin) < 0.5) {
+            return collect();
+        }
+
+        return collect([
+            (object) [
+                'id_kodetransaksi' => 'PEMBIAYAAN-MARGIN',
+                'kode_akun' => '5-PBY-MRG',
+                'nama_akun' => 'Beban Margin Pembiayaan',
+                'id_labarugi' => -1,
+                'rincian_labarugi' => 'Beban Margin Pembiayaan',
+                'cashflow_labarugi' => 'pengeluaran',
+                'kode_pemasukan' => null,
+                'kode_pengeluaran' => 'BEBAN PEMBIAYAAN',
+                'total_in' => 0,
+                'total_out' => $margin,
+            ],
+        ]);
     }
 
     private function mergeLabaRugiRows($rows)
@@ -2694,6 +2731,80 @@ class LaporanController extends Controller
         }
 
         throw new \Exception('Module tidak dikenali');
+    }
+
+    private function applyPembiayaanModuleFilter($query, string $module): void
+    {
+        if ($module === 'project') {
+            $projectId = session('active_project_id');
+            if (!$projectId) {
+                throw new \Exception('Project ID tidak ditemukan');
+            }
+
+            $query->where('p.jenis', 'project')
+                ->where('p.idproject', $projectId);
+            return;
+        }
+
+        if ($module === 'company') {
+            $companyId = session('active_company_id');
+            if (!$companyId) {
+                throw new \Exception('Company ID tidak ditemukan');
+            }
+
+            $projectIds = Project::query()
+                ->where('idcompany', $companyId)
+                ->pluck('id');
+
+            $query->where(function ($scope) use ($companyId, $projectIds) {
+                $scope->where(function ($companyScope) use ($companyId) {
+                    $companyScope->where('p.jenis', 'company')
+                        ->where('p.idcompany', $companyId);
+                })->orWhere(function ($projectScope) use ($projectIds) {
+                    $projectScope->where('p.jenis', 'project')
+                        ->whereIn('p.idproject', $projectIds);
+                });
+            });
+            return;
+        }
+
+        throw new \Exception('Module tidak dikenali');
+    }
+
+    private function getPembiayaanOutstandingAccount(string $module, string $endDate): ?array
+    {
+        $paidSetoran = DB::table('pembiayaan_setoran')
+            ->selectRaw('pembiayaan_id, COALESCE(SUM(pokok), 0) as total_pokok')
+            ->where('status', 'paid')
+            ->whereNull('deleted_at')
+            ->whereDate('tanggal', '<=', $endDate)
+            ->groupBy('pembiayaan_id');
+
+        $query = DB::table('pembiayaan as p')
+            ->leftJoinSub($paidSetoran, 'ps', 'ps.pembiayaan_id', '=', 'p.id')
+            ->whereNull('p.deleted_at')
+            ->whereDate('p.tanggal', '<=', $endDate)
+            ->whereNotIn('p.status', ['draft', 'rejected', 'cancel', 'canceled'])
+            ->selectRaw('COALESCE(SUM(p.nominal - COALESCE(ps.total_pokok, 0)), 0) as outstanding');
+
+        $this->applyPembiayaanModuleFilter($query, $module);
+
+        $outstanding = max(0, (float) ($query->value('outstanding') ?? 0));
+
+        if ($outstanding < 0.5) {
+            return null;
+        }
+
+        return [
+            'kode' => '2-PBY-LT',
+            'nama_akun' => 'Hutang Pembiayaan Jangka Panjang',
+            'jenis' => 'liabilitas',
+            'debit' => '0',
+            'kredit' => number_format($outstanding, 0, ',', '.'),
+            'debit_raw' => 0,
+            'kredit_raw' => $outstanding,
+            'is_pembiayaan' => true,
+        ];
     }
 
     /**
@@ -3607,6 +3718,13 @@ class LaporanController extends Controller
             }
         }
 
+        $pembiayaanOutstanding = $this->getPembiayaanOutstandingAccount('project', $endDate);
+        if ($pembiayaanOutstanding) {
+            $accounts[] = $pembiayaanOutstanding;
+            $totalDebit += $pembiayaanOutstanding['debit_raw'];
+            $totalKredit += $pembiayaanOutstanding['kredit_raw'];
+        }
+
         // Urutkan berdasarkan kode akun
         usort($accounts, function($a, $b) {
             return strcmp($a['kode'], $b['kode']);
@@ -3779,6 +3897,13 @@ class LaporanController extends Controller
                 $totalDebit += $debitAmount;
                 $totalKredit += $kreditAmount;
             }
+        }
+
+        $pembiayaanOutstanding = $this->getPembiayaanOutstandingAccount('company', $endDate);
+        if ($pembiayaanOutstanding) {
+            $accounts[] = $pembiayaanOutstanding;
+            $totalDebit += $pembiayaanOutstanding['debit_raw'];
+            $totalKredit += $pembiayaanOutstanding['kredit_raw'];
         }
 
         // Urutkan berdasarkan kode akun
