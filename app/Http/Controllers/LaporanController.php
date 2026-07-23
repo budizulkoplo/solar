@@ -1944,6 +1944,10 @@ class LaporanController extends Controller
                 'success' => true,
                 'data' => $neracaData['data'],
                 'summary' => $neracaData['summary'],
+                'pembiayaan' => [
+                    'hutang_jangka_panjang_raw' => $this->getPembiayaanOutstandingValue($module, $endDate),
+                    'margin_laba_rugi_raw' => $this->getPembiayaanMarginValue($startDate, $endDate, $module),
+                ],
                 'period' => [
                     'start' => $startDate,
                     'end' => $endDate,
@@ -2616,16 +2620,7 @@ class LaporanController extends Controller
 
     private function getPembiayaanMarginLabaRugiRows(string $startDate, string $endDate, string $module)
     {
-        $query = DB::table('pembiayaan_setoran as ps')
-            ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
-            ->where('ps.status', 'paid')
-            ->whereNull('ps.deleted_at')
-            ->whereNull('p.deleted_at')
-            ->whereBetween('ps.tanggal', [$startDate, $endDate]);
-
-        $this->applyPembiayaanModuleFilter($query, $module);
-
-        $margin = (float) $query->sum('ps.margin');
+        $margin = $this->getPembiayaanMarginValue($startDate, $endDate, $module);
 
         if (abs($margin) < 0.5) {
             return collect();
@@ -2645,6 +2640,20 @@ class LaporanController extends Controller
                 'total_out' => $margin,
             ],
         ]);
+    }
+
+    private function getPembiayaanMarginValue(string $startDate, string $endDate, string $module): float
+    {
+        $query = DB::table('pembiayaan_setoran as ps')
+            ->join('pembiayaan as p', 'ps.pembiayaan_id', '=', 'p.id')
+            ->where('ps.status', 'paid')
+            ->whereNull('ps.deleted_at')
+            ->whereNull('p.deleted_at')
+            ->whereBetween('ps.tanggal', [$startDate, $endDate]);
+
+        $this->applyPembiayaanModuleFilter($query, $module);
+
+        return (float) $query->sum('ps.margin');
     }
 
     private function mergeLabaRugiRows($rows)
@@ -2761,23 +2770,7 @@ class LaporanController extends Controller
 
     private function getPembiayaanOutstandingAccount(string $module, string $endDate): ?array
     {
-        $paidSetoran = DB::table('pembiayaan_setoran')
-            ->selectRaw('pembiayaan_id, COALESCE(SUM(pokok), 0) as total_pokok')
-            ->where('status', 'paid')
-            ->whereNull('deleted_at')
-            ->whereDate('tanggal', '<=', $endDate)
-            ->groupBy('pembiayaan_id');
-
-        $query = DB::table('pembiayaan as p')
-            ->leftJoinSub($paidSetoran, 'ps', 'ps.pembiayaan_id', '=', 'p.id')
-            ->whereNull('p.deleted_at')
-            ->whereDate('p.tanggal', '<=', $endDate)
-            ->whereNotIn('p.status', ['draft', 'rejected', 'cancel', 'canceled'])
-            ->selectRaw('COALESCE(SUM(p.nominal - COALESCE(ps.total_pokok, 0)), 0) as outstanding');
-
-        $this->applyPembiayaanModuleFilter($query, $module);
-
-        $outstanding = max(0, (float) ($query->value('outstanding') ?? 0));
+        $outstanding = $this->getPembiayaanOutstandingValue($module, $endDate);
 
         if ($outstanding < 0.5) {
             return null;
@@ -2793,6 +2786,27 @@ class LaporanController extends Controller
             'kredit_raw' => $outstanding,
             'is_pembiayaan' => true,
         ];
+    }
+
+    private function getPembiayaanOutstandingValue(string $module, string $endDate): float
+    {
+        $paidSetoran = DB::table('pembiayaan_setoran')
+            ->selectRaw('pembiayaan_id, COALESCE(SUM(pokok), 0) as total_pokok')
+            ->where('status', 'paid')
+            ->whereNull('deleted_at')
+            ->whereDate('tanggal', '<=', $endDate)
+            ->groupBy('pembiayaan_id');
+
+        $query = DB::table('pembiayaan as p')
+            ->leftJoinSub($paidSetoran, 'ps', 'ps.pembiayaan_id', '=', 'p.id')
+            ->whereNull('p.deleted_at')
+            ->whereDate('p.tanggal', '<=', $endDate)
+            ->whereNotIn('p.status', ['draft', 'rejected', 'cancel', 'canceled'])
+            ->selectRaw('COALESCE(SUM(GREATEST(p.nominal - COALESCE(ps.total_pokok, 0), 0)), 0) as outstanding');
+
+        $this->applyPembiayaanModuleFilter($query, $module);
+
+        return (float) ($query->value('outstanding') ?? 0);
     }
 
     /**

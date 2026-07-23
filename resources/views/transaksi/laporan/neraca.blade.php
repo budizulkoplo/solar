@@ -153,7 +153,7 @@
                     row.rowKey = makeNeracaRowKey(side, row, index);
 
                     const adjustment = adjustments?.[`${side}:${row.rowKey}`];
-                    if (!row.isHeader && !row.isSubtotal && adjustment) {
+                    if (!row.isHeader && !row.isSubtotal && !row.systemValue && adjustment) {
                         row.value = Number(adjustment.value || 0);
                         row.adjusted = true;
                     }
@@ -270,7 +270,7 @@
                     { no: 'e.', label: 'Hutang Jangka Panjang', value: null, isHeader: true },
                     { no: '1', label: 'Hutang Usaha', value: pasivaMap[normalizeTemplateLabel('Hutang Usaha (Jangka Panjang)')] ?? 0 },
                     { no: '2', label: 'Hutang Bank', value: pasivaMap[normalizeTemplateLabel('Hutang Bank (Jangka Panjang)')] ?? 0 },
-                    { no: '3', label: 'Hutang Pembiayaan', value: pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan (Jangka Panjang)')] ?? 0 },
+                    { no: '3', label: 'Hutang Pembiayaan', value: response.pembiayaan?.hutang_jangka_panjang_raw ?? pasivaMap[normalizeTemplateLabel('Hutang Pembiayaan (Jangka Panjang)')] ?? 0, systemValue: true },
                     { no: '4', label: 'Hutang Pajak', value: pasivaMap[normalizeTemplateLabel('Hutang Pajak (Jangka Panjang)')] ?? 0 },
                     { no: '5', label: 'Hutang Aset', value: pasivaMap[normalizeTemplateLabel('Hutang Aset (Jangka Panjang)')] ?? 0 },
                     { no: '6', label: 'Hutang Lain - lain', value: pasivaMap[normalizeTemplateLabel('Hutang Lain - lain (Jangka Panjang)')] ?? 0 },
