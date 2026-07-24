@@ -8,7 +8,7 @@
                     <h3 class="mb-0"><i class="bi bi-bar-chart-line"></i> Laporan Laba Rugi</h3>
                 </div>
                 <div class="col-sm-6 text-end">
-                    <div class="d-flex justify-content-end gap-2">
+                    <div class="d-flex justify-content-end gap-2 flex-wrap">
                         <input type="date" id="start_date" class="form-control form-control-sm w-auto" value="{{ $startDate }}">
                         <span class="align-self-center">s/d</span>
                         <input type="date" id="end_date" class="form-control form-control-sm w-auto" value="{{ $endDate }}">
@@ -18,6 +18,12 @@
                         </select>
                         <button type="button" class="btn btn-primary btn-sm" id="btnFilter">
                             <i class="bi bi-search"></i> Filter
+                        </button>
+                        <button type="button" class="btn btn-success btn-sm" id="btnExportExcel">
+                            <i class="bi bi-file-earmark-excel"></i> Excel
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" id="btnPrintPdf">
+                            <i class="bi bi-file-earmark-pdf"></i> PDF
                         </button>
                     </div>
                 </div>
@@ -191,6 +197,22 @@
             $(document).ready(function() {
                 $('#btnFilter').on('click', loadLabaRugi);
                 $('#start_date, #end_date, #module').on('change', loadLabaRugi);
+                $('#btnExportExcel').on('click', function() {
+                    const params = $.param({
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        module: $('#module').val()
+                    });
+                    window.location.href = "{{ route('laporan.laba-rugi.export-excel') }}?" + params;
+                });
+                $('#btnPrintPdf').on('click', function() {
+                    const params = $.param({
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        module: $('#module').val()
+                    });
+                    window.open("{{ route('laporan.laba-rugi.print') }}?" + params, '_blank');
+                });
                 loadLabaRugi();
             });
         </script>

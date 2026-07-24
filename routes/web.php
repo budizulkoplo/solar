@@ -241,8 +241,13 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         
         Route::get('/laba-rugi', [LaporanController::class, 'labaRugi'])->name('laporan.laba-rugi');
         Route::get('/laba-rugi/data', [LaporanController::class, 'labaRugiData'])->name('laporan.laba-rugi.data');
+        Route::get('/laba-rugi/export-excel', [LaporanController::class, 'exportLabaRugiExcel'])->name('laporan.laba-rugi.export-excel');
+        Route::get('/laba-rugi/print', [LaporanController::class, 'printLabaRugi'])->name('laporan.laba-rugi.print');
         Route::get('/perubahan-ekuitas', [LaporanController::class, 'perubahanEkuitas'])->name('laporan.perubahan-ekuitas');
         Route::get('/perubahan-ekuitas/data', [LaporanController::class, 'perubahanEkuitasData'])->name('laporan.perubahan-ekuitas.data');
+        Route::get('/perubahan-ekuitas/export-excel', [LaporanController::class, 'exportPerubahanEkuitasExcel'])->name('laporan.perubahan-ekuitas.export-excel');
+        Route::get('/perubahan-ekuitas/print', [LaporanController::class, 'printPerubahanEkuitas'])->name('laporan.perubahan-ekuitas.print');
+        Route::post('/perubahan-ekuitas/adjustment', [LaporanController::class, 'savePerubahanEkuitasAdjustment'])->name('laporan.perubahan-ekuitas.adjustment');
         Route::get('/neraca-saldo', [LaporanController::class, 'neracaSaldo'])->name('laporan.neraca-saldo');
         Route::get('/neraca-saldo/data', [LaporanController::class, 'neracaSaldoData'])->name('laporan.neraca-saldo.data');
         Route::post('/neraca-saldo/export-excel', [LaporanController::class, 'exportNeracaSaldoExcel'])->name('laporan.neraca-saldo.export-excel');

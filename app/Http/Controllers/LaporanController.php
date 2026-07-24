@@ -1927,6 +1927,7 @@ class LaporanController extends Controller
                 ], 400);
             }
 
+            $this->appendConstructionPayableAccount($saldoData['accounts'], $module, $endDate);
             $neracaData = $this->buildNeracaFromSaldo($saldoData['accounts']);
 
             if (in_array($module, ['company', 'project'], true)) {
@@ -2099,6 +2100,7 @@ class LaporanController extends Controller
             throw new \Exception('Module tidak dikenali');
         }
 
+        $this->appendConstructionPayableAccount($saldoData['accounts'], $module, $endDate);
         $neracaData = $this->buildNeracaFromSaldo($saldoData['accounts']);
         $customAktiva = $this->buildAktivaTemplate($module, $endDate);
         $aktivaMap = $this->makeNeracaValueMap($customAktiva['groups']);
@@ -2438,6 +2440,8 @@ class LaporanController extends Controller
             }
             unset($group);
 
+            $this->mergeBebanPembiayaanItems($bebanGroups);
+
             $labaKotor = $totalPendapatan - $totalHpp;
             $labaBersih = $totalPendapatan - $totalBeban;
 
@@ -2479,6 +2483,97 @@ class LaporanController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function exportLabaRugiExcel(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $report = $this->getLabaRugiReport($startDate, $endDate, $module);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Laba Rugi');
+        $sheet->setCellValue('A1', 'Laporan Laba Rugi');
+        $sheet->setCellValue('A2', 'Periode: ' . $startDate . ' s/d ' . $endDate);
+        $sheet->setCellValue('A3', 'Module: ' . ($module === 'company' ? 'PT/Company' : 'Project'));
+        $sheet->fromArray(['Kategori', 'Kode Akun', 'Nama Akun', 'Rincian', 'Nominal'], null, 'A5');
+
+        $row = 6;
+        foreach (['pendapatan_groups', 'beban_groups'] as $groupKey) {
+            foreach (($report['data'][$groupKey] ?? []) as $group) {
+                $sheet->setCellValue('A' . $row, $group['kategori']);
+                $sheet->setCellValue('E' . $row, $group['subtotal_raw']);
+                $sheet->getStyle('A' . $row . ':E' . $row)->getFont()->setBold(true);
+                $row++;
+
+                foreach ($group['items'] as $item) {
+                    $sheet->setCellValue('B' . $row, $item['kode_akun']);
+                    $sheet->setCellValue('C' . $row, $item['nama_akun']);
+                    $sheet->setCellValue('D' . $row, $item['rincian']);
+                    $sheet->setCellValue('E' . $row, $item['nominal_raw']);
+                    $row++;
+                }
+            }
+        }
+
+        $row++;
+        $sheet->setCellValue('D' . $row, 'Total Pendapatan');
+        $sheet->setCellValue('E' . $row, $report['summary']['total_pendapatan_raw']);
+        $row++;
+        $sheet->setCellValue('D' . $row, 'Total Beban');
+        $sheet->setCellValue('E' . $row, $report['summary']['total_beban_raw']);
+        $row++;
+        $sheet->setCellValue('D' . $row, 'Laba/Rugi Bersih');
+        $sheet->setCellValue('E' . $row, $report['summary']['laba_bersih_raw']);
+
+        $sheet->getStyle('A1:E5')->getFont()->setBold(true);
+        $sheet->getStyle('E6:E' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        foreach (range('A', 'E') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'laporan-laba-rugi-' . $module . '-' . $startDate . '-' . $endDate . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function printLabaRugi(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $report = $this->getLabaRugiReport($startDate, $endDate, $module);
+
+        $pdf = \PDF::loadView('transaksi.laporan.pdf.laba_rugi', [
+            'report' => $report,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'module' => $module,
+        ]);
+
+        return $pdf->stream('laporan-laba-rugi-' . $module . '-' . $startDate . '-' . $endDate . '.pdf');
+    }
+
+    private function getLabaRugiReport(string $startDate, string $endDate, string $module): array
+    {
+        $response = $this->labaRugiData(new Request([
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'module' => $module,
+        ]));
+
+        $report = $response->getData(true);
+        if (!($report['success'] ?? false)) {
+            throw new \Exception($report['message'] ?? 'Gagal membuat laporan laba rugi');
+        }
+
+        return $report;
     }
 
     /**
@@ -2531,6 +2626,117 @@ class LaporanController extends Controller
         }
     }
 
+    public function savePerubahanEkuitasAdjustment(Request $request)
+    {
+        $data = $request->validate([
+            'module' => 'required|in:project,company',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'row_key' => 'required|string|max:191',
+            'label' => 'required|string|max:255',
+            'field' => 'required|in:modal_disetor,laba_ditahan',
+            'value' => 'required|numeric',
+            'note' => 'nullable|string',
+        ]);
+
+        try {
+            $scopeId = $this->getNeracaScopeId($data['module']);
+
+            $adjustment = NeracaAdjustment::updateOrCreate(
+                [
+                    'module' => $data['module'],
+                    'scope_id' => $scopeId,
+                    'start_date' => $data['start_date'],
+                    'end_date' => $data['end_date'],
+                    'side' => $data['field'],
+                    'row_key' => $data['row_key'],
+                ],
+                [
+                    'label' => $data['label'],
+                    'value' => $data['value'],
+                    'note' => $data['note'] ?? null,
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id(),
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nilai perubahan ekuitas berhasil disimpan',
+                'adjustment' => [
+                    'field' => $adjustment->side,
+                    'row_key' => $adjustment->row_key,
+                    'label' => $adjustment->label,
+                    'value' => (float) $adjustment->value,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan adjustment: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function exportPerubahanEkuitasExcel(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfYear()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfYear()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $report = $this->buildPerubahanEkuitasReport($startDate, $endDate, $module);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Perubahan Ekuitas');
+        $sheet->setCellValue('A1', 'Laporan Perubahan Ekuitas');
+        $sheet->setCellValue('A2', 'Periode: ' . $startDate . ' s/d ' . $endDate);
+        $sheet->setCellValue('A3', 'Module: ' . ($module === 'company' ? 'PT/Company' : 'Project'));
+        $sheet->fromArray(['Keterangan', 'Modal Disetor', 'Laba Ditahan', 'Total Ekuitas'], null, 'A5');
+
+        $row = 6;
+        foreach ($report['data']['rows'] as $item) {
+            $sheet->setCellValue('A' . $row, $item['keterangan']);
+            $sheet->setCellValue('B' . $row, $item['modal_disetor_raw']);
+            $sheet->setCellValue('C' . $row, $item['laba_ditahan_raw']);
+            $sheet->setCellValue('D' . $row, $item['total_ekuitas_raw']);
+            if (empty($item['editable'])) {
+                $sheet->getStyle('A' . $row . ':D' . $row)->getFont()->setBold(true);
+            }
+            $row++;
+        }
+
+        $sheet->getStyle('A1:D5')->getFont()->setBold(true);
+        $sheet->getStyle('B6:D' . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
+        foreach (range('A', 'D') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'laporan-perubahan-ekuitas-' . $module . '-' . $startDate . '-' . $endDate . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function printPerubahanEkuitas(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfYear()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfYear()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $report = $this->buildPerubahanEkuitasReport($startDate, $endDate, $module);
+
+        $pdf = \PDF::loadView('transaksi.laporan.pdf.perubahan_ekuitas', [
+            'report' => $report,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'module' => $module,
+        ]);
+
+        return $pdf->stream('laporan-perubahan-ekuitas-' . $module . '-' . $startDate . '-' . $endDate . '.pdf');
+    }
+
     private function buildPerubahanEkuitasReport(string $startDate, string $endDate, string $module): array
     {
         $openingDate = Carbon::parse($startDate)->subDay()->format('Y-m-d');
@@ -2546,41 +2752,72 @@ class LaporanController extends Controller
         $koreksiEkuitas = $currentYearBalances['categories']['koreksi_ekuitas'] ?? 0;
         $labaRugiBerjalan = $profitLoss['laba_bersih_raw'] ?? 0;
 
-        $modalAkhir = $modalAwal + $tambahanModal;
-        $labaDitahanAkhir = $labaDitahanAwal + $labaRugiBerjalan + $pembagianDividen + $koreksiEkuitas;
-        $totalAkhir = $modalAkhir + $labaDitahanAkhir;
-
         $rows = [
             [
+                'row_key' => 'saldo_awal',
                 'keterangan' => 'Saldo Awal ' . Carbon::parse($startDate)->format('d F Y') . ' (berdasarkan saldo akhir periode sebelumnya)',
                 'modal_disetor_raw' => $modalAwal,
                 'laba_ditahan_raw' => $labaDitahanAwal,
+                'editable' => true,
             ],
             [
+                'row_key' => 'laba_rugi_berjalan',
                 'keterangan' => 'Laba/Rugi Tahun Berjalan',
                 'modal_disetor_raw' => 0,
                 'laba_ditahan_raw' => $labaRugiBerjalan,
+                'editable' => true,
             ],
             [
+                'row_key' => 'pembagian_dividen',
                 'keterangan' => 'Pembagian Dividen',
                 'modal_disetor_raw' => 0,
                 'laba_ditahan_raw' => $pembagianDividen,
+                'editable' => true,
             ],
             [
+                'row_key' => 'tambahan_modal_disetor',
                 'keterangan' => 'Tambahan Modal Disetor',
                 'modal_disetor_raw' => $tambahanModal,
                 'laba_ditahan_raw' => 0,
+                'editable' => true,
             ],
             [
+                'row_key' => 'koreksi_ekuitas',
                 'keterangan' => 'Koreksi Ekuitas',
                 'modal_disetor_raw' => 0,
                 'laba_ditahan_raw' => $koreksiEkuitas,
+                'editable' => true,
             ],
-            [
-                'keterangan' => 'Saldo Akhir ' . Carbon::parse($endDate)->format('d F Y'),
-                'modal_disetor_raw' => $modalAkhir,
-                'laba_ditahan_raw' => $labaDitahanAkhir,
-            ],
+        ];
+
+        $adjustments = $this->getPerubahanEkuitasAdjustments($module, $startDate, $endDate);
+        foreach ($rows as &$row) {
+            foreach (['modal_disetor', 'laba_ditahan'] as $field) {
+                $adjustment = $adjustments[$field . ':' . $row['row_key']] ?? null;
+                if ($adjustment) {
+                    $row[$field . '_raw'] = (float) $adjustment['value'];
+                    $row[$field . '_adjusted'] = true;
+                }
+            }
+        }
+        unset($row);
+
+        $modalAwal = (float) ($rows[0]['modal_disetor_raw'] ?? 0);
+        $labaDitahanAwal = (float) ($rows[0]['laba_ditahan_raw'] ?? 0);
+        $labaRugiBerjalan = (float) ($rows[1]['laba_ditahan_raw'] ?? 0);
+        $pembagianDividen = (float) ($rows[2]['laba_ditahan_raw'] ?? 0);
+        $tambahanModal = (float) ($rows[3]['modal_disetor_raw'] ?? 0);
+        $koreksiEkuitas = (float) ($rows[4]['laba_ditahan_raw'] ?? 0);
+        $modalAkhir = collect($rows)->sum(fn ($row) => (float) ($row['modal_disetor_raw'] ?? 0));
+        $labaDitahanAkhir = collect($rows)->sum(fn ($row) => (float) ($row['laba_ditahan_raw'] ?? 0));
+        $totalAkhir = $modalAkhir + $labaDitahanAkhir;
+
+        $rows[] = [
+            'row_key' => 'saldo_akhir',
+            'keterangan' => 'Saldo Akhir ' . Carbon::parse($endDate)->format('d F Y'),
+            'modal_disetor_raw' => $modalAkhir,
+            'laba_ditahan_raw' => $labaDitahanAkhir,
+            'editable' => false,
         ];
 
         foreach ($rows as &$row) {
@@ -2616,6 +2853,28 @@ class LaporanController extends Controller
                 'module' => $module
             ]
         ];
+    }
+
+    private function getPerubahanEkuitasAdjustments(string $module, string $startDate, string $endDate): array
+    {
+        $scopeId = $this->getNeracaScopeId($module);
+
+        return NeracaAdjustment::query()
+            ->where('module', $module)
+            ->where('scope_id', $scopeId)
+            ->whereDate('start_date', $startDate)
+            ->whereDate('end_date', $endDate)
+            ->whereIn('side', ['modal_disetor', 'laba_ditahan'])
+            ->get()
+            ->mapWithKeys(function ($adjustment) {
+                return [$adjustment->side . ':' . $adjustment->row_key => [
+                    'field' => $adjustment->side,
+                    'row_key' => $adjustment->row_key,
+                    'label' => $adjustment->label,
+                    'value' => (float) $adjustment->value,
+                ]];
+            })
+            ->all();
     }
 
     private function getPerubahanEkuitasBalances(?string $startDate, string $endDate, string $module): array
@@ -2856,6 +3115,36 @@ class LaporanController extends Controller
         return (float) $query->sum('ps.margin');
     }
 
+    private function mergeBebanPembiayaanItems(array &$bebanGroups): void
+    {
+        foreach ($bebanGroups as &$group) {
+            $kategori = strtolower((string) ($group['kategori'] ?? ''));
+            $items = $group['items'] ?? [];
+            $hasMarginItem = collect($items)->contains(function ($item) {
+                return ($item['kode_akun'] ?? '') === '5-PBY-MRG'
+                    || str_contains(strtolower((string) ($item['nama_akun'] ?? '')), 'margin pembiayaan');
+            });
+
+            if (!str_contains($kategori, 'pembiayaan') || !$hasMarginItem) {
+                continue;
+            }
+
+            $subtotal = (float) ($group['subtotal_raw'] ?? collect($items)->sum('nominal_raw'));
+            $group['items'] = [[
+                'id_kodetransaksi' => 'PEMBIAYAAN',
+                'id_labarugi' => null,
+                'kode_akun' => '5-PBY',
+                'nama_akun' => 'Beban Pembiayaan',
+                'rincian' => 'BEBAN PEMBIAYAAN',
+                'nominal_raw' => $subtotal,
+                'nominal' => number_format($subtotal, 0, ',', '.'),
+            ]];
+            $group['subtotal_raw'] = $subtotal;
+            $group['subtotal'] = number_format($subtotal, 0, ',', '.');
+        }
+        unset($group);
+    }
+
     private function mergeLabaRugiRows($rows)
     {
         return $rows
@@ -3005,6 +3294,70 @@ class LaporanController extends Controller
             ->selectRaw('COALESCE(SUM(GREATEST(p.nominal - COALESCE(ps.total_pokok, 0), 0)), 0) as outstanding');
 
         $this->applyPembiayaanModuleFilter($query, $module);
+
+        return (float) ($query->value('outstanding') ?? 0);
+    }
+
+    private function appendConstructionPayableAccount(array &$accounts, string $module, string $endDate): void
+    {
+        $outstanding = $this->getConstructionPayableValue($module, $endDate);
+
+        if ($outstanding < 0.5) {
+            return;
+        }
+
+        $accounts[] = [
+            'kode' => '2-KONS-HU',
+            'nama_akun' => 'Hutang Usaha Konstruksi',
+            'jenis' => 'liabilitas',
+            'debit' => '0',
+            'kredit' => number_format($outstanding, 0, ',', '.'),
+            'debit_raw' => 0,
+            'kredit_raw' => $outstanding,
+            'is_construction_payable' => true,
+        ];
+    }
+
+    private function getConstructionPayableValue(string $module, string $endDate): float
+    {
+        $paymentSubQuery = DB::table('nota_payments')
+            ->selectRaw('idnota, COALESCE(SUM(jumlah), 0) as total_payment')
+            ->whereDate('tanggal', '<=', $endDate)
+            ->groupBy('idnota');
+
+        $query = DB::table('notas')
+            ->leftJoinSub($paymentSubQuery, 'payments_total', function ($join) {
+                $join->on('notas.id', '=', 'payments_total.idnota');
+            })
+            ->where('notas.type', 'konstruksi')
+            ->where('notas.cashflow', 'out')
+            ->whereNotNull('notas.pekerjaan_konstruksi_id')
+            ->whereDate('notas.tanggal', '<=', $endDate)
+            ->whereNull('notas.deleted_at')
+            ->whereNotIn('notas.status', ['paid', 'cancel', 'canceled'])
+            ->selectRaw('COALESCE(SUM(GREATEST(notas.total - COALESCE(payments_total.total_payment, 0), 0)), 0) as outstanding');
+
+        if ($module === 'project') {
+            $projectId = session('active_project_id');
+            if (!$projectId) {
+                throw new \Exception('Project ID tidak ditemukan');
+            }
+
+            $query->where('notas.idproject', $projectId);
+        } elseif ($module === 'company') {
+            $companyId = session('active_company_id');
+            if (!$companyId) {
+                throw new \Exception('Company ID tidak ditemukan');
+            }
+
+            $projects = Project::query()
+                ->where('idcompany', $companyId)
+                ->pluck('id');
+
+            $query->whereIn('notas.idproject', $projects);
+        } else {
+            throw new \Exception('Module tidak dikenali');
+        }
 
         return (float) ($query->value('outstanding') ?? 0);
     }
