@@ -233,6 +233,10 @@
             function buildCompanyTemplateRows(response) {
                 const aktivaMap = collectTemplateValueMap(response.data?.aktiva_groups || []);
                 const pasivaMap = collectTemplateValueMap(response.data?.pasiva_groups || []);
+                const hutangUsahaKonstruksi = Number(response.construction_payable?.hutang_usaha_raw ?? 0);
+                const hutangUsahaKonstruksiIncluded = pasivaMap[normalizeTemplateLabel('Hutang Usaha Konstruksi')] !== undefined;
+                const hutangUsahaValue = Number(pasivaMap[normalizeTemplateLabel('Hutang Usaha')] ?? 0)
+                    + (hutangUsahaKonstruksiIncluded ? 0 : hutangUsahaKonstruksi);
 
                 const aktivaRows = [
                     { no: 'a.', label: 'Aktiva Lancar', value: null, isHeader: true },
@@ -265,7 +269,7 @@
 
                 const pasivaRows = [
                     { no: 'd.', label: 'Hutang Jangka Pendek', value: null, isHeader: true },
-                    { no: '1', label: 'Hutang Usaha', value: pasivaMap[normalizeTemplateLabel('Hutang Usaha')] ?? 0 },
+                    { no: '1', label: 'Hutang Usaha', value: hutangUsahaValue, systemValue: hutangUsahaKonstruksi > 0 },
                     { no: '2', label: 'Hutang Bank', value: pasivaMap[normalizeTemplateLabel('Hutang Bank')] ?? 0 },
                     { no: '3', label: 'Hutang Pembiayaan', value: 0, systemValue: true },
                     { no: '4', label: 'Hutang Pajak', value: pasivaMap[normalizeTemplateLabel('Hutang Pajak')] ?? 0 },

@@ -1949,6 +1949,9 @@ class LaporanController extends Controller
                     'hutang_jangka_panjang_raw' => $this->getPembiayaanOutstandingValue($module, $endDate),
                     'margin_laba_rugi_raw' => $this->getPembiayaanMarginValue($startDate, $endDate, $module),
                 ],
+                'construction_payable' => [
+                    'hutang_usaha_raw' => $this->getConstructionPayableValue($module, $endDate),
+                ],
                 'period' => [
                     'start' => $startDate,
                     'end' => $endDate,
@@ -2106,6 +2109,11 @@ class LaporanController extends Controller
         $aktivaMap = $this->makeNeracaValueMap($customAktiva['groups']);
         $pasivaMap = $this->makeNeracaValueMap($neracaData['data']['pasiva_groups']);
         $hutangPembiayaan = max(0, $this->getPembiayaanOutstandingValue($module, $endDate));
+        $hutangUsahaKonstruksi = $this->getConstructionPayableValue($module, $endDate);
+        $hutangUsahaValue = (float) ($pasivaMap['hutang usaha'] ?? 0);
+        if (!array_key_exists('hutang usaha konstruksi', $pasivaMap)) {
+            $hutangUsahaValue += $hutangUsahaKonstruksi;
+        }
 
         $aktivaRows = [
             ['no' => 'a.', 'label' => 'Aktiva Lancar', 'value' => null, 'is_header' => true],
@@ -2138,7 +2146,7 @@ class LaporanController extends Controller
 
         $pasivaRows = [
             ['no' => 'd.', 'label' => 'Hutang Jangka Pendek', 'value' => null, 'is_header' => true],
-            ['no' => '1', 'label' => 'Hutang Usaha', 'value' => $pasivaMap['hutang usaha'] ?? 0],
+            ['no' => '1', 'label' => 'Hutang Usaha', 'value' => $hutangUsahaValue],
             ['no' => '2', 'label' => 'Hutang Bank', 'value' => $pasivaMap['hutang bank'] ?? 0],
             ['no' => '3', 'label' => 'Hutang Pembiayaan', 'value' => 0],
             ['no' => '4', 'label' => 'Hutang Pajak', 'value' => $pasivaMap['hutang pajak'] ?? 0],
@@ -2406,7 +2414,7 @@ class LaporanController extends Controller
                 }
 
                 if ($isPengeluaran) {
-                    $groupName = (string) ($row->kode_pengeluaran ?: 'BEBAN LAINNYA');
+                    $groupName = $this->normalizeLabaRugiBebanGroupName((string) ($row->kode_pengeluaran ?: 'BEBAN LAINNYA'));
                     $groupKey = 'B-' . $groupName;
 
                     if (!isset($bebanGroups[$groupKey])) {
@@ -3115,32 +3123,57 @@ class LaporanController extends Controller
         return (float) $query->sum('ps.margin');
     }
 
+    private function normalizeLabaRugiBebanGroupName(string $groupName): string
+    {
+        return str_contains(strtolower($groupName), 'pembiayaan') ? 'BEBAN' : $groupName;
+    }
+
     private function mergeBebanPembiayaanItems(array &$bebanGroups): void
     {
         foreach ($bebanGroups as &$group) {
-            $kategori = strtolower((string) ($group['kategori'] ?? ''));
             $items = $group['items'] ?? [];
-            $hasMarginItem = collect($items)->contains(function ($item) {
-                return ($item['kode_akun'] ?? '') === '5-PBY-MRG'
-                    || str_contains(strtolower((string) ($item['nama_akun'] ?? '')), 'margin pembiayaan');
+            $pembiayaanItems = collect($items)->filter(function ($item) {
+                $kode = (string) ($item['kode_akun'] ?? '');
+                $nama = strtolower((string) ($item['nama_akun'] ?? ''));
+                $rincian = strtolower((string) ($item['rincian'] ?? ''));
+
+                return str_starts_with($kode, '5-PBY')
+                    || str_contains($nama, 'pembiayaan')
+                    || str_contains($rincian, 'pembiayaan');
             });
 
-            if (!str_contains($kategori, 'pembiayaan') || !$hasMarginItem) {
+            if ($pembiayaanItems->isEmpty()) {
                 continue;
             }
 
-            $subtotal = (float) ($group['subtotal_raw'] ?? collect($items)->sum('nominal_raw'));
-            $group['items'] = [[
+            $pembiayaanTotal = (float) $pembiayaanItems->sum(fn ($item) => (float) ($item['nominal_raw'] ?? 0));
+            $nonPembiayaanItems = collect($items)
+                ->reject(function ($item) {
+                    $kode = (string) ($item['kode_akun'] ?? '');
+                    $nama = strtolower((string) ($item['nama_akun'] ?? ''));
+                    $rincian = strtolower((string) ($item['rincian'] ?? ''));
+
+                    return str_starts_with($kode, '5-PBY')
+                        || str_contains($nama, 'pembiayaan')
+                        || str_contains($rincian, 'pembiayaan');
+                })
+                ->values()
+                ->all();
+
+            $nonPembiayaanItems[] = [
                 'id_kodetransaksi' => 'PEMBIAYAAN',
                 'id_labarugi' => null,
                 'kode_akun' => '5-PBY',
                 'nama_akun' => 'Beban Pembiayaan',
                 'rincian' => 'BEBAN PEMBIAYAAN',
-                'nominal_raw' => $subtotal,
-                'nominal' => number_format($subtotal, 0, ',', '.'),
-            ]];
-            $group['subtotal_raw'] = $subtotal;
-            $group['subtotal'] = number_format($subtotal, 0, ',', '.');
+                'nominal_raw' => $pembiayaanTotal,
+                'nominal' => number_format($pembiayaanTotal, 0, ',', '.'),
+            ];
+
+            usort($nonPembiayaanItems, fn($a, $b) => strcmp($a['kode_akun'], $b['kode_akun']));
+            $group['items'] = $nonPembiayaanItems;
+            $group['subtotal_raw'] = (float) collect($nonPembiayaanItems)->sum(fn ($item) => (float) ($item['nominal_raw'] ?? 0));
+            $group['subtotal'] = number_format($group['subtotal_raw'], 0, ',', '.');
         }
         unset($group);
     }
@@ -3329,7 +3362,6 @@ class LaporanController extends Controller
             ->leftJoinSub($paymentSubQuery, 'payments_total', function ($join) {
                 $join->on('notas.id', '=', 'payments_total.idnota');
             })
-            ->where('notas.type', 'konstruksi')
             ->where('notas.cashflow', 'out')
             ->whereNotNull('notas.pekerjaan_konstruksi_id')
             ->whereDate('notas.tanggal', '<=', $endDate)
@@ -4055,6 +4087,13 @@ class LaporanController extends Controller
         $idNeraca = $account['idneraca'] ?? null;
         $neracaName = null;
         $isLongTerm = str_contains($name, 'jangka panjang') || str_contains($name, 'long term');
+
+        if (!empty($account['is_construction_payable']) && isset($blueprint['hutang_usaha_pendek'])) {
+            return array_merge(
+                ['key' => 'hutang_usaha_pendek'],
+                $blueprint['hutang_usaha_pendek']
+            );
+        }
 
         if (!empty($account['is_pembiayaan']) && isset($blueprint['hutang_pembiayaan_panjang'])) {
             return array_merge(
