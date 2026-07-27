@@ -124,12 +124,12 @@
     <x-slot name="jscustom">
         <script>
             function formatRupiah(value) {
-                const number = Number(value || 0);
+                const number = Math.abs(Number(value || 0));
                 return 'Rp ' + number.toLocaleString('id-ID');
             }
 
             function parseRupiah(value) {
-                return Number(String(value || '0').replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
+                return Math.abs(Number(String(value || '0').replace(/[^\d,-]/g, '').replace(',', '.')) || 0);
             }
 
             function formatDisplayDate(dateString) {
@@ -160,7 +160,7 @@
 
                     const adjustment = adjustments?.[`${side}:${row.rowKey}`];
                     if (!row.isHeader && !row.isSubtotal && !row.systemValue && adjustment) {
-                        row.value = Number(adjustment.value || 0);
+                        row.value = Math.abs(Number(adjustment.value || 0));
                         row.adjusted = true;
                     }
                 });
@@ -182,14 +182,20 @@
                     const items = rows.slice(activeHeaderIndex + 1, index);
                     row.value = items
                         .filter(item => !item.isHeader && !item.isSubtotal)
-                        .reduce((total, item) => total + Number(item.value || 0), 0);
+                        .reduce((total, item) => {
+                            const value = Math.abs(Number(item.value || 0));
+                            return total + (item.isContra ? -value : value);
+                        }, 0);
                 });
             }
 
             function getTemplateLeafTotal(rows) {
                 return rows
                     .filter(row => !row.isHeader && !row.isSubtotal)
-                    .reduce((total, row) => total + Number(row.value || 0), 0);
+                    .reduce((total, row) => {
+                        const value = Math.abs(Number(row.value || 0));
+                        return total + (row.isContra ? -value : value);
+                    }, 0);
             }
 
             function renderEditableValueCell(row) {
@@ -204,7 +210,7 @@
                 return `
                     <input type="text"
                         class="form-control form-control-sm text-end neraca-value-input ${row.adjusted ? 'is-valid' : ''}"
-                        value="${Number(row.value || 0).toLocaleString('id-ID')}"
+                        value="${Math.abs(Number(row.value || 0)).toLocaleString('id-ID')}"
                         data-side="${row.side}"
                         data-row-key="${row.rowKey}"
                         data-label="${String(row.label || '').replace(/"/g, '&quot;')}">
@@ -230,8 +236,18 @@
                 return map;
             }
 
+            function getTemplateGroupItemValue(groups, groupLabel, itemLabel, defaultValue = 0) {
+                const targetGroup = normalizeTemplateLabel(groupLabel);
+                const targetItem = normalizeTemplateLabel(itemLabel);
+                const group = (groups || []).find(row => normalizeTemplateLabel(row.rincian) === targetGroup);
+                const item = (group?.items || []).find(row => normalizeTemplateLabel(row.nama_akun) === targetItem);
+
+                return Math.abs(Number(item?.nilai_raw ?? defaultValue));
+            }
+
             function buildCompanyTemplateRows(response) {
-                const aktivaMap = collectTemplateValueMap(response.data?.aktiva_groups || []);
+                const aktivaGroups = response.data?.aktiva_groups || [];
+                const aktivaMap = collectTemplateValueMap(aktivaGroups);
                 const pasivaMap = collectTemplateValueMap(response.data?.pasiva_groups || []);
                 const hutangUsahaKonstruksi = Number(response.construction_payable?.hutang_usaha_raw ?? 0);
                 const hutangUsahaKonstruksiIncluded = pasivaMap[normalizeTemplateLabel('Hutang Usaha Konstruksi')] !== undefined;
@@ -246,19 +262,19 @@
                     { no: '4', label: 'Uang Muka Pembelian', value: aktivaMap[normalizeTemplateLabel('Uang Muka Pembelian')] ?? 0 },
                     { no: '5', label: 'Sewa Dibayar Dimuka', value: aktivaMap[normalizeTemplateLabel('Sewa Dibayar Dimuka')] ?? 0 },
                     { no: '6', label: 'Persediaan Real Estate (Tanah & Bangunan Siap Jual)', value: aktivaMap[normalizeTemplateLabel('Persediaan Real Estate (Tanah & Bangunan Siap Jual)')] ?? 0 },
-                    { no: '', label: '&nbsp;&nbsp;&nbsp;Bangunan', value: aktivaMap[normalizeTemplateLabel('Bangunan')] ?? 0 },
-                    { no: '', label: '&nbsp;&nbsp;&nbsp;Bahan Baku', value: aktivaMap[normalizeTemplateLabel('Bahan Baku')] ?? 0 },
-                    { no: '', label: '&nbsp;&nbsp;&nbsp;Tanah', value: aktivaMap[normalizeTemplateLabel('Tanah')] ?? 0 },
+                    { no: '', label: '&nbsp;&nbsp;&nbsp;Bangunan', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Lancar', 'Bangunan') },
+                    { no: '', label: '&nbsp;&nbsp;&nbsp;Bahan Baku', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Lancar', 'Bahan Baku') },
+                    { no: '', label: '&nbsp;&nbsp;&nbsp;Tanah', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Lancar', 'Tanah') },
                     { no: '', label: 'Sub Total Aktiva Lancar', value: aktivaMap[normalizeTemplateLabel('Sub Total Aktiva Lancar')] ?? response.summary?.total_aktiva_raw ?? 0, isSubtotal: true },
                     { no: 'b.', label: 'Aktiva Tetap', value: null, isHeader: true },
-                    { no: '1', label: 'Tanah', value: 0 },
-                    { no: '2', label: 'Bangunan', value: 0 },
-                    { no: '3', label: 'Inventaris Kantor', value: 0 },
-                    { no: '4', label: 'Kendaraan', value: 0 },
-                    { no: '5', label: 'Peralatan Kantor', value: 0 },
-                    { no: '6', label: 'Peralatan Proyek', value: 0 },
-                    { no: '7', label: 'Akumulasi Penyusutan (-)', value: 0 },
-                    { no: '', label: 'Sub Total Aktiva Tetap', value: 0, isSubtotal: true },
+                    { no: '1', label: 'Tanah', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Tanah') },
+                    { no: '2', label: 'Bangunan', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Bangunan') },
+                    { no: '3', label: 'Inventaris Kantor', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Inventaris Kantor') },
+                    { no: '4', label: 'Kendaraan', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Kendaraan') },
+                    { no: '5', label: 'Peralatan Kantor', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Peralatan Kantor') },
+                    { no: '6', label: 'Peralatan Proyek', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Peralatan Proyek') },
+                    { no: '7', label: 'Akumulasi Penyusutan (-)', value: getTemplateGroupItemValue(aktivaGroups, 'Aktiva Tetap', 'Akumulasi Penyusutan (-)'), isContra: true },
+                    { no: '', label: 'Sub Total Aktiva Tetap', value: aktivaMap[normalizeTemplateLabel('Sub Total Aktiva Tetap')] ?? 0, isSubtotal: true },
                     { no: 'c.', label: 'Aktiva Lancar Lainnya', value: null, isHeader: true },
                     { no: '1', label: 'Piutang Pengurus', value: 0 },
                     { no: '2', label: 'Piutang Karyawan', value: 0 },

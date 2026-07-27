@@ -2106,6 +2106,7 @@ class LaporanController extends Controller
         $this->appendConstructionPayableAccount($saldoData['accounts'], $module, $endDate);
         $neracaData = $this->buildNeracaFromSaldo($saldoData['accounts']);
         $customAktiva = $this->buildAktivaTemplate($module, $endDate);
+        $aktivaGroups = $customAktiva['groups'];
         $aktivaMap = $this->makeNeracaValueMap($customAktiva['groups']);
         $pasivaMap = $this->makeNeracaValueMap($neracaData['data']['pasiva_groups']);
         $hutangPembiayaan = max(0, $this->getPembiayaanOutstandingValue($module, $endDate));
@@ -2123,18 +2124,18 @@ class LaporanController extends Controller
             ['no' => '4', 'label' => 'Uang Muka Pembelian', 'value' => $aktivaMap['uang muka pembelian'] ?? 0],
             ['no' => '5', 'label' => 'Sewa Dibayar Dimuka', 'value' => $aktivaMap['sewa dibayar dimuka'] ?? 0],
             ['no' => '6', 'label' => 'Persediaan Real Estate (Tanah & Bangunan Siap Jual)', 'value' => $aktivaMap['persediaan real estate (tanah & bangunan siap jual)'] ?? 0],
-            ['no' => '', 'label' => 'Bangunan', 'value' => $aktivaMap['bangunan'] ?? 0],
-            ['no' => '', 'label' => 'Bahan Baku', 'value' => $aktivaMap['bahan baku'] ?? 0],
-            ['no' => '', 'label' => 'Tanah', 'value' => $aktivaMap['tanah'] ?? 0],
+            ['no' => '', 'label' => 'Bangunan', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Lancar', 'Bangunan')],
+            ['no' => '', 'label' => 'Bahan Baku', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Lancar', 'Bahan Baku')],
+            ['no' => '', 'label' => 'Tanah', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Lancar', 'Tanah')],
             ['no' => '', 'label' => 'Sub Total Aktiva Lancar', 'value' => 0, 'is_subtotal' => true],
             ['no' => 'b.', 'label' => 'Aktiva Tetap', 'value' => null, 'is_header' => true],
-            ['no' => '1', 'label' => 'Tanah', 'value' => 0],
-            ['no' => '2', 'label' => 'Bangunan', 'value' => 0],
-            ['no' => '3', 'label' => 'Inventaris Kantor', 'value' => 0],
-            ['no' => '4', 'label' => 'Kendaraan', 'value' => 0],
-            ['no' => '5', 'label' => 'Peralatan Kantor', 'value' => 0],
-            ['no' => '6', 'label' => 'Peralatan Proyek', 'value' => 0],
-            ['no' => '7', 'label' => 'Akumulasi Penyusutan (-)', 'value' => 0],
+            ['no' => '1', 'label' => 'Tanah', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Tanah')],
+            ['no' => '2', 'label' => 'Bangunan', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Bangunan')],
+            ['no' => '3', 'label' => 'Inventaris Kantor', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Inventaris Kantor')],
+            ['no' => '4', 'label' => 'Kendaraan', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Kendaraan')],
+            ['no' => '5', 'label' => 'Peralatan Kantor', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Peralatan Kantor')],
+            ['no' => '6', 'label' => 'Peralatan Proyek', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Peralatan Proyek')],
+            ['no' => '7', 'label' => 'Akumulasi Penyusutan (-)', 'value' => $this->getNeracaGroupItemValue($aktivaGroups, 'Aktiva Tetap', 'Akumulasi Penyusutan (-)'), 'is_contra' => true],
             ['no' => '', 'label' => 'Sub Total Aktiva Tetap', 'value' => 0, 'is_subtotal' => true],
             ['no' => 'c.', 'label' => 'Aktiva Lancar Lainnya', 'value' => null, 'is_header' => true],
             ['no' => '1', 'label' => 'Piutang Pengurus', 'value' => 0],
@@ -2193,6 +2194,26 @@ class LaporanController extends Controller
         return $map;
     }
 
+    private function getNeracaGroupItemValue(array $groups, string $groupLabel, string $itemLabel, float $default = 0): float
+    {
+        $targetGroup = $this->normalizeNeracaTemplateKey($groupLabel);
+        $targetItem = $this->normalizeNeracaTemplateKey($itemLabel);
+
+        foreach ($groups as $group) {
+            if ($this->normalizeNeracaTemplateKey($group['rincian'] ?? '') !== $targetGroup) {
+                continue;
+            }
+
+            foreach (($group['items'] ?? []) as $item) {
+                if ($this->normalizeNeracaTemplateKey($item['nama_akun'] ?? '') === $targetItem) {
+                    return (float) ($item['nilai_raw'] ?? $default);
+                }
+            }
+        }
+
+        return $default;
+    }
+
     private function normalizeNeracaTemplateKey(string $label): string
     {
         $label = str_replace('&nbsp;', ' ', $label);
@@ -2215,7 +2236,8 @@ class LaporanController extends Controller
             $total = 0;
             for ($i = $activeHeaderIndex + 1; $i < $index; $i++) {
                 if (empty($rows[$i]['is_header']) && empty($rows[$i]['is_subtotal'])) {
-                    $total += (float) ($rows[$i]['value'] ?? 0);
+                    $value = abs((float) ($rows[$i]['value'] ?? 0));
+                    $total += !empty($rows[$i]['is_contra']) ? -$value : $value;
                 }
             }
             $row['value'] = $total;
@@ -2227,7 +2249,10 @@ class LaporanController extends Controller
     {
         return (float) collect($rows)
             ->filter(fn ($row) => empty($row['is_header']) && empty($row['is_subtotal']))
-            ->sum(fn ($row) => (float) ($row['value'] ?? 0));
+            ->sum(function ($row) {
+                $value = abs((float) ($row['value'] ?? 0));
+                return !empty($row['is_contra']) ? -$value : $value;
+            });
     }
 
     private function getNeracaAdjustments(string $module, string $startDate, string $endDate): array
@@ -3477,10 +3502,11 @@ class LaporanController extends Controller
             $targetSide = $sidePreference;
 
             // Tampilkan akun tetap di sisi naturalnya agar struktur neraca tidak berpindah kolom.
-            // Jika saldo berlawanan, biarkan nilainya minus pada sisi yang sama.
+            // Nominal ditampilkan absolut; sisi akun sudah menjelaskan arah saldonya.
             $amountSigned = $sidePreference === 'aktiva'
                 ? ($debit - $kredit)
                 : ($kredit - $debit);
+            $amountDisplay = abs($amountSigned);
 
             if (abs($amountSigned) < 0.5) {
                 continue;
@@ -3490,8 +3516,8 @@ class LaporanController extends Controller
                 'kode' => $kode,
                 'nama_akun' => $nama,
                 'plotting' => $category['label'],
-                'nilai_raw' => $amountSigned,
-                'nilai' => number_format($amountSigned, 0, ',', '.'),
+                'nilai_raw' => $amountDisplay,
+                'nilai' => number_format($amountDisplay, 0, ',', '.'),
                 'parent' => $category['parent'] ?? null
             ];
 
@@ -3518,8 +3544,8 @@ class LaporanController extends Controller
                 'kode' => '3-LR',
                 'nama_akun' => $labaRugiBerjalan >= 0 ? 'Laba Berjalan' : 'Rugi Berjalan',
                 'plotting' => $category['label'],
-                'nilai_raw' => $labaRugiBerjalan,
-                'nilai' => number_format($labaRugiBerjalan, 0, ',', '.'),
+                'nilai_raw' => abs($labaRugiBerjalan),
+                'nilai' => number_format(abs($labaRugiBerjalan), 0, ',', '.'),
                 'parent' => $category['parent']
             ];
 
@@ -3608,6 +3634,7 @@ class LaporanController extends Controller
         $piutangUsaha = $this->getAktivaPiutangUsaha($module, $scopeId, $endDate);
         $uangMukaPembelian = $this->getAktivaByKodeTransaksi($module, $scopeId, $endDate, '2012');
         $sewaDibayarDimuka = $this->getAktivaByKodeTransaksi($module, $scopeId, $endDate, '2013');
+        $aktivaTetap = $this->getAktivaTetapFromAssets($module, $scopeId, $endDate);
 
         $groups = [
             $this->makeAktivaGroup('a.', 'Aktiva Lancar', 10, 1, [
@@ -3620,6 +3647,15 @@ class LaporanController extends Controller
                 ['kode' => 'AL-07', 'nomor' => '', 'nama_akun' => 'Bangunan', 'nilai_raw' => 0, 'indent' => 1],
                 ['kode' => 'AL-08', 'nomor' => '', 'nama_akun' => 'Bahan Baku', 'nilai_raw' => 0, 'indent' => 1],
                 ['kode' => 'AL-09', 'nomor' => '', 'nama_akun' => 'Tanah', 'nilai_raw' => 0, 'indent' => 1],
+            ]),
+            $this->makeAktivaGroup('b.', 'Aktiva Tetap', 20, 2, [
+                ['kode' => 'AT-01', 'nomor' => '1', 'nama_akun' => 'Tanah', 'nilai_raw' => 0],
+                ['kode' => 'AT-02', 'nomor' => '2', 'nama_akun' => 'Bangunan', 'nilai_raw' => 0],
+                ['kode' => 'AT-03', 'nomor' => '3', 'nama_akun' => 'Inventaris Kantor', 'nilai_raw' => 0],
+                ['kode' => 'AT-04', 'nomor' => '4', 'nama_akun' => 'Kendaraan', 'nilai_raw' => $aktivaTetap['kendaraan']],
+                ['kode' => 'AT-05', 'nomor' => '5', 'nama_akun' => 'Peralatan Kantor', 'nilai_raw' => $aktivaTetap['peralatan_kantor']],
+                ['kode' => 'AT-06', 'nomor' => '6', 'nama_akun' => 'Peralatan Proyek', 'nilai_raw' => 0],
+                ['kode' => 'AT-07', 'nomor' => '7', 'nama_akun' => 'Akumulasi Penyusutan (-)', 'nilai_raw' => $aktivaTetap['akumulasi_penyusutan'], 'is_contra' => true],
             ]),
         ];
 
@@ -3640,12 +3676,67 @@ class LaporanController extends Controller
         ];
     }
 
+    private function getAktivaTetapFromAssets(string $module, int $scopeId, string $endDate): array
+    {
+        $vehicleCondition = "LOWER(TRIM(assets.nama_aset)) LIKE 'mobil%' OR LOWER(TRIM(assets.nama_aset)) LIKE 'motor%'";
+
+        $query = DB::table('assets')
+            ->whereNull('assets.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('assets.status')
+                    ->orWhereNotIn('assets.status', ['terjual', 'hilang', 'rusak']);
+            })
+            ->where(function ($q) use ($endDate) {
+                $q->whereNull('assets.tanggal_pembelian')
+                    ->orWhereDate('assets.tanggal_pembelian', '<=', $endDate);
+            });
+
+        if ($module === 'company') {
+            $projectIds = Project::query()
+                ->where('idcompany', $scopeId)
+                ->pluck('id');
+
+            $query->where(function ($q) use ($scopeId, $projectIds) {
+                $q->where('assets.idcompany', $scopeId);
+
+                if ($projectIds->isNotEmpty()) {
+                    $q->orWhereIn('assets.idproject', $projectIds);
+                }
+            });
+        } else {
+            $query->where('assets.idproject', $scopeId);
+        }
+
+        $totals = $query
+            ->selectRaw("COALESCE(SUM(CASE WHEN {$vehicleCondition} THEN assets.harga_perolehan ELSE 0 END), 0) as kendaraan")
+            ->selectRaw("COALESCE(SUM(CASE WHEN NOT ({$vehicleCondition}) THEN assets.harga_perolehan ELSE 0 END), 0) as peralatan_kantor")
+            ->selectRaw(
+                'COALESCE(SUM(COALESCE((
+                    SELECT ad.akumulasi_penyusutan
+                    FROM asset_depreciations ad
+                    WHERE ad.asset_id = assets.id
+                        AND ad.periode <= ?
+                    ORDER BY ad.periode DESC, ad.id DESC
+                    LIMIT 1
+                ), 0)), 0) as akumulasi_penyusutan',
+                [$endDate]
+            )
+            ->first();
+
+        return [
+            'kendaraan' => (float) ($totals->kendaraan ?? 0),
+            'peralatan_kantor' => (float) ($totals->peralatan_kantor ?? 0),
+            'akumulasi_penyusutan' => (float) ($totals->akumulasi_penyusutan ?? 0),
+        ];
+    }
+
     private function makeAktivaGroup(string $prefix, string $label, int $parentOrder, int $order, array $items): array
     {
         $normalizedItems = array_map(function (array $item) use ($label) {
-            $nilaiRaw = (float) ($item['nilai_raw'] ?? 0);
+            $nilaiRaw = abs((float) ($item['nilai_raw'] ?? 0));
             $indent = (int) ($item['indent'] ?? 0);
             $namaAkun = (string) ($item['nama_akun'] ?? '-');
+            $isContra = !empty($item['is_contra']);
 
             if ($indent > 0) {
                 $namaAkun = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $indent) . $namaAkun;
@@ -3659,10 +3750,14 @@ class LaporanController extends Controller
                 'nilai_raw' => $nilaiRaw,
                 'nilai' => number_format($nilaiRaw, 0, ',', '.'),
                 'parent' => 'Aktiva',
+                'is_contra' => $isContra,
             ];
         }, $items);
 
-        $subtotal = array_sum(array_column($normalizedItems, 'nilai_raw'));
+        $subtotal = array_sum(array_map(function (array $item) {
+            $nilaiRaw = (float) ($item['nilai_raw'] ?? 0);
+            return !empty($item['is_contra']) ? -$nilaiRaw : $nilaiRaw;
+        }, $normalizedItems));
 
         return [
             'key' => str_replace(' ', '_', strtolower($label)),
@@ -4245,10 +4340,14 @@ class LaporanController extends Controller
                         AND notas.cashflow = "out" THEN "debit"
                         WHEN (kodetransaksi.transaksi = "beban" OR kodetransaksi.kodetransaksi LIKE "5%") 
                         AND notas.cashflow = "in" THEN "kredit"
-                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        WHEN kodetransaksi.kodetransaksi LIKE "1%"
                         AND notas.cashflow = "in" THEN "debit"
-                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        WHEN kodetransaksi.kodetransaksi LIKE "1%"
                         AND notas.cashflow = "out" THEN "kredit"
+                        WHEN kodetransaksi.kodetransaksi LIKE "2%"
+                        AND notas.cashflow = "in" THEN "kredit"
+                        WHEN kodetransaksi.kodetransaksi LIKE "2%"
+                        AND notas.cashflow = "out" THEN "debit"
                         WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
                         AND notas.cashflow = "out" THEN "debit"
                         WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
@@ -4426,10 +4525,14 @@ class LaporanController extends Controller
                         AND notas.cashflow = "out" THEN "debit"
                         WHEN (kodetransaksi.transaksi = "beban" OR kodetransaksi.kodetransaksi LIKE "5%") 
                         AND notas.cashflow = "in" THEN "kredit"
-                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        WHEN kodetransaksi.kodetransaksi LIKE "1%"
                         AND notas.cashflow = "in" THEN "debit"
-                        WHEN (kodetransaksi.kodetransaksi LIKE "1%" OR kodetransaksi.kodetransaksi LIKE "2%") 
+                        WHEN kodetransaksi.kodetransaksi LIKE "1%"
                         AND notas.cashflow = "out" THEN "kredit"
+                        WHEN kodetransaksi.kodetransaksi LIKE "2%"
+                        AND notas.cashflow = "in" THEN "kredit"
+                        WHEN kodetransaksi.kodetransaksi LIKE "2%"
+                        AND notas.cashflow = "out" THEN "debit"
                         WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
                         AND notas.cashflow = "out" THEN "debit"
                         WHEN (kodetransaksi.kodetransaksi LIKE "3%") 
