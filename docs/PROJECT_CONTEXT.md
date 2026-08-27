@@ -167,6 +167,8 @@ Laporan:
 
 - `LaporanController`
 - Views: `resources/views/laporan/*`, `resources/views/transaksi/laporan/*`, `resources/views/hris/laporan/*`.
+- Laporan keuangan: `/laporan/neraca`, `/laporan/laba-rugi`, `/laporan/perubahan-ekuitas`, `/laporan/kategori`.
+- `/laporan/kategori` menjumlahkan `nota_transactions` berdasarkan kode transaksi di master `/kodetransaksi`, lalu memisahkan detail ke pemasukan (`cashflow = in`) dan pengeluaran (`cashflow = out`).
 
 ## Alur Keuangan Umum
 

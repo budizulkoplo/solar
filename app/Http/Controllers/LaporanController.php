@@ -25,6 +25,7 @@ use App\Models\Customer;
 use App\Models\Project;
 use App\Models\Unit;
 use App\Models\KodeTransaksi;
+use App\Models\TransaksiHdr;
 use App\Models\NeracaAdjustment;
 use Yajra\DataTables\Facades\DataTables;
 use App\Exports\VisitExport;
@@ -2607,6 +2608,360 @@ class LaporanController extends Controller
         }
 
         return $report;
+    }
+
+    /**
+     * Halaman laporan transaksi by kategori (kode transaksi)
+     */
+    public function laporanKategori()
+    {
+        $startDate = now()->startOfMonth()->format('Y-m-d');
+        $endDate = now()->endOfMonth()->format('Y-m-d');
+        $module = session('active_project_module');
+        $kodeTransaksiList = KodeTransaksi::with('header')
+            ->orderBy('kodetransaksi')
+            ->get();
+        $transaksiHeaders = TransaksiHdr::orderBy('keterangan')->get();
+
+        return view('transaksi.laporan.kategori', compact(
+            'startDate',
+            'endDate',
+            'module',
+            'kodeTransaksiList',
+            'transaksiHeaders'
+        ));
+    }
+
+    /**
+     * Data laporan transaksi by kategori
+     */
+    public function laporanKategoriData(Request $request)
+    {
+        try {
+            $report = $this->buildLaporanKategoriReport($request);
+
+            return response()->json($report, ($report['success'] ?? false) ? 200 : 400);
+        } catch (\Exception $e) {
+            \Log::error('Error generating laporan kategori:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function exportLaporanKategoriExcel(Request $request)
+    {
+        $report = $this->buildLaporanKategoriReport($request);
+        if (!($report['success'] ?? false)) {
+            abort(400, $report['message'] ?? 'Gagal membuat laporan kategori');
+        }
+
+        $startDate = $report['period']['start'];
+        $endDate = $report['period']['end'];
+        $module = $report['period']['module'];
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('By Kategori');
+        $sheet->setCellValue('A1', 'Laporan Transaksi by Kategori');
+        $sheet->setCellValue('A2', 'Periode: ' . $startDate . ' s/d ' . $endDate);
+        $sheet->setCellValue('A3', 'Module: ' . ($module === 'company' ? 'PT/Company' : 'Project'));
+        $sheet->setCellValue('A4', 'Kode: ' . ($report['summary']['kode_label'] ?? '-'));
+
+        $sheet->fromArray(['Kode', 'Nama Transaksi', 'Header', 'Total Pemasukan', 'Total Pengeluaran', 'Selisih', 'Jumlah Transaksi'], null, 'A6');
+        $row = 7;
+        foreach ($report['data']['summaries'] as $item) {
+            $sheet->setCellValue('A' . $row, $item['kode']);
+            $sheet->setCellValue('B' . $row, $item['nama']);
+            $sheet->setCellValue('C' . $row, $item['header']);
+            $sheet->setCellValue('D' . $row, $item['total_pemasukan_raw']);
+            $sheet->setCellValue('E' . $row, $item['total_pengeluaran_raw']);
+            $sheet->setCellValue('F' . $row, $item['selisih_raw']);
+            $sheet->setCellValue('G' . $row, $item['jumlah_transaksi']);
+            $row++;
+        }
+
+        $row += 2;
+        $sheet->setCellValue('A' . $row, 'Jenis');
+        $sheet->setCellValue('B' . $row, 'Tanggal');
+        $sheet->setCellValue('C' . $row, 'No Nota');
+        $sheet->setCellValue('D' . $row, 'Kode');
+        $sheet->setCellValue('E' . $row, 'Nama Transaksi');
+        $sheet->setCellValue('F' . $row, 'Deskripsi');
+        $sheet->setCellValue('G' . $row, 'Vendor');
+        $sheet->setCellValue('H' . $row, 'Rekening');
+        $sheet->setCellValue('I' . $row, 'Nominal');
+        $sheet->getStyle('A' . $row . ':I' . $row)->getFont()->setBold(true);
+        $row++;
+
+        foreach (['pemasukan' => $report['data']['pemasukan'], 'pengeluaran' => $report['data']['pengeluaran']] as $jenis => $details) {
+            foreach ($details as $item) {
+                $sheet->setCellValue('A' . $row, strtoupper($jenis));
+                $sheet->setCellValue('B' . $row, $item['tanggal']);
+                $sheet->setCellValue('C' . $row, $item['nota_no']);
+                $sheet->setCellValue('D' . $row, $item['kode']);
+                $sheet->setCellValue('E' . $row, $item['nama']);
+                $sheet->setCellValue('F' . $row, $item['deskripsi']);
+                $sheet->setCellValue('G' . $row, $item['vendor']);
+                $sheet->setCellValue('H' . $row, $item['rekening']);
+                $sheet->setCellValue('I' . $row, $item['nominal_raw']);
+                $row++;
+            }
+        }
+
+        $sheet->getStyle('A1:G6')->getFont()->setBold(true);
+        $sheet->getStyle('D7:F' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('I7:I' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        foreach (range('A', 'I') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'laporan-kategori-' . $module . '-' . $startDate . '-' . $endDate . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function printLaporanKategori(Request $request)
+    {
+        $report = $this->buildLaporanKategoriReport($request);
+        if (!($report['success'] ?? false)) {
+            abort(400, $report['message'] ?? 'Gagal membuat laporan kategori');
+        }
+
+        $pdf = \PDF::loadView('transaksi.laporan.pdf.kategori', [
+            'report' => $report,
+            'startDate' => $report['period']['start'],
+            'endDate' => $report['period']['end'],
+            'module' => $report['period']['module'],
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('laporan-kategori-' . $report['period']['module'] . '-' . $report['period']['start'] . '-' . $report['period']['end'] . '.pdf');
+    }
+
+    private function buildLaporanKategoriReport(Request $request): array
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
+        $module = $request->input('module', session('active_project_module'));
+        $idheader = $request->input('idheader');
+        $kodeIds = array_values(array_filter(array_map('intval', (array) $request->input('kode_transaksi_ids', []))));
+
+        if (empty($startDate) || empty($endDate)) {
+            return [
+                'success' => false,
+                'message' => 'Tanggal awal dan akhir harus diisi'
+            ];
+        }
+
+        if (empty($kodeIds) && $idheader) {
+            $kodeIds = KodeTransaksi::where('idheader', $idheader)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        if (empty($kodeIds)) {
+            return [
+                'success' => true,
+                'needs_filter' => true,
+                'message' => 'Pilih kode transaksi terlebih dahulu',
+                'data' => [
+                    'summaries' => [],
+                    'pemasukan' => [],
+                    'pengeluaran' => [],
+                ],
+                'summary' => [
+                    'total_pemasukan_raw' => 0,
+                    'total_pengeluaran_raw' => 0,
+                    'selisih_raw' => 0,
+                    'jumlah_transaksi' => 0,
+                    'kode_label' => '-',
+                    'total_pemasukan' => '0',
+                    'total_pengeluaran' => '0',
+                    'selisih' => '0',
+                ],
+                'period' => [
+                    'start' => $startDate,
+                    'end' => $endDate,
+                    'module' => $module,
+                ],
+            ];
+        }
+
+        $kodeRows = KodeTransaksi::with('header')
+            ->whereIn('id', $kodeIds)
+            ->orderBy('kodetransaksi')
+            ->get();
+
+        $query = NotaTransaction::query()
+            ->join('notas', 'nota_transactions.idnota', '=', 'notas.id')
+            ->join('kodetransaksi', 'nota_transactions.idkodetransaksi', '=', 'kodetransaksi.id')
+            ->leftJoin('transaksi_hdr', 'kodetransaksi.idheader', '=', 'transaksi_hdr.id')
+            ->leftJoin('vendors', 'notas.vendor_id', '=', 'vendors.id')
+            ->leftJoin('rekening', 'notas.idrek', '=', 'rekening.idrek')
+            ->where('notas.status', 'paid')
+            ->whereNull('notas.deleted_at')
+            ->whereIn('nota_transactions.idkodetransaksi', $kodeIds)
+            ->whereBetween('notas.tanggal', [$startDate, $endDate]);
+
+        $this->applyLaporanModuleFilter($query, $module);
+
+        $rows = $query
+            ->select([
+                'nota_transactions.id',
+                'nota_transactions.idnota',
+                'nota_transactions.total',
+                'nota_transactions.description',
+                'notas.nota_no',
+                'notas.tanggal',
+                'notas.cashflow',
+                'notas.namatransaksi',
+                'kodetransaksi.id as id_kodetransaksi',
+                'kodetransaksi.kodetransaksi as kode',
+                'kodetransaksi.transaksi as nama',
+                'transaksi_hdr.keterangan as header',
+                'vendors.namavendor as vendor',
+                'rekening.namarek as rekening',
+            ])
+            ->orderBy('notas.tanggal')
+            ->orderBy('notas.nota_no')
+            ->orderBy('nota_transactions.id')
+            ->get();
+
+        $summaryMap = [];
+        foreach ($kodeRows as $kode) {
+            $summaryMap[$kode->id] = [
+                'id_kodetransaksi' => (int) $kode->id,
+                'kode' => (string) $kode->kodetransaksi,
+                'nama' => (string) $kode->transaksi,
+                'header' => (string) ($kode->header->keterangan ?? '-'),
+                'total_pemasukan_raw' => 0,
+                'total_pengeluaran_raw' => 0,
+                'selisih_raw' => 0,
+                'jumlah_transaksi' => 0,
+            ];
+        }
+
+        $pemasukan = [];
+        $pengeluaran = [];
+        $totalPemasukan = 0;
+        $totalPengeluaran = 0;
+
+        foreach ($rows as $row) {
+            $nominal = (float) $row->total;
+            $detail = [
+                'id' => (int) $row->id,
+                'idnota' => (int) $row->idnota,
+                'tanggal' => Carbon::parse($row->tanggal)->format('Y-m-d'),
+                'tanggal_display' => Carbon::parse($row->tanggal)->format('d/m/Y'),
+                'nota_no' => (string) ($row->nota_no ?: '-'),
+                'kode' => (string) $row->kode,
+                'nama' => (string) $row->nama,
+                'header' => (string) ($row->header ?: '-'),
+                'deskripsi' => (string) ($row->description ?: $row->namatransaksi ?: '-'),
+                'vendor' => (string) ($row->vendor ?: '-'),
+                'rekening' => (string) ($row->rekening ?: '-'),
+                'nominal_raw' => $nominal,
+                'nominal' => number_format($nominal, 0, ',', '.'),
+            ];
+
+            $kodeId = (int) $row->id_kodetransaksi;
+            if (!isset($summaryMap[$kodeId])) {
+                $summaryMap[$kodeId] = [
+                    'id_kodetransaksi' => $kodeId,
+                    'kode' => (string) $row->kode,
+                    'nama' => (string) $row->nama,
+                    'header' => (string) ($row->header ?: '-'),
+                    'total_pemasukan_raw' => 0,
+                    'total_pengeluaran_raw' => 0,
+                    'selisih_raw' => 0,
+                    'jumlah_transaksi' => 0,
+                ];
+            }
+
+            $summaryMap[$kodeId]['jumlah_transaksi']++;
+
+            if ($row->cashflow === 'in') {
+                $pemasukan[] = $detail;
+                $totalPemasukan += $nominal;
+                $summaryMap[$kodeId]['total_pemasukan_raw'] += $nominal;
+            } else {
+                $pengeluaran[] = $detail;
+                $totalPengeluaran += $nominal;
+                $summaryMap[$kodeId]['total_pengeluaran_raw'] += $nominal;
+            }
+        }
+
+        $summaries = array_values(array_map(function ($item) {
+            $item['selisih_raw'] = $item['total_pemasukan_raw'] - $item['total_pengeluaran_raw'];
+            $item['total_pemasukan'] = number_format($item['total_pemasukan_raw'], 0, ',', '.');
+            $item['total_pengeluaran'] = number_format($item['total_pengeluaran_raw'], 0, ',', '.');
+            $item['selisih'] = number_format($item['selisih_raw'], 0, ',', '.');
+            return $item;
+        }, $summaryMap));
+
+        $kodeLabel = $kodeRows
+            ->map(fn ($item) => '(' . $item->kodetransaksi . ') ' . $item->transaksi)
+            ->implode(', ');
+
+        return [
+            'success' => true,
+            'needs_filter' => false,
+            'data' => [
+                'summaries' => $summaries,
+                'pemasukan' => $pemasukan,
+                'pengeluaran' => $pengeluaran,
+            ],
+            'summary' => [
+                'total_pemasukan_raw' => $totalPemasukan,
+                'total_pengeluaran_raw' => $totalPengeluaran,
+                'selisih_raw' => $totalPemasukan - $totalPengeluaran,
+                'jumlah_transaksi' => count($rows),
+                'kode_label' => $kodeLabel ?: '-',
+                'total_pemasukan' => number_format($totalPemasukan, 0, ',', '.'),
+                'total_pengeluaran' => number_format($totalPengeluaran, 0, ',', '.'),
+                'selisih' => number_format($totalPemasukan - $totalPengeluaran, 0, ',', '.'),
+            ],
+            'period' => [
+                'start' => $startDate,
+                'end' => $endDate,
+                'module' => $module,
+            ],
+        ];
+    }
+
+    private function applyLaporanModuleFilter($query, string $module): void
+    {
+        if ($module === 'project') {
+            $projectId = session('active_project_id');
+            if (!$projectId) {
+                throw new \Exception('Project ID tidak ditemukan');
+            }
+            $query->where('notas.idproject', $projectId);
+            return;
+        }
+
+        if ($module === 'company') {
+            $companyId = session('active_company_id');
+            if (!$companyId) {
+                throw new \Exception('Company ID tidak ditemukan');
+            }
+
+            $projects = Project::query()
+                ->where('idcompany', $companyId)
+                ->pluck('id');
+
+            $query->whereIn('notas.idproject', $projects);
+            return;
+        }
+
+        throw new \Exception('Module tidak dikenali');
     }
 
     /**

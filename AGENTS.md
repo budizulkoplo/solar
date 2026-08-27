@@ -100,7 +100,7 @@ Project selection:
 - Aset: asset, depreciation, mutation.
 - Konstruksi: pekerjaan konstruksi, progress, transaksi project.
 - Mobile: dashboard, presensi, kalender, payroll, bonus, Quran.
-- Laporan: dashboard, cashflow, neraca, laba rugi, perubahan ekuitas, penjualan, booking, HRIS reports.
+- Laporan: dashboard, cashflow, neraca, laba rugi, perubahan ekuitas, transaksi by kategori, penjualan, booking, HRIS reports.
 
 ## Pola Data Transaksi
 

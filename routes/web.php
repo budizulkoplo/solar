@@ -252,6 +252,11 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
         Route::get('/neraca-saldo/data', [LaporanController::class, 'neracaSaldoData'])->name('laporan.neraca-saldo.data');
         Route::post('/neraca-saldo/export-excel', [LaporanController::class, 'exportNeracaSaldoExcel'])->name('laporan.neraca-saldo.export-excel');
         Route::post('/neraca-saldo/print', [LaporanController::class, 'printNeracaSaldo'])->name('laporan.neraca-saldo.print');
+
+        Route::get('/kategori', [LaporanController::class, 'laporanKategori'])->name('laporan.kategori');
+        Route::get('/kategori/data', [LaporanController::class, 'laporanKategoriData'])->name('laporan.kategori.data');
+        Route::get('/kategori/export-excel', [LaporanController::class, 'exportLaporanKategoriExcel'])->name('laporan.kategori.export-excel');
+        Route::get('/kategori/print', [LaporanController::class, 'printLaporanKategori'])->name('laporan.kategori.print');
     });
 
     // Companies
