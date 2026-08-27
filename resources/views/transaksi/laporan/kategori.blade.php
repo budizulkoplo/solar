@@ -155,11 +155,15 @@
 
     <x-slot name="jscustom">
         <script>
-            const kodeOptions = @json($kodeTransaksiList->map(fn ($item) => [
-                'id' => $item->id,
-                'idheader' => $item->idheader,
-                'label' => '(' . $item->kodetransaksi . ') ' . $item->transaksi,
-            ]));
+            const kodeOptions = @js(
+                $kodeTransaksiList->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'idheader' => $item->idheader,
+                        'label' => '(' . $item->kodetransaksi . ') ' . $item->transaksi,
+                    ];
+                })->values()
+            );
 
             function formatRupiah(value) {
                 const number = Number(value || 0);
