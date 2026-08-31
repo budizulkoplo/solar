@@ -2749,9 +2749,9 @@ class LaporanController extends Controller
 
     private function buildLaporanKategoriReport(Request $request): array
     {
-        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
-        $endDate = $request->input('end_date', now()->endOfMonth()->format('Y-m-d'));
-        $module = $request->input('module', session('active_project_module'));
+        $startDate = $this->normalizeReportDate($request->input('start_date', now()->startOfMonth()->format('Y-m-d')));
+        $endDate = $this->normalizeReportDate($request->input('end_date', now()->endOfMonth()->format('Y-m-d')));
+        $module = $this->normalizeReportModule($request->input('module', session('active_project_module')));
         $idheader = $request->input('idheader');
         $kodeIds = array_values(array_filter(array_map('intval', (array) $request->input('kode_transaksi_ids', []))));
 
@@ -2807,6 +2807,7 @@ class LaporanController extends Controller
             ->leftJoin('rekening', 'notas.idrek', '=', 'rekening.idrek')
             ->where('notas.status', 'paid')
             ->whereNull('notas.deleted_at')
+            ->whereNull('nota_transactions.deleted_at')
             ->whereIn('nota_transactions.idkodetransaksi', $kodeIds)
             ->whereBetween('notas.tanggal', [$startDate, $endDate]);
 
@@ -2938,6 +2939,8 @@ class LaporanController extends Controller
 
     private function applyLaporanModuleFilter($query, string $module): void
     {
+        $module = $this->normalizeReportModule($module);
+
         if ($module === 'project') {
             $projectId = session('active_project_id');
             if (!$projectId) {
@@ -2954,11 +2957,40 @@ class LaporanController extends Controller
             }
 
             $query->where('notas.idcompany', $companyId)
-                ->whereNull('notas.idproject');
+                ->where(function ($q) {
+                    $q->whereNull('notas.idproject')
+                        ->orWhere('notas.idproject', 0);
+                });
             return;
         }
 
         throw new \Exception('Module tidak dikenali');
+    }
+
+    private function normalizeReportDate($date): string
+    {
+        if (empty($date)) {
+            return now()->format('Y-m-d');
+        }
+
+        $date = trim((string) $date);
+
+        if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $date)) {
+            return Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d');
+        }
+
+        return Carbon::parse($date)->format('Y-m-d');
+    }
+
+    private function normalizeReportModule($module): string
+    {
+        $module = strtolower(trim((string) $module));
+
+        if (in_array($module, ['pt', 'pt/company', 'company', 'perusahaan'], true)) {
+            return 'company';
+        }
+
+        return $module;
     }
 
     /**
