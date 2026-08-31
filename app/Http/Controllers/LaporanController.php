@@ -681,8 +681,24 @@ class LaporanController extends Controller
                 'cf.tanggal',
                 DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pembiayaan') as kodetransaksi"),
                 DB::raw('"Pembiayaan" as kategori'),
-                
-                'cf.deskripsi as namatransaksi',
+                DB::raw("
+                    CASE
+                        WHEN cf.keterangan LIKE 'Setoran Pembiayaan:%' AND ps.id IS NOT NULL THEN CONCAT(
+                            ps.kode_setoran,
+                            ' - ',
+                            DATE_FORMAT(ps.tanggal, '%e/%c/%Y'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.pokok, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.administrasi, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.margin, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.total, 0), 0), ',', '.')
+                        )
+                        ELSE cf.keterangan
+                    END as namatransaksi
+                "),
                 'cf.nominal as jumlah_transaksi',
                 DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
                 DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
