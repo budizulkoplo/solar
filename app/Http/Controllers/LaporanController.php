@@ -2953,11 +2953,8 @@ class LaporanController extends Controller
                 throw new \Exception('Company ID tidak ditemukan');
             }
 
-            $projects = Project::query()
-                ->where('idcompany', $companyId)
-                ->pluck('id');
-
-            $query->whereIn('notas.idproject', $projects);
+            $query->where('notas.idcompany', $companyId)
+                ->whereNull('notas.idproject');
             return;
         }
 
