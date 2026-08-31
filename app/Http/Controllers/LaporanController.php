@@ -681,7 +681,24 @@ class LaporanController extends Controller
                 'cf.tanggal',
                 DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pembiayaan') as kodetransaksi"),
                 DB::raw('"Pembiayaan" as kategori'),
-                'cf.keterangan as namatransaksi',
+                DB::raw("
+                    CASE
+                        WHEN cf.keterangan LIKE 'Setoran Pembiayaan:%' AND ps.id IS NOT NULL THEN CONCAT(
+                            ps.kode_setoran,
+                            ' - ',
+                            DATE_FORMAT(ps.tanggal, '%e/%c/%Y'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.pokok, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.administrasi, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.margin, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.total, 0), 0), ',', '.')
+                        )
+                        ELSE cf.keterangan
+                    END as namatransaksi
+                "),
                 'cf.nominal as jumlah_transaksi',
                 DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
                 DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
@@ -693,6 +710,10 @@ class LaporanController extends Controller
             )
             ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
             ->leftJoin('projects as p', 'r.idproject', '=', 'p.id')
+            ->leftJoin('pembiayaan_setoran as ps', function ($join) {
+                $join->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)")
+                    ->whereNull('ps.deleted_at');
+            })
             ->whereNull('cf.idnota')
             ->where('r.idproject', $activeProjectId)
             ->whereBetween('cf.tanggal', [$startDate, $endDate])
@@ -1042,7 +1063,24 @@ class LaporanController extends Controller
                 'cf.tanggal',
                 DB::raw("CONCAT('(', COALESCE(cf.kode_transaksi, '-'), ') Pembiayaan') as kodetransaksi"),
                 DB::raw('"Pembiayaan" as kategori'),
-                'cf.keterangan as namatransaksi',
+                DB::raw("
+                    CASE
+                        WHEN cf.keterangan LIKE 'Setoran Pembiayaan:%' AND ps.id IS NOT NULL THEN CONCAT(
+                            ps.kode_setoran,
+                            ' - ',
+                            DATE_FORMAT(ps.tanggal, '%e/%c/%Y'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.pokok, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.administrasi, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.margin, 0), 0), ',', '.'),
+                            ' - Rp ',
+                            REPLACE(FORMAT(COALESCE(ps.total, 0), 0), ',', '.')
+                        )
+                        ELSE cf.keterangan
+                    END as namatransaksi
+                "),
                 'cf.nominal as jumlah_transaksi',
                 DB::raw('CASE WHEN cf.cashflow = "in" THEN cf.nominal ELSE 0 END as pemasukan'),
                 DB::raw('CASE WHEN cf.cashflow = "out" THEN cf.nominal ELSE 0 END as pengeluaran'),
@@ -1054,6 +1092,10 @@ class LaporanController extends Controller
             )
             ->join('rekening as r', 'cf.idrek', '=', 'r.idrek')
             ->leftJoin('company_units as cu', 'r.idcompany', '=', 'cu.id')
+            ->leftJoin('pembiayaan_setoran as ps', function ($join) {
+                $join->whereRaw("ps.kode_setoran = SUBSTRING_INDEX(SUBSTRING_INDEX(cf.keterangan, '(', -1), ')', 1)")
+                    ->whereNull('ps.deleted_at');
+            })
             ->whereNull('cf.idnota')
             ->where('r.idcompany', session('active_company_id'))
             ->whereNull('r.idproject')
