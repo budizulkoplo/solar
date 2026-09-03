@@ -2345,16 +2345,7 @@ class LaporanController extends Controller
                 }
                 $query->where('notas.idproject', $projectId);
             } elseif ($module === 'company') {
-                $companyId = session('active_company_id');
-                if (!$companyId) {
-                    throw new \Exception('Company ID tidak ditemukan');
-                }
-
-                $projects = Project::query()
-                    ->where('idcompany', $companyId)
-                    ->pluck('id');
-
-                $query->whereIn('notas.idproject', $projects);
+                $this->applyFinancialModuleFilter($query, $module);
             } else {
                 return response()->json([
                     'success' => false,
@@ -3676,7 +3667,19 @@ class LaporanController extends Controller
                 ->where('idcompany', $companyId)
                 ->pluck('id');
 
-            $query->whereIn('notas.idproject', $projects);
+            $query->where(function ($scope) use ($companyId, $projects) {
+                $scope->where(function ($company) use ($companyId) {
+                    $company->where('notas.idcompany', $companyId)
+                        ->where(function ($direct) {
+                            $direct->whereNull('notas.idproject')
+                                ->orWhere('notas.idproject', 0);
+                        });
+                });
+
+                if ($projects->isNotEmpty()) {
+                    $scope->orWhereIn('notas.idproject', $projects);
+                }
+            });
             return;
         }
 
