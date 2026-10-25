@@ -194,7 +194,7 @@
           </div>
 
           <div class="card-footer text-center py-3" style="background-color:#ecf2f8;">
-            <img src="{{ asset('piclogo.png') }}" alt="Developer Logo" height="40">
+            <img src="{{ asset('logodev.webp') }}" alt="Developer Logo" height="40">
             <p class="text-muted small mb-0 mt-2">
               &copy; PartnerInCode Project {{ date('Y') }}
             </p>

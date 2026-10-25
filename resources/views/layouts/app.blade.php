@@ -78,7 +78,7 @@
         <footer class="app-footer d-flex justify-content-between align-items-center px-3">
             <div>
                 <strong>{{ date('Y') }} &copy;</strong>
-                <img src="{{ asset('piclogo.png') }}" alt="Developer Logo" height="25">
+                <img src="{{ asset('logodev.webp') }}" alt="Developer Logo" height="25">
             </div>
             <div id="jam-indonesia" class="text-muted"></div>
         </footer>
