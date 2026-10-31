@@ -55,6 +55,13 @@ class LaporanController extends Controller
         ->where('status', 'aktif')                // hanya pegawai aktif
         ->whereHas('pegawaiDtl')                  // hanya yang punya detail pegawai
         ->get();
+        $pengajuanIzinByPegawai = PengajuanIzin::select('nik', 'status', DB::raw('COUNT(*) as total'))
+            ->whereBetween('tgl_izin', [$awal->toDateString(), $akhir->toDateString()])
+            ->where('status_approved', 1)
+            ->groupBy('nik', 'status')
+            ->get()
+            ->groupBy('nik')
+            ->map(fn ($pengajuan) => $pengajuan->keyBy('status'));
         $data = [];
 
         foreach ($pegawaiList as $p) {
@@ -68,12 +75,10 @@ class LaporanController extends Controller
                 ->get()
                 ->groupBy('tgl_presensi');
 
-            $cutiCount = PengajuanIzin::where('nik', $p->nik)
-                ->whereMonth('tgl_izin', $bulan)
-                ->whereYear('tgl_izin', $tahun)
-                ->where('status', 'c')
-                ->where('status_approved', 1)
-                ->count();
+            $pengajuanByStatus = $pengajuanIzinByPegawai->get($p->nik, collect());
+            $izinCount = $pengajuanByStatus->get('i')->total ?? 0;
+            $sakitCount = $pengajuanByStatus->get('s')->total ?? 0;
+            $cutiCount = $pengajuanByStatus->get('c')->total ?? 0;
 
             $jmlAbsensi = 0;
             $totalTerlambatSeconds = 0;
@@ -119,8 +124,10 @@ class LaporanController extends Controller
                 'jml_absensi' => $jmlAbsensi,
                 'lembur' => gmdate('H:i', $totalLemburSeconds),
                 'terlambat' => gmdate('H:i', $totalTerlambatSeconds),
+                'izin' => $izinCount,
+                'sakit' => $sakitCount,
                 'cuti' => $cutiCount,
-                'total' => $jmlAbsensi + $cutiCount
+                'total' => $jmlAbsensi + $izinCount + $sakitCount + $cutiCount
             ];
         }
 

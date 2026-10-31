@@ -40,6 +40,8 @@
                                 <th>Jml Absensi</th>
                                 <th>Lembur (Jam:Menit)</th>
                                 <th>Terlambat (Jam:Menit)</th>
+                                <th>Izin</th>
+                                <th>Sakit</th>
                                 <th>Cuti</th>
                                 <th>Total</th>
                             </tr>
@@ -89,6 +91,8 @@
                         { data: 'jml_absensi', className: 'text-center' },
                         { data: 'lembur', className: 'text-center' },
                         { data: 'terlambat', className: 'text-center' },
+                        { data: 'izin', className: 'text-center' },
+                        { data: 'sakit', className: 'text-center' },
                         { data: 'cuti', className: 'text-center' },
                         { data: 'total', className: 'text-center fw-bold' },
                     ],
