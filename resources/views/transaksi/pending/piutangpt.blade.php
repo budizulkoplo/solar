@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="pagetitle">Daftar Piutang</x-slot>
+    <x-slot name="pagetitle">Daftar Hutang</x-slot>
 
     <style>
         @media print {
@@ -111,7 +111,7 @@
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col-sm-6">
-                    <h3 class="mb-0"><i class="bi bi-credit-card text-purple"></i> Daftar Piutang</h3>
+                    <h3 class="mb-0"><i class="bi bi-credit-card text-purple"></i> Daftar Hutang</h3>
                 </div>
                 <div class="col-sm-6 text-end">
                     <div class="d-flex justify-content-end gap-2">
@@ -785,7 +785,7 @@
                                     }
                                 }
                             },
-                            title: 'Daftar Piutang',
+                            title: 'Daftar Hutang',
                             messageTop: 'Tanggal Export: ' + moment().format('DD/MM/YYYY HH:mm'),
                             filename: function() {
                                 return 'Piutang_' + moment().format('YYYYMMDD_HHmmss');
@@ -798,7 +798,7 @@
                             title: '',
                             messageTop: function() {
                                 return `<div class="print-header">
-                                            <h4 style="text-align: center; margin-bottom: 10px;">Daftar Piutang</h4>
+                                            <h4 style="text-align: center; margin-bottom: 10px;">Daftar Hutang</h4>
                                             <p style="text-align: center; margin-bottom: 15px;">
                                                 Tanggal Cetak: ${moment().format('DD/MM/YYYY HH:mm')}
                                             </p>
