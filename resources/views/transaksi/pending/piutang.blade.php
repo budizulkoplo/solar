@@ -79,7 +79,7 @@
     </style>
 
     <div class="print-header">
-        <h4>Daftar Piutang</h4>
+        <h4>Daftar Hutang</h4>
         <p>Tanggal Cetak: {{ now()->format('d/m/Y H:i') }}</p>
         <hr>
     </div>
