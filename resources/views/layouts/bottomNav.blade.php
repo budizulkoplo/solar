@@ -231,9 +231,7 @@
             </div>
         </a>
         {{-- Item 1: PM sekarang berada di Solar System --}}
-        <a href="{{ route('choose.project') }}"
-           style="all: unset; display: contents; cursor: pointer;" 
-           >
+        <a href="{{ url('/pm') }}" style="all: unset; display: contents; cursor: pointer;">
             <div class="item">
                 <div class="col">
                     <ion-icon name="list-outline"></ion-icon>
