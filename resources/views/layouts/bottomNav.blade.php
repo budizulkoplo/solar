@@ -230,15 +230,17 @@
                 <strong>QURAN</strong>
             </div>
         </a>
-        {{-- Item 1: PM sekarang berada di Solar System --}}
-        <a href="{{ url('/pm') }}" style="all: unset; display: contents; cursor: pointer;">
-            <div class="item">
+        {{-- Pilih module PM sebelum membuka halaman Project Management. --}}
+        <form action="{{ route('choose.project.store') }}" method="POST" style="all: unset; display: contents;">
+            @csrf
+            <input type="hidden" name="module" value="pm">
+            <button type="submit" class="item {{ request()->is('pm*') ? 'active' : '' }}" style="border: 0; background: none; padding: 0; cursor: pointer;">
                 <div class="col">
                     <ion-icon name="list-outline"></ion-icon>
                     <strong>TASK</strong>
                 </div>
-            </div>
-        </a>
+            </button>
+        </form>
         <a href="{{ url('/choose-project') }}" style="all: unset; display: contents; cursor: pointer;">
             <div class="item">
                 <div class="col">
