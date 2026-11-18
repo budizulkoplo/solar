@@ -23,7 +23,7 @@ class PmController extends Controller
 
     public function projects(): View
     {
-        $projects = PmProject::withCount('tasks')
+        $projects = $this->visibleProjects()->withCount('tasks')
             ->orderByDesc('is_active')
             ->orderBy('name')
             ->get();
@@ -33,14 +33,18 @@ class PmController extends Controller
 
     public function dashboard(): View
     {
-        $projects = PmProject::query()
+        $projects = $this->visibleProjects()
             ->withCount('tasks')
             ->orderBy('name')
             ->get(['id', 'name', 'is_active']);
 
-        $memberIds = DB::table('pm_project_members')->pluck('user_id')
-            ->merge(DB::table('pm_task_assignees')->pluck('user_id'))
-            ->merge(PmTask::whereNotNull('created_by')->pluck('created_by'))
+        $visibleTaskIds = $this->visibleTasks()->pluck('id');
+
+        $memberIds = DB::table('pm_project_members')
+            ->whereIn('project_id', $projects->pluck('id'))
+            ->pluck('user_id')
+            ->merge(DB::table('pm_task_assignees')->whereIn('task_id', $visibleTaskIds)->pluck('user_id'))
+            ->merge(PmTask::whereIn('id', $visibleTaskIds)->whereNotNull('created_by')->pluck('created_by'))
             ->filter()
             ->unique()
             ->values();
@@ -52,12 +56,14 @@ class PmController extends Controller
 
         $projectCounts = DB::table('pm_project_members')
             ->select('user_id', DB::raw('COUNT(DISTINCT project_id) AS total'))
+            ->whereIn('project_id', $projects->pluck('id'))
             ->whereIn('user_id', $memberIds)
             ->groupBy('user_id')
             ->pluck('total', 'user_id');
 
         $assignedCounts = DB::table('pm_task_assignees')
             ->select('user_id', DB::raw('COUNT(DISTINCT task_id) AS total'))
+            ->whereIn('task_id', $visibleTaskIds)
             ->whereIn('user_id', $memberIds)
             ->groupBy('user_id')
             ->pluck('total', 'user_id');
@@ -66,6 +72,7 @@ class PmController extends Controller
         $monthEnd = now()->endOfMonth();
         $monthKeys = collect(range(0, 12))->map(fn (int $month) => $monthStart->copy()->addMonths($month));
         $createdByMonth = PmTask::query()
+            ->whereIn('id', $visibleTaskIds)
             ->whereBetween('created_at', [$monthStart, $monthEnd])
             ->get(['created_at'])
             ->countBy(fn (PmTask $task) => Carbon::parse($task->created_at)->format('Y-m'));
@@ -74,8 +81,8 @@ class PmController extends Controller
             'stats' => [
                 'projects' => $projects->count(),
                 'activeProjects' => $projects->where('is_active', true)->count(),
-                'tasks' => PmTask::count(),
-                'myTasks' => DB::table('pm_task_assignees')->where('user_id', auth()->id())->distinct()->count('task_id'),
+                'tasks' => $visibleTaskIds->count(),
+                'myTasks' => DB::table('pm_task_assignees')->whereIn('task_id', $visibleTaskIds)->where('user_id', auth()->id())->distinct()->count('task_id'),
                 'members' => $members->count(),
             ],
             'projectChart' => [
@@ -151,6 +158,8 @@ class PmController extends Controller
 
     public function createProject(): View
     {
+        abort_unless($this->isAdmin(), 403);
+
         return view('pm.projects.form', [
             'project' => new PmProject(['is_active' => true]),
             'stagesText' => implode(PHP_EOL, self::DEFAULT_STAGES),
@@ -162,6 +171,8 @@ class PmController extends Controller
 
     public function storeProject(Request $request): RedirectResponse
     {
+        abort_unless($this->isAdmin(), 403);
+
         $data = $this->validateProject($request);
         $stages = $this->stageNames($request);
         $members = $data['members'] ?? [];
@@ -234,8 +245,8 @@ class PmController extends Controller
     public function boardIndex(Request $request): View|RedirectResponse
     {
         $project = $request->integer('project_id')
-            ? PmProject::find($request->integer('project_id'))
-            : PmProject::where('is_active', true)->orderBy('name')->first();
+            ? $this->visibleProjects()->find($request->integer('project_id'))
+            : $this->visibleProjects()->where('is_active', true)->orderBy('name')->first();
 
         if (!$project) {
             return redirect()->route('pm.projects.index')->with('error', 'Belum ada project PM.');
@@ -246,6 +257,8 @@ class PmController extends Controller
 
     public function board(Request $request, PmProject $project): View
     {
+        abort_unless($this->canViewProject($project), 403);
+
         $keyword = trim((string) $request->query('q'));
         $dueDate = trim((string) $request->query('due_date'));
         $showClosed = $request->boolean('show_closed');
@@ -264,7 +277,7 @@ class PmController extends Controller
 
         return view('pm.projects.board', [
             'project' => $project,
-            'projects' => PmProject::where('is_active', true)->orderBy('name')->get(),
+            'projects' => $this->visibleProjects()->where('is_active', true)->orderBy('name')->get(),
             'keyword' => $keyword,
             'dueDate' => $dueDate,
             'showClosed' => $showClosed,
@@ -277,7 +290,7 @@ class PmController extends Controller
     public function tasks(Request $request): View
     {
         $projectId = $request->integer('project_id');
-        $tasks = PmTask::with(['project', 'stage', 'assignees'])
+        $tasks = $this->visibleTasks()->with(['project', 'stage', 'assignees'])
             ->when($projectId, fn ($query) => $query->where('project_id', $projectId))
             ->when($request->filled('q'), fn ($query) => $query->where('title', 'like', '%'.$request->string('q').'%'))
             ->latest()
@@ -286,7 +299,7 @@ class PmController extends Controller
 
         return view('pm.tasks.index', [
             'tasks' => $tasks,
-            'projects' => PmProject::where('is_active', true)->orderBy('name')->get(),
+            'projects' => $this->visibleProjects()->where('is_active', true)->orderBy('name')->get(),
             'projectId' => $projectId,
             'editableTaskIds' => $tasks->getCollection()->filter(fn (PmTask $task) => $this->canManageTask($task))->pluck('id')->all(),
             'deletableTaskIds' => $tasks->getCollection()->filter(fn (PmTask $task) => $this->canDeleteTask($task))->pluck('id')->all(),
@@ -297,8 +310,8 @@ class PmController extends Controller
     public function createTask(Request $request): View
     {
         $project = $request->integer('project_id')
-            ? PmProject::find($request->integer('project_id'))
-            : PmProject::where('is_active', true)->orderBy('name')->first();
+            ? $this->visibleProjects()->findOrFail($request->integer('project_id'))
+            : $this->visibleProjects()->where('is_active', true)->orderBy('name')->first();
 
         return view('pm.tasks.form', $this->taskFormData(new PmTask([
             'project_id' => $project?->id,
@@ -311,7 +324,7 @@ class PmController extends Controller
     public function storeTask(Request $request): RedirectResponse
     {
         $data = $this->validateTask($request);
-        $project = PmProject::with('stages')->findOrFail($data['project_id']);
+        $project = $this->visibleProjects()->with('stages')->findOrFail($data['project_id']);
         $this->ensureAssigneesBelongToProject($data['assignees'] ?? [], $project);
         $stage = $this->stageForProject($project, $data['stage_id'] ?? null);
 
@@ -348,7 +361,7 @@ class PmController extends Controller
     {
         abort_unless($this->canManageTask($task), 403);
         $data = $this->validateTask($request);
-        $project = PmProject::with('stages')->findOrFail($data['project_id']);
+        $project = $this->visibleProjects()->with('stages')->findOrFail($data['project_id']);
         $this->ensureAssigneesBelongToProject($data['assignees'] ?? [], $project);
         $targetStage = $this->stageForProject($project, $data['stage_id'] ?? null);
         $task->loadMissing('stage');
@@ -376,6 +389,8 @@ class PmController extends Controller
 
     public function showTask(PmTask $task): View
     {
+        abort_unless($this->canViewTask($task), 403);
+
         $task->load(['project', 'stage', 'creator', 'assignees', 'comments.user', 'statusLogs.oldStage', 'statusLogs.newStage', 'statusLogs.changer']);
 
         return view('pm.tasks.show', [
@@ -429,6 +444,8 @@ class PmController extends Controller
 
     public function storeComment(Request $request, PmTask $task): RedirectResponse
     {
+        abort_unless($this->canViewTask($task), 403);
+
         $data = $request->validate(['message' => ['required', 'string', 'max:5000']]);
         PmTaskComment::create([
             'task_id' => $task->id,
@@ -441,6 +458,7 @@ class PmController extends Controller
 
     public function updateComment(Request $request, PmTask $task, PmTaskComment $comment): RedirectResponse
     {
+        abort_unless($this->canViewTask($task), 403);
         $this->ensureCommentBelongsToTask($task, $comment);
         abort_unless((int) $comment->user_id === (int) auth()->id() || $this->isAdmin(), 403);
         $data = $request->validate(['message' => ['required', 'string', 'max:5000']]);
@@ -451,6 +469,7 @@ class PmController extends Controller
 
     public function destroyComment(PmTask $task, PmTaskComment $comment): RedirectResponse
     {
+        abort_unless($this->canViewTask($task), 403);
         $this->ensureCommentBelongsToTask($task, $comment);
         abort_unless((int) $comment->user_id === (int) auth()->id() || $this->isAdmin(), 403);
         $comment->delete();
@@ -552,7 +571,7 @@ class PmController extends Controller
             'pageTitle' => $title,
             'action' => $action,
             'method' => $method,
-            'projects' => PmProject::where('is_active', true)->with(['stages', 'members'])->orderBy('name')->get(),
+            'projects' => $this->visibleProjects()->where('is_active', true)->with(['stages', 'members'])->orderBy('name')->get(),
             'users' => $this->pmUsers(),
             'priorityLabels' => $this->priorityLabels(),
         ];
@@ -570,9 +589,12 @@ class PmController extends Controller
 
     private function pmMemberIds()
     {
-        return DB::table('pm_project_members')->pluck('user_id')
-            ->merge(DB::table('pm_task_assignees')->pluck('user_id'))
-            ->merge(PmTask::whereNotNull('created_by')->pluck('created_by'))
+        $visibleProjectIds = $this->visibleProjects()->pluck('id');
+        $visibleTaskIds = $this->visibleTasks()->pluck('id');
+
+        return DB::table('pm_project_members')->whereIn('project_id', $visibleProjectIds)->pluck('user_id')
+            ->merge(DB::table('pm_task_assignees')->whereIn('task_id', $visibleTaskIds)->pluck('user_id'))
+            ->merge(PmTask::whereIn('id', $visibleTaskIds)->whereNotNull('created_by')->pluck('created_by'))
             ->filter()
             ->unique()
             ->values();
@@ -581,6 +603,7 @@ class PmController extends Controller
     private function contributionStats(Carbon $start, Carbon $end): array
     {
         $memberIds = $this->pmMemberIds();
+        $visibleTaskIds = $this->visibleTasks()->pluck('id');
         $users = User::query()->whereIn('id', $memberIds)->orderBy('name')->get(['id', 'name']);
         $colors = ['#d9469e', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4'];
         $stats = [];
@@ -611,18 +634,21 @@ class PmController extends Controller
         };
 
         PmTask::query()
+            ->whereIn('id', $visibleTaskIds)
             ->whereIn('created_by', $memberIds)
             ->whereBetween('created_at', [$start, $end])
             ->get(['created_by', 'created_at'])
             ->each(fn (PmTask $task) => $record((int) $task->created_by, $task->created_at, 'tickets'));
 
         PmTaskStatusLog::query()
+            ->whereIn('task_id', $visibleTaskIds)
             ->whereIn('changed_by', $memberIds)
             ->whereBetween('changed_at', [$start, $end])
             ->get(['changed_by', 'changed_at'])
             ->each(fn (PmTaskStatusLog $log) => $record((int) $log->changed_by, $log->changed_at, 'updates'));
 
         PmTaskComment::query()
+            ->whereIn('task_id', $visibleTaskIds)
             ->whereIn('user_id', $memberIds)
             ->whereBetween('created_at', [$start, $end])
             ->get(['user_id', 'created_at'])
@@ -668,6 +694,70 @@ class PmController extends Controller
     private function ensureCommentBelongsToTask(PmTask $task, PmTaskComment $comment): void
     {
         abort_unless((int) $comment->task_id === (int) $task->id, 404);
+    }
+
+    /**
+     * Projects visible to the current PM user.
+     * Administrators retain global PM visibility; regular users must be a
+     * project member or the project creator.
+     */
+    private function visibleProjects()
+    {
+        if ($this->isAdmin()) {
+            return PmProject::query();
+        }
+
+        $userId = (int) auth()->id();
+
+        return PmProject::query()->where(function ($query) use ($userId): void {
+            $query->where('created_by', $userId)
+                ->orWhereHas('members', fn ($memberQuery) => $memberQuery->whereKey($userId));
+        });
+    }
+
+    /**
+     * Tasks visible to the current PM user. Task visibility follows the
+     * project membership boundary, with creator/assignee access included so
+     * existing imported tasks remain reachable by their responsible users.
+     */
+    private function visibleTasks()
+    {
+        if ($this->isAdmin()) {
+            return PmTask::query();
+        }
+
+        $userId = (int) auth()->id();
+
+        return PmTask::query()->where(function ($query) use ($userId): void {
+            $query->where('created_by', $userId)
+                ->orWhereHas('assignees', fn ($assigneeQuery) => $assigneeQuery->whereKey($userId))
+                ->orWhereHas('project', function ($projectQuery) use ($userId): void {
+                    $projectQuery->where('created_by', $userId)
+                        ->orWhereHas('members', fn ($memberQuery) => $memberQuery->whereKey($userId));
+                });
+        });
+    }
+
+    private function canViewProject(PmProject $project): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return (int) $project->created_by === (int) auth()->id()
+            || $project->members()->whereKey(auth()->id())->exists();
+    }
+
+    private function canViewTask(PmTask $task): bool
+    {
+        if ($this->isAdmin() || (int) $task->created_by === (int) auth()->id()) {
+            return true;
+        }
+
+        $task->loadMissing('project', 'assignees');
+
+        return $task->assignees->contains('id', auth()->id())
+            || ($task->project && $this->canViewProject($task->project));
     }
 
     private function canManageProject(PmProject $project): bool
