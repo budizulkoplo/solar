@@ -8,11 +8,13 @@ use App\Models\PmTask;
 use App\Models\PmTaskComment;
 use App\Models\PmTaskStatusLog;
 use App\Models\User;
+use App\Support\PmHtml;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -334,7 +336,7 @@ class PmController extends Controller
                 'stage_id' => $stage?->id,
                 'title' => $data['title'],
                 'priority' => $data['priority'],
-                'description' => $data['description'] ?? null,
+                'description' => PmHtml::sanitize($data['description'] ?? null),
                 'start_date' => $data['start_date'] ?? null,
                 'due_date' => $data['due_date'] ?? null,
                 'created_by' => auth()->id(),
@@ -373,7 +375,7 @@ class PmController extends Controller
                 'stage_id' => $targetStage?->id,
                 'title' => $data['title'],
                 'priority' => $data['priority'],
-                'description' => $data['description'] ?? null,
+                'description' => PmHtml::sanitize($data['description'] ?? null),
                 'start_date' => $data['start_date'] ?? null,
                 'due_date' => $data['due_date'] ?? null,
             ]);
@@ -475,6 +477,31 @@ class PmController extends Controller
         $comment->delete();
 
         return back()->with('success', 'Komentar berhasil dihapus.');
+    }
+
+    public function uploadDescriptionImage(Request $request): JsonResponse
+    {
+        $projectId = $request->integer('project_id');
+        if ($projectId) {
+            $this->visibleProjects()->findOrFail($projectId);
+        } else {
+            abort_unless($this->isAdmin() || $this->visibleProjects()->exists() || $this->visibleTasks()->exists(), 403);
+        }
+
+        $data = $request->validate([
+            'project_id' => ['nullable', 'integer'],
+            'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,gif,webp,avif', 'max:5120'],
+        ]);
+
+        $file = $data['image'];
+        // Gunakan extension hasil deteksi MIME, bukan nama file dari client.
+        // Ini mencegah file gambar valid disimpan dengan extension executable.
+        $extension = strtolower($file->extension() ?: 'bin');
+        $path = $file->storeAs('pm-attachments/editor', Str::uuid().'.'.$extension, 'public');
+
+        return response()->json([
+            'url' => Storage::disk('public')->url($path),
+        ]);
     }
 
     private function validateProject(Request $request, ?PmProject $project = null): array

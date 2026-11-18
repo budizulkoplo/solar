@@ -97,6 +97,7 @@ Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
 
         Route::get('/tugas', [PmController::class, 'tasks'])->name('tasks.index');
         Route::get('/tugas/tambah', [PmController::class, 'createTask'])->name('tasks.create');
+        Route::post('/tugas/deskripsi/upload', [PmController::class, 'uploadDescriptionImage'])->name('tasks.description.upload');
         Route::post('/tugas', [PmController::class, 'storeTask'])->name('tasks.store');
         Route::get('/tugas/{task}', [PmController::class, 'showTask'])->name('tasks.show');
         Route::get('/tugas/{task}/edit', [PmController::class, 'editTask'])->name('tasks.edit');
