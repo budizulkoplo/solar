@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Models\PmTask;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use App\Models\Nota;
 
@@ -166,63 +166,36 @@ class DashboardController extends Controller
             "Juli", "Agustus", "September", "Oktober", "November", "Desember"
         ];
 
-        // Ambil data tiket dari API eksternal
-        try {
-            $response = Http::timeout(5)->get('https://pm.mysolarsystem.web.id/api/tickets/latest-status');
+        // Task Management lokal: tidak lagi mengambil data dari server PM eksternal.
+        $pmTasks = PmTask::with(['project', 'stage', 'comments.user'])
+            ->whereNull('hidden_at')
+            ->whereHas('assignees', fn ($query) => $query->whereKey($user->id))
+            ->latest('updated_at')
+            ->get();
 
-            if ($response->successful()) {
-                $tickets = collect($response->json());
+        $userTickets = $pmTasks->map(function (PmTask $task): array {
+            $comments = $task->comments->map(fn ($comment): array => [
+                'id' => $comment->id,
+                'text' => $comment->message,
+                'user_id' => $comment->user_id,
+                'created_at' => $comment->created_at?->toISOString(),
+                'user_name' => $comment->user?->name ?? 'Unknown',
+                'formatted_time' => $comment->created_at?->diffForHumans(),
+            ])->values()->all();
 
-                // Filter tiket sesuai user login
-                $userTickets = $tickets->filter(fn($t) => ($t['user_id'] ?? null) == $user->id)
-                    ->unique('uuid') // HINDARI DUPLIKASI BERDASARKAN UUID
-                    ->values()
-                    ->map(function($t) use ($tickets) {
-                        // Ambil semua komentar untuk tiket ini (berdasarkan UUID) dengan filter UNIQUE
-                        $comments = $tickets->filter(fn($comment) => 
-                            ($comment['uuid'] ?? null) === ($t['uuid'] ?? null) && 
-                            isset($comment['comment_id']) && 
-                            $comment['comment_id'] !== null
-                        )
-                        ->unique('comment_id') // TAMBAHKAN UNIQUE BERDASARKAN COMMENT_ID
-                        ->map(function($comment) {
-                            return [
-                                'id' => $comment['comment_id'] ?? null,
-                                'text' => $comment['comment'] ?? '',
-                                'user_id' => $comment['comment_user'] ?? null,
-                                'created_at' => $comment['comment_created_at'] ?? null,
-                                'user_name' => ($comment['comment_user_name'] ?? 'Unknown'),
-                                'formatted_time' => $comment['comment_created_at'] ? 
-                                    \Carbon\Carbon::parse($comment['comment_created_at'])->diffForHumans() : null
-                            ];
-                        })
-                        ->sortByDesc('created_at')
-                        ->values()
-                        ->toArray();
-
-                        return [
-                            'uuid' => $t['uuid'] ?? '-',
-                            'ticket_name' => $t['ticket_name'] ?? '-',
-                            'ticket_status' => $t['ticket_status'] ?? '-',
-                            'status_created_at' => $t['status_created_at'] ?? '-',
-                            'description' => $t['description'] ?? '-',
-                            'start_date' => $t['start_date'] ?? '-',
-                            'due_date' => $t['due_date'] ?? '-',
-                            'comments' => $comments,
-                            'comment_count' => count($comments),
-                        ];
-                    });
-
-                // Summary untuk Task Management
-                $ticketSummary = $userTickets->groupBy('ticket_status')->map(fn($group) => $group->count());
-            } else {
-                $userTickets = collect();
-                $ticketSummary = collect();
-            }
-        } catch (\Exception $e) {
-            $userTickets = collect();
-            $ticketSummary = collect();
-        }
+            return [
+                'uuid' => (string) $task->id,
+                'ticket_name' => $task->title,
+                'ticket_status' => $task->stage?->name ?? 'Backlog',
+                'status_created_at' => $task->updated_at?->toISOString() ?? '-',
+                'description' => $task->description ?? '-',
+                'start_date' => $task->start_date?->toDateString() ?? '-',
+                'due_date' => $task->due_date?->toDateString() ?? '-',
+                'comments' => $comments,
+                'comment_count' => count($comments),
+            ];
+        });
+        $ticketSummary = $userTickets->groupBy('ticket_status')->map(fn ($group) => $group->count());
 
         // Data untuk modal presensi
         $presensiModalData = $this->getPresensiModalData($presensiBulanIni);

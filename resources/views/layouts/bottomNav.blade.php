@@ -230,29 +230,10 @@
                 <strong>QURAN</strong>
             </div>
         </a>
-        @php
-            use Illuminate\Support\Facades\Crypt;
-            use Illuminate\Support\Facades\Auth;
-        
-            $userId = Auth::id();
-            $expires = now()->addMinutes(10)->timestamp;
-        
-            // Data dasar
-            $payload = $userId . '|' . $expires;
-        
-            // Enkripsi atau beri tanda tangan HMAC
-            $signature = hash_hmac('sha256', $payload, config('app.key'));
-        
-            // Gabung dan encode aman untuk URL
-            $token = rtrim(strtr(base64_encode($payload . '|' . $signature), '+/', '-_'), '=');
-        @endphp
-        
-        {{-- Contoh dua item, satu lokal dan satu eksternal --}}
-        
-        {{-- Item 1: Link eksternal ke Project Management --}}
-        <a href="https://pm.mysolarsystem.web.id/external/{{ $token }}" 
+        {{-- Item 1: PM sekarang berada di Solar System --}}
+        <a href="{{ route('choose.project') }}"
            style="all: unset; display: contents; cursor: pointer;" 
-           target="_blank">
+           >
             <div class="item">
                 <div class="col">
                     <ion-icon name="list-outline"></ion-icon>

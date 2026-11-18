@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Models\PmTask;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 
 class DashboardController extends Controller
 {
@@ -152,37 +152,21 @@ class DashboardController extends Controller
             "Juli", "Agustus", "September", "Oktober", "November", "Desember"
         ];
 
-        // Ambil data tiket dari API eksternal
-        try {
-            $response = Http::timeout(5)->get('https://pm.mentarimultitrada.com/api/tickets/latest-status');
-
-            if ($response->successful()) {
-                $tickets = collect($response->json());
-
-                // Filter tiket sesuai user login (ganti assigned_to jadi user_id)
-                $userTickets = $tickets->filter(fn($t) => ($t['user_id'] ?? null) == $user->id)
-                    ->values()
-                    ->map(function($t) {
-                        return [
-                            'ticket_status' => $t['ticket_status'] ?? '-',
-                            'ticket_name' => $t['ticket_name'] ?? '-',
-                            'status_created_at' => $t['status_created_at'] ?? '-',
-                            'description' => $t['description'] ?? '-',
-                            'start_date' => $t['start_date'] ?? '-',
-                            'due_date' => $t['due_date'] ?? '-',
-                        ];
-                    });
-
-                // Summary untuk Task Management
-                $ticketSummary = $userTickets->groupBy('ticket_status')->map(fn($group) => $group->count());
-            } else {
-                $userTickets = collect();
-                $ticketSummary = collect();
-            }
-        } catch (\Exception $e) {
-            $userTickets = collect();
-            $ticketSummary = collect();
-        }
+        // Task Management lokal; file legacy ini juga tidak lagi memanggil PM eksternal.
+        $userTickets = PmTask::with('stage')
+            ->whereNull('hidden_at')
+            ->whereHas('assignees', fn ($query) => $query->whereKey($user->id))
+            ->latest('updated_at')
+            ->get()
+            ->map(fn (PmTask $task): array => [
+                'ticket_status' => $task->stage?->name ?? 'Backlog',
+                'ticket_name' => $task->title,
+                'status_created_at' => $task->updated_at?->toISOString() ?? '-',
+                'description' => $task->description ?? '-',
+                'start_date' => $task->start_date?->toDateString() ?? '-',
+                'due_date' => $task->due_date?->toDateString() ?? '-',
+            ]);
+        $ticketSummary = $userTickets->groupBy('ticket_status')->map(fn ($group) => $group->count());
 
         // Data untuk modal presensi
         $presensiModalData = $this->getPresensiModalData($presensiBulanIni);

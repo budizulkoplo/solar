@@ -49,6 +49,7 @@ use App\Http\Controllers\BonusController;
 use App\Http\Controllers\TokoController;
 use App\Http\Controllers\PencairanBankController;
 use App\Http\Controllers\PenjualanPaymentController;
+use App\Http\Controllers\PmController;
 
 // Mobile
 use App\Http\Controllers\Mobile\DashboardController;
@@ -79,6 +80,34 @@ Route::middleware(['auth', 'verified', 'global.app'])->group(function () {
 
 // Semua route ini wajib: auth + verified + project sudah dipilih
 Route::middleware(['auth', 'verified', 'check.project'])->group(function () {
+
+    // Project Management native Solar System
+    Route::prefix('pm')->middleware('global.app')->name('pm.')->group(function () {
+        Route::get('/', [PmController::class, 'projects'])->name('projects.index');
+        Route::get('/dashboard', [PmController::class, 'dashboard'])->name('dashboard');
+        Route::get('/contributors', [PmController::class, 'contributors'])->name('contributors');
+        Route::get('/leaderboard', [PmController::class, 'leaderboard'])->name('leaderboard');
+        Route::get('/project/tambah', [PmController::class, 'createProject'])->name('projects.create');
+        Route::post('/project', [PmController::class, 'storeProject'])->name('projects.store');
+        Route::get('/board', [PmController::class, 'boardIndex'])->name('board.index');
+        Route::get('/project/{project}/board', [PmController::class, 'board'])->name('projects.board');
+        Route::get('/project/{project}/edit', [PmController::class, 'editProject'])->name('projects.edit');
+        Route::put('/project/{project}', [PmController::class, 'updateProject'])->name('projects.update');
+        Route::delete('/project/{project}', [PmController::class, 'destroyProject'])->name('projects.destroy');
+
+        Route::get('/tugas', [PmController::class, 'tasks'])->name('tasks.index');
+        Route::get('/tugas/tambah', [PmController::class, 'createTask'])->name('tasks.create');
+        Route::post('/tugas', [PmController::class, 'storeTask'])->name('tasks.store');
+        Route::get('/tugas/{task}', [PmController::class, 'showTask'])->name('tasks.show');
+        Route::get('/tugas/{task}/edit', [PmController::class, 'editTask'])->name('tasks.edit');
+        Route::put('/tugas/{task}', [PmController::class, 'updateTask'])->name('tasks.update');
+        Route::delete('/tugas/{task}', [PmController::class, 'destroyTask'])->name('tasks.destroy');
+        Route::put('/tugas/{task}/move', [PmController::class, 'moveTask'])->name('tasks.move');
+        Route::post('/tugas/{task}/close', [PmController::class, 'closeTask'])->name('tasks.close');
+        Route::post('/tugas/{task}/komentar', [PmController::class, 'storeComment'])->name('tasks.comments.store');
+        Route::put('/tugas/{task}/komentar/{comment}', [PmController::class, 'updateComment'])->name('tasks.comments.update');
+        Route::delete('/tugas/{task}/komentar/{comment}', [PmController::class, 'destroyComment'])->name('tasks.comments.destroy');
+    });
 
     // Dashboard
     Route::get('/dashboard', [AdminDashboardController::class, 'dashboard'])

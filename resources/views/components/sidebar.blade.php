@@ -126,6 +126,10 @@
             }
 
             function menuModuleOk($menu, $activeModule) {
+                if ($activeModule === 'pm' && in_array(strtolower(trim((string) $menu->name)), ['dashboard', 'laporan'], true) && !$menu->module) {
+                    return false;
+                }
+
                 return !$menu->module || ($activeModule && $menu->module == $activeModule);
             }
 

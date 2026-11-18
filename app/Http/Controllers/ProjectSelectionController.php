@@ -42,6 +42,7 @@ class ProjectSelectionController extends Controller
             ->where('module', '!=', 'project')
             ->where('module', '!=', 'agency')
             ->where('module', '!=', 'kontruksi')
+            ->where('module', '!=', 'pm')
             ->where(function ($q) use ($userRoles) {
                 foreach ($userRoles as $role) {
                     $q->orWhere('role', 'like', "%;$role;%")
@@ -74,6 +75,11 @@ class ProjectSelectionController extends Controller
 
 
             // 🔹 Redirect dinamis berdasarkan module
+            if ($module === 'pm') {
+                return redirect()->route('pm.projects.index')
+                    ->with('success', 'Project Management berhasil dipilih.');
+            }
+
             if ($module === 'mobile') {
                 return redirect()->route('mobile.home')
                     ->with('success', "Module '$module' berhasil dipilih!");

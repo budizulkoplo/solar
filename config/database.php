@@ -62,6 +62,28 @@ return [
             ]) : [],
         ],
 
+        // Sumber legacy PM. Hanya dipakai oleh command import; aplikasi Solar
+        // tetap membaca dan menulis data PM pada koneksi database utama.
+        'pm' => [
+            'driver' => 'mysql',
+            'url' => env('PM_DB_URL'),
+            'host' => env('PM_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('PM_DB_PORT', env('DB_PORT', '3306')),
+            'database' => env('PM_DB_DATABASE', 'pm'),
+            'username' => env('PM_DB_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('PM_DB_PASSWORD', env('DB_PASSWORD', '')),
+            'unix_socket' => env('PM_DB_SOCKET', env('DB_SOCKET', '')),
+            'charset' => env('PM_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('PM_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

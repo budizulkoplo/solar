@@ -202,27 +202,11 @@
         <h2 class="modal-title">Sub Solar System</h2>
 
         <div class="projects-grid">
-            @php
-                use Illuminate\Support\Facades\Crypt;
-                use Illuminate\Support\Facades\Auth;
-
-                $userId = Auth::id();
-                $expires = now()->addMinutes(10)->timestamp;
-
-                // Data dasar
-                $payload = $userId . '|' . $expires;
-
-                // Enkripsi atau beri tanda tangan HMAC
-                $signature = hash_hmac('sha256', $payload, config('app.key'));
-
-                // Gabung dan encode aman untuk URL
-                $token = rtrim(strtr(base64_encode($payload . '|' . $signature), '+/', '-_'), '=');
-            @endphp
-
-
-            {{-- Project Management (tetap seperti aslinya) --}}
+            {{-- Project Management native di dalam Solar System --}}
             <div class="project-card">
-                <form action="{{ 'https://pm.mysolarsystem.web.id/external/' . $token }}" method="GET" target="_blank">
+                <form action="{{ route('choose.project.store') }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="module" value="pm">
                     <button type="submit">
                         <div class="project-icon"><i class="fas fa-project-diagram"></i></div>
                         <div class="project-company">Solar System</div>
@@ -244,7 +228,7 @@
             </div>
 
             {{-- Module lain dari tabel menus --}}
-            @forelse($modules as $module)
+            @forelse($modules->where('module', '!=', 'pm') as $module)
                 <div class="project-card">
                     <form action="{{ route('choose.project.store') }}" method="POST">
                         @csrf
